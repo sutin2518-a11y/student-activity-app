@@ -7,6 +7,46 @@ import Image from "next/image";
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
+  // 📌 ข้อมูลสำหรับการ์ดกิจกรรมทั้ง 4 หมวดหมู่
+  const activities = [
+    {
+      title: "ชุมนุม",
+      members: "862",
+      image: "/images/club.jpg", 
+      bgColor: "bg-red-500",
+      textColor: "text-red-500",
+      icon: "👥",
+      link: "#" // เปลี่ยนเป็น path ที่ต้องการ เช่น /club หรือ /login
+    },
+    {
+      title: "กิจกรรมเครื่องแบบ",
+      members: "934",
+      image: "/images/scout.jpg",
+      bgColor: "bg-blue-500",
+      textColor: "text-blue-500",
+      icon: "🎓",
+      link: "#"
+    },
+    {
+      title: "กิจกรรมเพื่อสังคม\nและสาธารณประโยชน์",
+      members: "776",
+      image: "/images/volunteer.jpg",
+      bgColor: "bg-emerald-500",
+      textColor: "text-emerald-500",
+      icon: "🌱",
+      link: "#"
+    },
+    {
+      title: "งานแนะแนว",
+      members: "1,102",
+      image: "/images/guidance.jpg",
+      bgColor: "bg-amber-500",
+      textColor: "text-amber-500",
+      icon: "🧭",
+      link: "#"
+    }
+  ];
+
   return (
     <div className="min-h-screen bg-slate-100 font-sans text-slate-800 pb-10 relative overflow-x-hidden">
       
@@ -127,85 +167,44 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดึงรูปพื้นหลัง) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          
-          {/* ชุมนุม */}
-          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/club.jpg')] bg-cover bg-center min-h-[200px]">
-            <div className="absolute inset-0 bg-black/40 z-0 transition group-hover:bg-black/50"></div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-white font-extrabold text-xl drop-shadow-md">กิจกรรมชุมนุม</h3>
-                <div className="w-10 h-10 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🎵</div>
+        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดีไซน์ใหม่) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {activities.map((item, index) => (
+            <Link href={item.link} key={index} className={`relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col min-h-[280px] ${item.bgColor}`}>
+              
+              {/* 🖼️ รูปภาพครึ่งบน */}
+              <div className="relative w-full h-40 bg-gray-200">
+                <Image 
+                  src={item.image} 
+                  alt={item.title} 
+                  fill 
+                  className="object-cover"
+                />
               </div>
-              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">ค้นหาความสนใจ<br/>พัฒนาความสามารถ<br/>สร้างสรรค์สิ่งใหม่</p>
-            </div>
-            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
-              <div>
-                <p className="text-[10px] text-rose-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-white leading-none drop-shadow-md">862 <span className="text-xs font-normal">คน</span></p>
-              </div>
-              <Link href="/login" className="bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
-            </div>
-          </div>
 
-          {/* เครื่องแบบ */}
-          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/scout.jpg')] bg-cover bg-center min-h-[200px]">
-            <div className="absolute inset-0 bg-black/40 z-0"></div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-white font-extrabold text-xl leading-tight drop-shadow-md">กิจกรรม<br/>ในเครื่องแบบ</h3>
-                <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">👮‍♂️</div>
+              {/* 🎯 ไอคอนวงกลมทับเส้นรอยต่อ */}
+              <div className={`absolute top-40 -translate-y-1/2 left-4 w-12 h-12 rounded-full ${item.bgColor} flex items-center justify-center text-white border-2 border-white/20 shadow-sm z-10 text-xl`}>
+                {item.icon}
               </div>
-              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">วินัย ความเสียสละ<br/>ความรับผิดชอบ<br/>สู่ความเป็นผู้นำ</p>
-            </div>
-            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
-              <div>
-                <p className="text-[10px] text-blue-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-white leading-none drop-shadow-md">934 <span className="text-xs font-normal">คน</span></p>
-              </div>
-              <Link href="/login" className="bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
-            </div>
-          </div>
 
-          {/* เพื่อสังคม */}
-          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/volunteer.jpg')] bg-cover bg-center min-h-[200px]">
-            <div className="absolute inset-0 bg-black/40 z-0"></div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-white font-extrabold text-xl leading-tight drop-shadow-md">กิจกรรม<br/>เพื่อสังคมฯ</h3>
-                <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🤝</div>
+              {/* 📝 เนื้อหาครึ่งล่าง (สีทึบ) */}
+              <div className="px-5 pt-8 pb-4 text-white flex flex-col flex-grow">
+                {/* ใช้ whitespace-pre-line เพื่อให้ \n สามารถขึ้นบรรทัดใหม่ได้ */}
+                <h3 className="font-bold text-lg leading-tight mb-1 whitespace-pre-line">{item.title}</h3>
+                <p className="text-sm text-white/90 mb-4">สมาชิก {item.members} คน</p>
+                
+                {/* ➡️ ปุ่มลูกศรวงกลม มุมขวาล่าง */}
+                <div className="mt-auto flex justify-end">
+                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow hover:scale-110 transition-transform">
+                    <svg className={`w-4 h-4 ${item.textColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                    </svg>
+                  </div>
+                </div>
               </div>
-              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">จิตอาสา แบ่งปัน<br/>สร้างสังคมที่ดี<br/>เริ่มได้จากเรา</p>
-            </div>
-            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
-              <div>
-                <p className="text-[10px] text-emerald-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-white leading-none drop-shadow-md">776 <span className="text-xs font-normal">คน</span></p>
-              </div>
-              <Link href="/login" className="bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
-            </div>
-          </div>
 
-          {/* แนะแนว */}
-          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/guidance.jpg')] bg-cover bg-center min-h-[200px]">
-            <div className="absolute inset-0 bg-black/40 z-0"></div>
-            <div className="relative z-10">
-              <div className="flex justify-between items-start mb-3">
-                <h3 className="text-white font-extrabold text-xl drop-shadow-md">กิจกรรมแนะแนว</h3>
-                <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🧭</div>
-              </div>
-              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">ค้นพบตนเอง<br/>วางแผนอนาคต<br/>สู่เส้นทางที่ใช่</p>
-            </div>
-            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
-              <div>
-                <p className="text-[10px] text-orange-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-white leading-none drop-shadow-md">1,102 <span className="text-xs font-normal">คน</span></p>
-              </div>
-              <Link href="/login" className="bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
-            </div>
-          </div>
-
+            </Link>
+          ))}
         </div>
 
         {/* 📰 2. คอลัมน์ด้านล่าง 3 ส่วน */}
