@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import { Activity, Profile } from "@/types"; // นำเข้า Type มาใช้
+import { Activity, Profile } from "@/types";
 
 export default function DashboardPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -13,7 +13,7 @@ export default function DashboardPage() {
   const [userEmail, setUserEmail] = useState("");
   const [userId, setUserId] = useState("");
   
-  // States สำหรับฟอร์มเพิ่มกิจกรรมจำลอง
+  // States สำหรับฟอร์มเพิ่มกิจกรรม
   const [showForm, setShowForm] = useState(false);
   const [title, setTitle] = useState("");
   const [teacher, setTeacher] = useState("");
@@ -33,7 +33,7 @@ export default function DashboardPage() {
       setUserEmail(user.email || "");
       setUserId(user.id);
       
-      // 1. ดึงข้อมูล Profile ของนักเรียนเพื่อเช็ค เพศ และ ระดับชั้น
+      // 1. ดึงข้อมูล Profile ของนักเรียน
       const { data: prof } = await supabase.from("profiles").select("*").eq("id", user.id).single();
       if (prof) setProfile(prof as Profile);
 
@@ -41,7 +41,7 @@ export default function DashboardPage() {
       const { data: en } = await supabase.from("enrollments").select("activity_id").eq("student_id", user.id);
       if (en) setMyEnrolls(en.map(e => Number(e.activity_id)));
 
-      // 3. ดึงรายการกิจกรรมตามเงื่อนไข (ม.1 หญิง เห็นทั้งชุมนุมและเครื่องแบบ)
+      // 3. ดึงรายการกิจกรรมตามเงื่อนไข
       let query = supabase.from("activities").select("*").order("category", { ascending: true }).order("id", { ascending: true });
       
       if (prof?.grade_level === "ม.1" && prof?.gender === "หญิง") {
@@ -59,14 +59,13 @@ export default function DashboardPage() {
   const handleEnroll = async (actId: number, current: number, max: number, targetCategory: string) => {
     if (current >= max) return alert("กิจกรรมนี้เต็มแล้วครับ");
 
-    // เช็คว่าเคยลงทะเบียนหมวดหมู่นี้ไปแล้วหรือยัง (ป้องกันเด็กลงชุมนุม 2 อัน)
     const hasEnrolledInCategory = myEnrolls.some(enrolledId => {
       const act = activities.find(a => Number(a.id) === enrolledId);
       return act?.category === targetCategory;
     });
 
     if (hasEnrolledInCategory) {
-      return alert(`คุณได้ลงทะเบียนกิจกรรมประเภท "${targetCategory === 'CLUB' ? 'ชุมนุม' : 'กิจกรรมในเครื่องแบบ'}" ไปแล้ว ไม่สามารถเลืออกซ้ำได้ครับ`);
+      return alert(`คุณได้ลงทะเบียนกิจกรรมประเภท "${targetCategory === 'CLUB' ? 'ชุมนุม' : 'กิจกรรมในเครื่องแบบ'}" ไปแล้ว ไม่สามารถเลือกซ้ำได้ครับ`);
     }
 
     const { error } = await supabase.from("enrollments").insert([{ student_id: userId, activity_id: actId }]);
@@ -99,6 +98,9 @@ export default function DashboardPage() {
     fetchData();
   };
 
+  // ตรวจสอบว่าเป็น Admin หรือ Teacher หรือไม่
+  const isAdminOrTeacher = profile?.role === "admin" || profile?.role === "teacher";
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
       <nav className="bg-white shadow-sm border-b border-slate-100 py-4 px-6 flex justify-between items-center">
@@ -108,7 +110,9 @@ export default function DashboardPage() {
             <p className="text-xs font-bold text-slate-700">{profile?.full_name || userEmail}</p>
             <p className="text-xs text-slate-500">ชั้น {profile?.grade_level || "-"} | เพศ: {profile?.gender || "-"}</p>
           </div>
-          <button onClick={() => window.location.href = "/"} className="text-sm font-medium text-slate-600 hover:text-red-600">ออกจากระบบ</button>
+          <button onClick={() => window.location.href = "/student"} className="text-xs font-bold text-slate-600 hover:text-red-600">
+            ← กลับหน้าหลัก
+          </button>
         </div>
       </nav>
 
@@ -118,12 +122,17 @@ export default function DashboardPage() {
             <h2 className="text-2xl font-bold text-slate-900">ตารางรายชื่อกิจกรรม</h2>
             <p className="text-slate-600 text-sm mt-1">สามารถเลือกสมัครกิจกรรม หรือยกเลิกการลงทะเบียนของตนเองได้แบบ Real-time</p>
           </div>
-          <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-sm">
-            {showForm ? "✕ ปิดฟอร์ม" : "＋ เพิ่มกิจกรรมใหม่ (จำลอง)"}
-          </button>
+          
+          {/* แสดงปุ่มเพิ่มกิจกรรมเฉพาะผู้ที่มี Role เป็น admin หรือ teacher เท่านั้น */}
+          {isAdminOrTeacher && (
+            <button onClick={() => setShowForm(!showForm)} className="px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-xl shadow-sm">
+              {showForm ? "✕ ปิดฟอร์ม" : "＋ เพิ่มกิจกรรมใหม่"}
+            </button>
+          )}
         </div>
 
-        {showForm && (
+        {/* ฟอร์มเพิ่มกิจกรรม แสดงเฉพาะครู/แอดมิน */}
+        {isAdminOrTeacher && showForm && (
           <form onSubmit={handleAdd} className="mb-8 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 max-w-2xl">
             <h3 className="font-bold text-sm">เพิ่มรายการกิจกรรมใหม่เข้าระบบ</h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
