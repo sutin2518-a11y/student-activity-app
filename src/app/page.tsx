@@ -43,35 +43,25 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 🔴 ส่วนหัว (Header Banner) */}
-      <header className="relative text-white overflow-hidden shadow-lg min-h-[220px] flex items-center">
-        {/* รูปแบนเนอร์พื้นหลัง */}
+      {/* 🔴 ส่วนหัว (Header Banner) - แบบใช้รูปภาพที่มีข้อความในตัว */}
+      <header className="relative w-full h-[250px] md:h-[350px] lg:h-[400px] overflow-hidden shadow-lg flex items-center">
+        {/* รูปแบนเนอร์พื้นหลัง (แนะนำขนาด 1920x400) */}
         <Image 
           src="/images/banner.jpg" 
           alt="Header Banner" 
           fill 
           priority
-          className="object-cover z-0" 
+          className="object-cover object-center z-0" 
         />
         
-        {/* แผ่นฟิล์มสีดำจางๆ กันรูปสว่างเกินไป */}
-        <div className="absolute inset-0 bg-black/30 z-0"></div>
+        {/* เงาดำไล่สีเฉพาะฝั่งขวา เพื่อให้กล่อง Login อ่านง่ายขึ้น */}
+        <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent z-0 hidden md:block"></div>
         
-        {/* เนื้อหาด้านบน */}
-        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 w-full flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-24 bg-white/20 backdrop-blur-sm rounded-t-full flex items-center justify-center border-4 border-yellow-500 shadow-lg">
-              <span className="text-4xl drop-shadow-md">🏛️</span>
-            </div>
-            <div>
-              <h1 className="text-3xl md:text-4xl font-black drop-shadow-lg tracking-wide">งานกิจกรรมพัฒนาผู้เรียน</h1>
-              <h2 className="text-xl md:text-2xl font-bold mt-1 text-yellow-300 drop-shadow-md">โรงเรียนเชียงคำวิทยาคม</h2>
-              <p className="text-sm mt-1 opacity-90 drop-shadow-md">อำเภอเชียงคำ จังหวัดพะเยา</p>
-            </div>
-          </div>
+        {/* คอนเทนต์ด้านบน (จัดกล่อง Login ไปไว้ขวาสุด ลบข้อความซ้ายออก) */}
+        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 flex justify-end">
           
-          {/* 👤 กล่อง User / Login (แสดงเฉพาะจอมอนิเตอร์) */}
-          <div className="hidden md:flex flex-col items-center bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-lg min-w-[220px]">
+          {/* 👤 กล่อง User / Login (แสดงเฉพาะหน้าจอใหญ่) */}
+          <div className="hidden md:flex flex-col items-center bg-black/40 backdrop-blur-sm p-5 rounded-xl border border-white/20 shadow-xl min-w-[220px]">
             <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl mb-2 shadow-inner">
               👤
             </div>
@@ -81,10 +71,11 @@ export default function HomePage() {
               เข้าสู่ระบบ
             </Link>
           </div>
+
         </div>
       </header>
 
-      {/* ⚪ แถบเมนูนำทาง (เอา Login ฝั่งขวาออกแล้ว) */}
+      {/* ⚪ แถบเมนูนำทาง */}
       <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
         <div className="bg-white rounded-xl shadow-md p-2 flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
           
