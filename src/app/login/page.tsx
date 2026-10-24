@@ -6,14 +6,13 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-// สร้าง Supabase Client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("12345678"); // กำหนดค่าเริ่มต้นในฟอร์มเป็น 12345678
+  const [password, setPassword] = useState("12345678");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -21,37 +20,95 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoading(true);
 
+    const cleanUser = username.trim();
+    const loginEmail = cleanUser.includes("@") ? cleanUser : `${cleanUser}@chiangkham.ac.th`;
+
     try {
-      // 1. แปลง Username เป็นอีเมลองค์กร (@chiangkham.ac.th)
-      let loginEmail = username.trim();
-
-      if (!loginEmail.includes("@")) {
-        loginEmail = `${loginEmail}@chiangkham.ac.th`;
-      }
-
-      // 2. ล็อกอินผ่าน Supabase Auth
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+      // 1. ลองเข้าสู่ระบบด้วย Auth ปกติก่อน
+      const { data: authData, error: signInError } = await supabase.auth.signInWithPassword({
         email: loginEmail,
         password: password,
       });
 
-      if (authError) throw authError;
+      if (!signInError && authData.user) {
+        // ดึง Role จากตาราง profiles
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", authData.user.id)
+          .single();
 
-      // 3. ดึงข้อมูล Role จากตาราง profiles
-      const { data: profile, error: profileError } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", authData.user.id)
-        .single();
+        const role = profile?.role || "student";
+        router.push(`/${role}`);
+        return;
+      }
 
-      if (profileError) throw profileError;
+      // 2. หากยังไม่มีบัญชีใน Auth -> ตรวจสอบในตาราง student_database
+      const { data: student } = await supabase
+        .from("student_database")
+        .select("*")
+        .eq("student_id_card", cleanUser)
+        .maybeSingle();
 
-      // 4. สลับหน้าไปยัง Path ตามสิทธิ์ใช้งาน (เช่น /student, /teacher, /admin)
-      const userRole = profile?.role || "student";
-      router.push(`/${userRole}`);
+      if (student) {
+        // สร้างบัญชีลง Auth
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: loginEmail,
+          password: password,
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (signUpData.user) {
+          // เพิ่มข้อมูลลงตาราง profiles ทันที
+          await supabase.from("profiles").upsert({
+            id: signUpData.user.id,
+            full_name: student.full_name,
+            role: "student",
+            student_id_card: student.student_id_card,
+            grade_level: student.grade_level,
+            classroom: student.classroom,
+          });
+
+          router.push("/student");
+          return;
+        }
+      }
+
+      // 3. หากไม่เจอนักเรียน -> ตรวจสอบในตาราง teachers
+      const { data: teacher } = await supabase
+        .from("teachers")
+        .select("*")
+        .ilike("full_name", `%${cleanUser}%`)
+        .maybeSingle();
+
+      if (teacher) {
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+          email: loginEmail,
+          password: password,
+        });
+
+        if (signUpError) throw signUpError;
+
+        if (signUpData.user) {
+          await supabase.from("profiles").upsert({
+            id: signUpData.user.id,
+            full_name: teacher.full_name,
+            role: "teacher",
+            grade_level: teacher.grade_level,
+            classroom: teacher.classroom,
+          });
+
+          router.push("/teacher");
+          return;
+        }
+      }
+
+      // 4. ไม่พบข้อมูลในระบบ
+      throw new Error("ไม่พบข้อมูลนักเรียน/ครูในฐานข้อมูลโรงเรียน หรือรหัสผ่านไม่ถูกต้อง");
 
     } catch (error: any) {
-      alert("เข้าสู่ระบบไม่สำเร็จ: " + (error.message || "ชื่อผู้ใช้งานหรือรหัสผ่านไม่ถูกต้อง"));
+      alert("เข้าสู่ระบบไม่สำเร็จ: " + (error.message || "เกิดข้อผิดพลาดในการเชื่อมต่อ"));
     } finally {
       setIsLoading(false);
     }
@@ -74,8 +131,6 @@ export default function LoginPage() {
 
       {/* 📦 กล่องฟอร์มเข้าสู่ระบบ */}
       <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
-        
-        {/* ส่วนหัวกล่อง */}
         <div className="bg-red-800 px-4 py-6 text-center">
           <div className="w-12 h-12 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border-2 border-red-900/30">
             <span className="text-2xl">🏛️</span>
@@ -84,11 +139,8 @@ export default function LoginPage() {
           <p className="text-red-200 text-xs">โรงเรียนเชียงคำวิทยาคม</p>
         </div>
 
-        {/* ส่วนฟอร์มกรอกข้อมูล */}
         <div className="p-6">
           <form onSubmit={handleLogin} className="space-y-4">
-            
-            {/* ช่องกรอกชื่อผู้ใช้งาน/รหัสนักเรียน */}
             <div>
               <label className="block text-xs font-bold text-slate-700 mb-1 ml-1" htmlFor="username">
                 รหัสนักเรียน / บัญชีผู้ใช้งาน
@@ -103,14 +155,13 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white text-sm transition-all"
-                  placeholder="เช่น 34833 หรือ ชื่อครู"
+                  placeholder="รหัสนักเรียน 5 หลัก หรือชื่อครู"
                   required
                 />
               </div>
               <p className="text-[10px] text-slate-400 mt-1 ml-1">*ระบบจะต่อท้าย @chiangkham.ac.th ให้โดยอัตโนมัติ</p>
             </div>
 
-            {/* ช่องกรอกรหัสผ่าน */}
             <div>
               <div className="flex justify-between items-center mb-1 ml-1 mr-1">
                 <label className="block text-xs font-bold text-slate-700" htmlFor="password">
@@ -136,7 +187,6 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* ปุ่มเข้าสู่ระบบ */}
             <button 
               type="submit" 
               disabled={isLoading}
@@ -146,7 +196,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* ปุ่มย้อนกลับ */}
           <div className="mt-5 pt-4 border-t border-slate-100 text-center">
             <Link href="/" className="inline-flex items-center text-xs font-bold text-slate-500 hover:text-slate-800">
               ← กลับไปหน้าหลัก
