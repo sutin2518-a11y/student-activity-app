@@ -2,8 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
+import { createClient } from "@supabase/supabase-js";
 import Swal from "sweetalert2";
+
+// สร้าง Supabase Client
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function StudentUniformSetupPage() {
   const [studentIdCard, setStudentIdCard] = useState("");
@@ -167,7 +172,6 @@ export default function StudentUniformSetupPage() {
     setSaving(false);
   };
 
-  // เช็คว่ามีข้อมูลกิจกรรมในฐานข้อมูลเดิมอยู่แล้วหรือไม่
   const hasExistingActivity = studentData?.activity_name && studentData.activity_name !== "EMPTY";
   const config = getLevelConfig(selectedActivity);
 
@@ -178,8 +182,8 @@ export default function StudentUniformSetupPage() {
         {/* Header Bar */}
         <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
-            <Link href="/" className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1">
-              <span>←</span> กลับหน้าหลัก
+            <Link href="/student" className="text-xs font-bold text-purple-600 hover:underline flex items-center gap-1">
+              <span>←</span> กลับหน้าหลักนักเรียน
             </Link>
             <div className="flex items-center gap-3 mt-1">
               <h1 className="text-2xl font-bold text-slate-900">📝 จัดการสังกัดกิจกรรมเครื่องแบบ</h1>
@@ -238,14 +242,13 @@ export default function StudentUniformSetupPage() {
 
             <form onSubmit={handleSaveLevels} className="space-y-5">
               
-              {/* Section 1: แสดงข้อมูลกิจกรรม (หรือเลือกหากยังไม่มีข้อมูล) */}
+              {/* Section 1: แสดงข้อมูลกิจกรรม */}
               <div className="space-y-2">
                 <label className="block text-xs font-bold text-slate-700">
                   กิจกรรมเครื่องแบบที่สังกัด
                 </label>
 
                 {hasExistingActivity ? (
-                  /* ดึงข้อมูลมาแสดงให้อัตโนมัติทันที */
                   <div className="p-3 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold text-slate-800 flex justify-between items-center">
                     <span>{selectedActivity}</span>
                     <span className="text-[11px] text-emerald-700 font-bold bg-emerald-100 px-2.5 py-0.5 rounded-lg border border-emerald-200">
@@ -253,7 +256,6 @@ export default function StudentUniformSetupPage() {
                     </span>
                   </div>
                 ) : (
-                  /* แสดง Dropdown เฉพาะกรณีที่ใน DB ยังไม่มีชื่อกิจกรรม */
                   <div className="space-y-1">
                     <select
                       value={selectedActivity}
@@ -277,7 +279,7 @@ export default function StudentUniformSetupPage() {
                 )}
               </div>
 
-              {/* Section 2: เลือกตัวเลือกสังกัดย่อย (กลุ่ม/กอง/หมู่/หมวด) */}
+              {/* Section 2: เลือกสังกัดย่อย */}
               <div className="space-y-4 pt-2 border-t border-slate-100">
                 <h3 className="font-bold text-slate-900 text-xs flex items-center gap-2">
                   <span>⚙️</span> เลือกสังกัดย่อย ({selectedActivity})
@@ -325,7 +327,7 @@ export default function StudentUniformSetupPage() {
                     </select>
                   </div>
 
-                  {/* Level 3 Select (ซ่อนให้อัตโนมัติหากเป็นผู้บำเพ็ญประโยชน์) */}
+                  {/* Level 3 Select */}
                   {config.hasL3 && (
                     <div className="md:col-span-2">
                       <label className="block text-xs font-bold text-slate-700 mb-1">
