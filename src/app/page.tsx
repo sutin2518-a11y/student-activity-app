@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -43,26 +44,38 @@ export default function HomePage() {
       </div>
 
       {/* 🔴 ส่วนหัว (Header Banner) */}
-      <header className="relative bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white overflow-hidden shadow-lg">
-        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-red-950/20 skew-x-12 transform origin-bottom"></div>
-        <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between relative z-10 gap-6">
+      <header className="relative text-white overflow-hidden shadow-lg min-h-[220px] flex items-center">
+        {/* รูปแบนเนอร์พื้นหลัง */}
+        <Image 
+          src="/images/banner.jpg" 
+          alt="Header Banner" 
+          fill 
+          priority
+          className="object-cover z-0" 
+        />
+        
+        {/* แผ่นฟิล์มสีดำจางๆ กันรูปสว่างเกินไป (ลบออกได้ถ้ารูปเข้มอยู่แล้ว) */}
+        <div className="absolute inset-0 bg-black/30 z-0"></div>
+        
+        {/* เนื้อหาด้านบน */}
+        <div className="relative z-10 max-w-7xl mx-auto px-4 py-8 w-full flex flex-col md:flex-row items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-20 h-24 bg-white/20 rounded-t-full flex items-center justify-center border-4 border-yellow-500 shadow-lg">
-              <span className="text-4xl">🏛️</span>
+            <div className="w-20 h-24 bg-white/20 backdrop-blur-sm rounded-t-full flex items-center justify-center border-4 border-yellow-500 shadow-lg">
+              <span className="text-4xl drop-shadow-md">🏛️</span>
             </div>
             <div>
-              <h1 className="text-3xl md:text-4xl font-black drop-shadow-md tracking-wide">งานกิจกรรมพัฒนาผู้เรียน</h1>
-              <h2 className="text-xl md:text-2xl font-bold mt-1 text-yellow-300">โรงเรียนเชียงคำวิทยาคม</h2>
-              <p className="text-sm mt-1 opacity-90">อำเภอเชียงคำ จังหวัดพะเยา</p>
+              <h1 className="text-3xl md:text-4xl font-black drop-shadow-lg tracking-wide">งานกิจกรรมพัฒนาผู้เรียน</h1>
+              <h2 className="text-xl md:text-2xl font-bold mt-1 text-yellow-300 drop-shadow-md">โรงเรียนเชียงคำวิทยาคม</h2>
+              <p className="text-sm mt-1 opacity-90 drop-shadow-md">อำเภอเชียงคำ จังหวัดพะเยา</p>
             </div>
           </div>
-          <div className="hidden md:block text-center bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
-            <p className="text-yellow-200 font-medium italic text-lg">" พัฒนาคนดี <br/> มีความสามารถ <br/> สร้างสังคมที่ยั่งยืน "</p>
+          <div className="hidden md:block text-center bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 shadow-lg">
+            <p className="text-yellow-200 font-medium italic text-lg drop-shadow-md">" พัฒนาคนดี <br/> มีความสามารถ <br/> สร้างสังคมที่ยั่งยืน "</p>
           </div>
         </div>
       </header>
 
-      {/* ⚪ แถบเมนูนำทาง (ย่อให้สั้นลง และเพิ่มปุ่ม Sidebar) */}
+      {/* ⚪ แถบเมนูนำทาง */}
       <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
         <div className="bg-white rounded-xl shadow-md p-2 flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
           
@@ -91,7 +104,7 @@ export default function HomePage() {
 
       <main className="max-w-7xl mx-auto px-4 mt-6 space-y-6">
         
-        {/* 📊 สรุปสถิติรวมแบบกะทัดรัด (ย้ายจากกล่องใหญ่มาไว้ตรงนี้) */}
+        {/* 📊 สรุปสถิติรวม */}
         <div className="flex flex-col md:flex-row justify-between items-center bg-white px-6 py-3 rounded-xl shadow-sm border border-slate-200 gap-4">
           <div className="flex items-center gap-3">
             <span className="text-2xl">👥</span>
@@ -111,76 +124,80 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดึงสถิติเข้ามาไว้ในกล่อง) */}
+        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดึงรูปพื้นหลัง) */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* ชุมนุม */}
-          <div className="bg-gradient-to-br from-rose-50 to-pink-100 rounded-2xl p-5 border border-pink-200 relative overflow-hidden flex flex-col justify-between shadow-sm">
-            <div>
+          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/club.jpg')] bg-cover bg-center min-h-[200px]">
+            <div className="absolute inset-0 bg-black/40 z-0 transition group-hover:bg-black/50"></div>
+            <div className="relative z-10">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-rose-700 font-extrabold text-xl">กิจกรรมชุมนุม</h3>
+                <h3 className="text-white font-extrabold text-xl drop-shadow-md">กิจกรรมชุมนุม</h3>
                 <div className="w-10 h-10 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🎵</div>
               </div>
-              <p className="text-rose-900/80 text-xs font-semibold leading-relaxed">ค้นหาความสนใจ<br/>พัฒนาความสามารถ<br/>สร้างสรรค์สิ่งใหม่</p>
+              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">ค้นหาความสนใจ<br/>พัฒนาความสามารถ<br/>สร้างสรรค์สิ่งใหม่</p>
             </div>
-            <div className="mt-4 flex items-end justify-between border-t border-pink-200/50 pt-4">
+            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
               <div>
-                <p className="text-[10px] text-rose-500 font-bold">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-rose-700 leading-none">862 <span className="text-xs font-normal">คน</span></p>
+                <p className="text-[10px] text-rose-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
+                <p className="text-2xl font-black text-white leading-none drop-shadow-md">862 <span className="text-xs font-normal">คน</span></p>
               </div>
               <Link href="/login" className="bg-rose-500 hover:bg-rose-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
             </div>
           </div>
 
           {/* เครื่องแบบ */}
-          <div className="bg-gradient-to-br from-blue-50 to-sky-100 rounded-2xl p-5 border border-blue-200 relative overflow-hidden flex flex-col justify-between shadow-sm">
-            <div>
+          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/scout.jpg')] bg-cover bg-center min-h-[200px]">
+            <div className="absolute inset-0 bg-black/40 z-0"></div>
+            <div className="relative z-10">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-blue-700 font-extrabold text-xl leading-tight">กิจกรรม<br/>ในเครื่องแบบ</h3>
+                <h3 className="text-white font-extrabold text-xl leading-tight drop-shadow-md">กิจกรรม<br/>ในเครื่องแบบ</h3>
                 <div className="w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">👮‍♂️</div>
               </div>
-              <p className="text-blue-900/80 text-xs font-semibold leading-relaxed">วินัย ความเสียสละ<br/>ความรับผิดชอบ<br/>สู่ความเป็นผู้นำ</p>
+              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">วินัย ความเสียสละ<br/>ความรับผิดชอบ<br/>สู่ความเป็นผู้นำ</p>
             </div>
-            <div className="mt-4 flex items-end justify-between border-t border-blue-200/50 pt-4">
+            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
               <div>
-                <p className="text-[10px] text-blue-500 font-bold">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-blue-700 leading-none">934 <span className="text-xs font-normal">คน</span></p>
+                <p className="text-[10px] text-blue-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
+                <p className="text-2xl font-black text-white leading-none drop-shadow-md">934 <span className="text-xs font-normal">คน</span></p>
               </div>
               <Link href="/login" className="bg-blue-500 hover:bg-blue-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
             </div>
           </div>
 
           {/* เพื่อสังคม */}
-          <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-2xl p-5 border border-emerald-200 relative overflow-hidden flex flex-col justify-between shadow-sm">
-            <div>
+          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/volunteer.jpg')] bg-cover bg-center min-h-[200px]">
+            <div className="absolute inset-0 bg-black/40 z-0"></div>
+            <div className="relative z-10">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-emerald-700 font-extrabold text-xl leading-tight">กิจกรรม<br/>เพื่อสังคมฯ</h3>
+                <h3 className="text-white font-extrabold text-xl leading-tight drop-shadow-md">กิจกรรม<br/>เพื่อสังคมฯ</h3>
                 <div className="w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🤝</div>
               </div>
-              <p className="text-emerald-900/80 text-xs font-semibold leading-relaxed">จิตอาสา แบ่งปัน<br/>สร้างสังคมที่ดี<br/>เริ่มได้จากเรา</p>
+              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">จิตอาสา แบ่งปัน<br/>สร้างสังคมที่ดี<br/>เริ่มได้จากเรา</p>
             </div>
-            <div className="mt-4 flex items-end justify-between border-t border-emerald-200/50 pt-4">
+            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
               <div>
-                <p className="text-[10px] text-emerald-500 font-bold">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-emerald-700 leading-none">776 <span className="text-xs font-normal">คน</span></p>
+                <p className="text-[10px] text-emerald-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
+                <p className="text-2xl font-black text-white leading-none drop-shadow-md">776 <span className="text-xs font-normal">คน</span></p>
               </div>
               <Link href="/login" className="bg-emerald-500 hover:bg-emerald-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
             </div>
           </div>
 
           {/* แนะแนว */}
-          <div className="bg-gradient-to-br from-orange-50 to-amber-100 rounded-2xl p-5 border border-orange-200 relative overflow-hidden flex flex-col justify-between shadow-sm">
-            <div>
+          <div className="relative rounded-2xl p-5 border overflow-hidden flex flex-col justify-between shadow-sm bg-[url('/images/guidance.jpg')] bg-cover bg-center min-h-[200px]">
+            <div className="absolute inset-0 bg-black/40 z-0"></div>
+            <div className="relative z-10">
               <div className="flex justify-between items-start mb-3">
-                <h3 className="text-orange-700 font-extrabold text-xl">กิจกรรมแนะแนว</h3>
+                <h3 className="text-white font-extrabold text-xl drop-shadow-md">กิจกรรมแนะแนว</h3>
                 <div className="w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl shadow-md shrink-0">🧭</div>
               </div>
-              <p className="text-orange-900/80 text-xs font-semibold leading-relaxed">ค้นพบตนเอง<br/>วางแผนอนาคต<br/>สู่เส้นทางที่ใช่</p>
+              <p className="text-white/90 text-xs font-semibold leading-relaxed drop-shadow-md">ค้นพบตนเอง<br/>วางแผนอนาคต<br/>สู่เส้นทางที่ใช่</p>
             </div>
-            <div className="mt-4 flex items-end justify-between border-t border-orange-200/50 pt-4">
+            <div className="relative z-10 mt-4 flex items-end justify-between border-t border-white/20 pt-4">
               <div>
-                <p className="text-[10px] text-orange-500 font-bold">สมาชิกลงทะเบียน</p>
-                <p className="text-2xl font-black text-orange-700 leading-none">1,102 <span className="text-xs font-normal">คน</span></p>
+                <p className="text-[10px] text-orange-300 font-bold drop-shadow-sm">สมาชิกลงทะเบียน</p>
+                <p className="text-2xl font-black text-white leading-none drop-shadow-md">1,102 <span className="text-xs font-normal">คน</span></p>
               </div>
               <Link href="/login" className="bg-orange-500 hover:bg-orange-600 text-white text-[11px] font-bold py-2 px-3 rounded-full shadow-sm transition">ข้อมูล ➔</Link>
             </div>
@@ -188,7 +205,7 @@ export default function HomePage() {
 
         </div>
 
-        {/* 📰 2. คอลัมน์ด้านล่าง 3 ส่วน (คงเดิมตามการออกแบบ) */}
+        {/* 📰 2. คอลัมน์ด้านล่าง 3 ส่วน */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
           {/* ข่าวประชาสัมพันธ์ */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
