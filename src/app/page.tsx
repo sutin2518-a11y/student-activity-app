@@ -83,29 +83,54 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🔴 2. แถบสถิติและปุ่มสมัคร */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 md:p-6 -mt-16 relative z-20 flex flex-col md:flex-row items-center justify-between gap-6 border border-slate-100">
-          <div className="flex items-center gap-8">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl">👥</div>
+        {/* 🔴 2. แถบสถิติ 3 กล่อง และปุ่มสมัคร (ปรับปรุงใหม่ตามเงื่อนไข) */}
+        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 md:p-6 -mt-16 relative z-20 flex flex-col xl:flex-row items-center justify-between gap-6 border border-slate-100">
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full xl:w-auto divide-y md:divide-y-0 md:divide-x divide-slate-100">
+            
+            {/* กล่องที่ 1: นักเรียนทั้งหมด */}
+            <div className="flex items-center gap-4 pt-2 md:pt-0">
+              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl shrink-0">👥</div>
               <div>
                 <p className="text-xs text-slate-500 font-medium">จำนวนนักเรียนทั้งหมด</p>
                 <p className="text-xl font-bold text-blue-600">1,256 <span className="text-xs text-slate-500 font-normal">คน</span></p>
               </div>
             </div>
-            <div className="hidden md:block w-px h-10 bg-slate-200"></div>
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl">🎯</div>
+
+            {/* กล่องที่ 2: กิจกรรมชุมนุม */}
+            <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
+              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl shrink-0">🎸</div>
               <div>
-                <p className="text-xs text-slate-500 font-medium">เข้าร่วมอย่างน้อย 1 กิจกรรม</p>
-                <p className="text-xl font-bold text-emerald-600">1,084 <span className="text-xs text-slate-500 font-normal">คน</span></p>
+                <p className="text-xs text-slate-500 font-medium">กิจกรรมชุมนุม</p>
+                <div className="flex items-center gap-2 text-xs font-bold mt-1">
+                  <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">สมัครแล้ว 1,084</span>
+                  <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">ยังไม่ลง 172</span>
+                </div>
               </div>
             </div>
+
+            {/* กล่องที่ 3: กิจกรรมเครื่องแบบ (เฉพาะ ม.ต้น) */}
+            <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
+              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl shrink-0">🏕️</div>
+              <div>
+                <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
+                  กิจกรรมเครื่องแบบ
+                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">(ม.ต้น)</span>
+                </p>
+                <div className="flex items-center gap-2 text-xs font-bold mt-1">
+                  <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">สมัครแล้ว 580</span>
+                  <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">ยังไม่ลง 45</span>
+                </div>
+              </div>
+            </div>
+
           </div>
           
-          <Link href="/login" className="w-full md:w-auto bg-rose-500 hover:bg-rose-600 text-white px-6 py-3.5 rounded-full font-bold text-base shadow-lg shadow-rose-500/30 transition-all text-center flex items-center justify-center gap-2">
+          {/* ปุ่มสมัคร */}
+          <Link href="/login" className="w-full xl:w-auto bg-rose-500 hover:bg-rose-600 text-white px-6 py-3.5 rounded-full font-bold text-base shadow-lg shadow-rose-500/30 transition-all text-center flex items-center justify-center gap-2 shrink-0">
             ⭐ สมัครเข้าร่วมกิจกรรม ➔
           </Link>
+
         </div>
 
         {/* 🟢 3. กล่องเมนูกิจกรรม 4 สี */}
