@@ -57,19 +57,27 @@ export default function HomePage() {
         {/* เงาดำไล่สี */}
         <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent z-0 hidden md:block"></div>
         
-        {/* ใช้วิธีจัดให้อยู่ด้านบนขวาด้วย items-start และ pt-4 (padding-top) */}
+        {/* คอนเทนต์ด้านบน จัดให้อยู่มุมขวาบน */}
         <div className="relative z-10 w-full h-full max-w-7xl mx-auto px-4 flex justify-end items-start pt-4 md:pt-6 lg:pt-8">
           
-          {/* 👤 กล่อง User / Login - ปรับขนาดให้เล็กลง (ลด p, min-w, ขนาด font และ icon) */}
-          <div className="hidden md:flex flex-col items-center bg-black/50 backdrop-blur-md p-3 md:p-4 rounded-xl border border-white/20 shadow-xl min-w-[160px] md:min-w-[180px]">
-            <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-full flex items-center justify-center text-lg md:text-xl mb-1 shadow-inner">
+          {/* 👤 กล่อง User / Login - แบบแนวนอนกะทัดรัด */}
+          <div className="hidden md:flex items-center bg-black/60 backdrop-blur-md pl-2 pr-2 py-1.5 rounded-full border border-white/20 shadow-xl gap-3">
+            
+            {/* ไอคอน / รูปโปรไฟล์ */}
+            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner shrink-0">
               👤
             </div>
-            <p className="text-white font-bold text-xs md:text-sm mb-0.5 drop-shadow-md">ผู้เยี่ยมชมทั่วไป</p>
-            <p className="text-white/80 text-[9px] md:text-[10px] mb-2.5">กรุณาเข้าสู่ระบบเพื่อทำรายการ</p>
-            <Link href="/login" className="w-full flex items-center justify-center px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold rounded-lg transition shadow-md">
+            
+            {/* ข้อความชื่อผู้ใช้ */}
+            <div className="flex flex-col justify-center">
+              <span className="text-white font-bold text-xs drop-shadow-md">ผู้เยี่ยมชมทั่วไป</span>
+            </div>
+
+            {/* ปุ่มเข้าสู่ระบบ */}
+            <Link href="/login" className="ml-1 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold rounded-full transition shadow-md whitespace-nowrap">
               เข้าสู่ระบบ
             </Link>
+            
           </div>
 
         </div>
