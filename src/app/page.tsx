@@ -44,8 +44,8 @@ export default function HomePage() {
       </div>
 
       {/* 🔴 ส่วนหัว (Header Banner) - แบบใช้รูปภาพที่มีข้อความในตัว */}
-      <header className="relative w-full h-[250px] md:h-[350px] lg:h-[400px] overflow-hidden shadow-lg flex items-center">
-        {/* รูปแบนเนอร์พื้นหลัง (แนะนำขนาด 1920x400) */}
+      <header className="relative w-full h-[160px] md:h-[200px] lg:h-[250px] overflow-hidden shadow-lg flex items-center">
+        {/* รูปแบนเนอร์พื้นหลัง (แนะนำขนาด 1200x300) */}
         <Image 
           src="/images/banner.jpg" 
           alt="Header Banner" 
