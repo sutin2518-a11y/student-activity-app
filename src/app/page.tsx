@@ -1,259 +1,267 @@
 "use client";
 
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 
 export default function HomePage() {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [activeGalleryTab, setActiveGalleryTab] = useState("ทั้งหมด");
-
-  // ข้อมูลจำลองสำหรับภาพกิจกรรม
-  const galleryItems = [
-    { id: 1, category: "ชุมนุม", title: "ประกวดวงดนตรี", color: "from-rose-400 to-rose-500", icon: "🎸" },
-    { id: 2, category: "กิจกรรมเครื่องแบบ", title: "เข้าค่ายลูกเสือ ม.1", color: "from-emerald-400 to-emerald-500", icon: "🏕️" },
-    { id: 3, category: "กิจกรรมเพื่อสังคม", title: "ปลูกป่าชายเลน", color: "from-blue-400 to-blue-500", icon: "🤝" },
-    { id: 4, category: "งานแนะแนว", title: "ปัจฉิมนิเทศ ม.6", color: "from-purple-400 to-purple-500", icon: "🎓" },
-    { id: 5, category: "ชุมนุม", title: "นิทรรศการศิลปะ", color: "from-rose-400 to-rose-500", icon: "🎨" },
-    { id: 6, category: "กิจกรรมเครื่องแบบ", title: "สวนสนาม เนตรนารี", color: "from-emerald-400 to-emerald-500", icon: "🚶‍♀️" },
-  ];
-
-  // คัดกรองภาพตามแท็บที่เลือก
-  const filteredGallery = activeGalleryTab === "ทั้งหมด" 
-    ? galleryItems 
-    : galleryItems.filter(item => item.category === activeGalleryTab);
-
   return (
-    <div className="min-h-screen bg-slate-50 font-sans relative overflow-x-hidden">
+    <div className="min-h-screen bg-slate-100 font-sans text-slate-800 pb-10">
       
-      {/* 🟢 แถบเมนูด้านข้าง (Sidebar) */}
-      <div className={`fixed inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white shadow-2xl transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
-        <div className="p-5 border-b border-slate-800 flex justify-between items-center">
-          <span className="font-bold text-lg">เมนูหลัก</span>
-          <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition text-slate-300 hover:text-white">✕</button>
-        </div>
-        <nav className="p-4 space-y-2">
-          <Link href="/" className="block px-4 py-3 bg-blue-600 rounded-xl font-bold shadow-md">🏠 หน้าแรก</Link>
-          <Link href="/login" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">🔑 เข้าสู่ระบบ</Link>
-          <Link href="/admin" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">⚙️ ระบบ Admin</Link>
-        </nav>
-      </div>
-
-      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)}></div>}
-
-      {/* 🔵 แถบด้านบนสุด (Header Top Bar) */}
-      <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm relative z-40 border-b border-slate-100">
-        <div className="flex items-center gap-4">
-          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="เปิดเมนู">
-            <span className="text-2xl leading-none">☰</span>
-          </button>
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl">🏛️</div>
-            <div>
-              <h1 className="font-bold text-slate-800 leading-tight text-base md:text-lg">โรงเรียนเชียงคำวิทยาคม <span className="text-blue-600 hidden md:inline">| งานกิจกรรมพัฒนาผู้เรียน</span></h1>
-              <p className="text-[10px] text-slate-500 uppercase tracking-wider">Chiangkhamwittayakhom School</p>
-            </div>
-          </div>
-        </div>
-        <div>
-          <Link href="/login" className="flex items-center gap-2 bg-blue-50 text-blue-600 px-4 py-2 rounded-full font-bold text-sm hover:bg-blue-100 transition">
-            <span>👤</span> เข้าสู่ระบบ
-          </Link>
-        </div>
-      </div>
-
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
+      {/* 🔴 ส่วนหัว (Header Banner) */}
+      <header className="relative bg-gradient-to-r from-red-900 via-red-800 to-red-900 text-white overflow-hidden shadow-lg">
+        {/* รูปตกแต่งพื้นหลัง (จำลอง) */}
+        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-red-950/20 skew-x-12 transform origin-bottom"></div>
         
-        {/* 🔴 1. แถบสถิติ 3 กล่อง และปุ่มสมัคร */}
-        <div className="bg-white rounded-3xl shadow-sm p-4 md:p-6 flex flex-col xl:flex-row items-center justify-between gap-6 border border-slate-200">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full xl:w-auto divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            <div className="flex items-center gap-4 pt-2 md:pt-0">
-              <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl shrink-0">👥</div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">จำนวนนักเรียนทั้งหมด</p>
-                <p className="text-xl font-bold text-blue-600">1,256 <span className="text-xs text-slate-500 font-normal">คน</span></p>
-              </div>
+        <div className="max-w-7xl mx-auto px-4 py-8 flex flex-col md:flex-row items-center justify-between relative z-10 gap-6">
+          <div className="flex items-center gap-4">
+            {/* โลโก้จำลอง */}
+            <div className="w-20 h-24 bg-white/20 rounded-t-full flex items-center justify-center border-4 border-yellow-500 shadow-lg">
+              <span className="text-4xl">🏛️</span>
             </div>
-            <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
-              <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl shrink-0">🎸</div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">กิจกรรมชุมนุม</p>
-                <div className="flex items-center gap-2 text-xs font-bold mt-1">
-                  <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">สมัครแล้ว 1,084</span>
-                  <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">ยังไม่ลง 172</span>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
-              <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl shrink-0">🏕️</div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium flex items-center gap-1">
-                  กิจกรรมเครื่องแบบ
-                  <span className="text-[10px] text-emerald-700 bg-emerald-100 px-1.5 py-0.2 rounded font-semibold">(ม.ต้น)</span>
-                </p>
-                <div className="flex items-center gap-2 text-xs font-bold mt-1">
-                  <span className="text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-md">สมัครแล้ว 580</span>
-                  <span className="text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md">ยังไม่ลง 45</span>
-                </div>
-              </div>
+            <div>
+              <h1 className="text-3xl md:text-4xl font-black drop-shadow-md tracking-wide">งานกิจกรรมพัฒนาผู้เรียน</h1>
+              <h2 className="text-xl md:text-2xl font-bold mt-1 text-yellow-300">โรงเรียนเชียงคำวิทยาคม</h2>
+              <p className="text-sm mt-1 opacity-90">อำเภอเชียงคำ จังหวัดพะเยา</p>
             </div>
           </div>
-          <Link href="/login" className="w-full xl:w-auto bg-rose-500 hover:bg-rose-600 text-white px-6 py-3.5 rounded-full font-bold text-base shadow-lg shadow-rose-500/30 transition-all text-center flex items-center justify-center gap-2 shrink-0">
-            ⭐ สมัครเข้าร่วมกิจกรรม ➔
-          </Link>
+          
+          <div className="hidden md:block text-center bg-white/10 backdrop-blur-sm p-4 rounded-xl border border-white/20">
+            <p className="text-yellow-200 font-medium italic text-lg">" พัฒนาคนดี <br/> มีความสามารถ <br/> สร้างสังคมที่ยั่งยืน "</p>
+          </div>
+        </div>
+      </header>
+
+      {/* ⚪ แถบเมนูนำทาง (Navigation Bar) */}
+      <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
+        <div className="bg-white rounded-xl shadow-md p-2 flex items-center justify-between overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
+          <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg"><span className="text-lg">🏠</span> หน้าหลัก</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-500 text-lg">👥</span> กิจกรรมชุมนุม</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-600 text-lg">👮</span> กิจกรรมในเครื่องแบบ</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-slate-500 text-lg">📅</span> ปฏิทินกิจกรรม</Link>
+          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-slate-500 text-lg">📄</span> เอกสาร / ดาวน์โหลด</Link>
+          
+          <div className="ml-auto pl-2 border-l border-slate-200">
+            <Link href="/login" className="flex items-center gap-2 px-5 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition">
+              <span>👤</span> เข้าสู่ระบบ
+            </Link>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-7xl mx-auto px-4 mt-6 space-y-6">
+        
+        {/* 🟡 1. การ์ดกิจกรรม 4 สี */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          
+          {/* ชุมนุม (สีชมพู) */}
+          <div className="bg-gradient-to-br from-rose-50 to-pink-100 rounded-2xl p-5 border border-pink-200 relative overflow-hidden flex flex-col justify-between h-48 shadow-sm">
+            <div className="absolute top-4 right-4 w-10 h-10 bg-rose-500 text-white rounded-full flex items-center justify-center text-xl shadow-md z-10">🎵</div>
+            <div className="relative z-10">
+              <h3 className="text-rose-700 font-extrabold text-xl mb-2">กิจกรรมชุมนุม</h3>
+              <p className="text-rose-900/80 text-xs font-semibold leading-relaxed">ค้นหาความสนใจ<br/>พัฒนาความสามารถ<br/>สร้างสรรค์สิ่งใหม่</p>
+            </div>
+            <Link href="/login" className="mt-4 bg-rose-500 hover:bg-rose-600 text-white text-xs font-bold py-2 px-4 rounded-full w-max shadow-sm transition relative z-10">เข้าดูข้อมูล ➔</Link>
+          </div>
+
+          {/* เครื่องแบบ (สีฟ้า) */}
+          <div className="bg-gradient-to-br from-blue-50 to-sky-100 rounded-2xl p-5 border border-blue-200 relative overflow-hidden flex flex-col justify-between h-48 shadow-sm">
+            <div className="absolute top-4 right-4 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center text-xl shadow-md z-10">👮‍♂️</div>
+            <div className="relative z-10">
+              <h3 className="text-blue-700 font-extrabold text-xl mb-2">กิจกรรมในเครื่องแบบ</h3>
+              <p className="text-blue-900/80 text-xs font-semibold leading-relaxed">วินัย ความเสียสละ<br/>ความรับผิดชอบ<br/>สู่ความเป็นผู้นำ</p>
+            </div>
+            <Link href="/login" className="mt-4 bg-blue-500 hover:bg-blue-600 text-white text-xs font-bold py-2 px-4 rounded-full w-max shadow-sm transition relative z-10">เข้าดูข้อมูล ➔</Link>
+          </div>
+
+          {/* เพื่อสังคม (สีเขียว) */}
+          <div className="bg-gradient-to-br from-emerald-50 to-green-100 rounded-2xl p-5 border border-emerald-200 relative overflow-hidden flex flex-col justify-between h-48 shadow-sm">
+            <div className="absolute top-4 right-4 w-10 h-10 bg-emerald-500 text-white rounded-full flex items-center justify-center text-xl shadow-md z-10">🤝</div>
+            <div className="relative z-10">
+              <h3 className="text-emerald-700 font-extrabold text-xl mb-2 leading-tight">กิจกรรมเพื่อสังคม<br/>และสาธารณประโยชน์</h3>
+              <p className="text-emerald-900/80 text-xs font-semibold leading-relaxed mt-1">จิตอาสา แบ่งปัน<br/>สร้างสังคมที่ดี เริ่มได้จากเรา</p>
+            </div>
+            <Link href="/login" className="mt-4 bg-emerald-500 hover:bg-emerald-600 text-white text-xs font-bold py-2 px-4 rounded-full w-max shadow-sm transition relative z-10">เข้าดูข้อมูล ➔</Link>
+          </div>
+
+          {/* แนะแนว (สีส้ม) */}
+          <div className="bg-gradient-to-br from-orange-50 to-amber-100 rounded-2xl p-5 border border-orange-200 relative overflow-hidden flex flex-col justify-between h-48 shadow-sm">
+            <div className="absolute top-4 right-4 w-10 h-10 bg-orange-500 text-white rounded-full flex items-center justify-center text-xl shadow-md z-10">🧭</div>
+            <div className="relative z-10">
+              <h3 className="text-orange-700 font-extrabold text-xl mb-2">กิจกรรมแนะแนว</h3>
+              <p className="text-orange-900/80 text-xs font-semibold leading-relaxed">ค้นพบตนเอง<br/>วางแผนอนาคต<br/>สู่เส้นทางที่ใช่</p>
+            </div>
+            <Link href="/login" className="mt-4 bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold py-2 px-4 rounded-full w-max shadow-sm transition relative z-10">เข้าดูข้อมูล ➔</Link>
+          </div>
+
         </div>
 
-        {/* 🟢 2. กล่องเมนูกิจกรรม 4 สี */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link href="/login" className="group bg-gradient-to-br from-rose-400 to-rose-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
-            <div className="relative z-10">
-              <h3 className="font-bold text-xl">ชุมนุม</h3>
-              <p className="text-rose-100 text-xs mt-1">ค้นหาความสนใจ พัฒนาทักษะ</p>
+        {/* 📊 2. แถบสถิติ */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 items-center divide-x divide-slate-100">
+          
+          <div className="flex items-center gap-3 pl-2">
+            <div className="text-rose-600 text-3xl">👥</div>
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold">จำนวนนักเรียนทั้งหมด</p>
+              <p className="text-xl font-black text-slate-800">1,248 <span className="text-[10px] font-normal">คน</span></p>
+              <p className="text-[9px] text-slate-400">ปีการศึกษา 2569</p>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-1.5 inline-flex items-center justify-between w-max gap-3 z-10">
-              <span className="text-xs font-semibold">สมาชิก 432 คน</span>
-              <span>➔</span>
+          </div>
+
+          <div className="flex items-center gap-3 pl-4">
+            <div className="text-rose-500 text-2xl">🎪</div>
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold">กิจกรรมชุมนุม</p>
+              <p className="text-lg font-black text-slate-800">862 <span className="text-[10px] font-normal">คน</span></p>
             </div>
-            <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🎸</div>
-          </Link>
-          <Link href="/login" className="group bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
-            <div className="relative z-10">
-              <h3 className="font-bold text-xl">กิจกรรมเครื่องแบบ</h3>
-              <p className="text-emerald-100 text-xs mt-1">ระเบียบ วินัย ความเป็นผู้นำ</p>
+          </div>
+
+          <div className="flex items-center gap-3 pl-4">
+            <div className="text-blue-500 text-2xl">👮</div>
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold">กิจกรรมในเครื่องแบบ</p>
+              <p className="text-lg font-black text-slate-800">934 <span className="text-[10px] font-normal">คน</span></p>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-1.5 inline-flex items-center justify-between w-max gap-3 z-10">
-              <span className="text-xs font-semibold">สมาชิก 368 คน</span>
-              <span>➔</span>
+          </div>
+
+          <div className="flex items-center gap-3 pl-4">
+            <div className="text-emerald-500 text-2xl">🤝</div>
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold">กิจกรรมเพื่อสังคมฯ</p>
+              <p className="text-lg font-black text-slate-800">776 <span className="text-[10px] font-normal">คน</span></p>
             </div>
-            <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🏕️</div>
-          </Link>
-          <Link href="/login" className="group bg-gradient-to-br from-blue-400 to-blue-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
-            <div className="relative z-10">
-              <h3 className="font-bold text-xl">กิจกรรมเพื่อสังคม</h3>
-              <p className="text-blue-100 text-xs mt-1">จิตอาสา สาธารณประโยชน์</p>
+          </div>
+
+          <div className="flex items-center gap-3 pl-4">
+            <div className="text-orange-500 text-2xl">🧭</div>
+            <div>
+              <p className="text-[10px] text-slate-500 font-bold">กิจกรรมแนะแนว</p>
+              <p className="text-lg font-black text-slate-800">1,102 <span className="text-[10px] font-normal">คน</span></p>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-1.5 inline-flex items-center justify-between w-max gap-3 z-10">
-              <span className="text-xs font-semibold">สมาชิก 256 คน</span>
-              <span>➔</span>
+          </div>
+
+          <div className="pl-4 pr-2">
+            <div className="flex items-center gap-2 mb-1">
+              <span className="text-red-700 text-lg">📈</span>
+              <div>
+                <p className="text-[10px] font-bold text-slate-700 leading-tight">สรุปการเข้าร่วมกิจกรรม</p>
+                <p className="text-[9px] text-slate-500">นักเรียนเข้าร่วมกิจกรรมแล้ว</p>
+              </div>
             </div>
-            <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🤝</div>
-          </Link>
-          <Link href="/login" className="group bg-gradient-to-br from-purple-400 to-purple-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
-            <div className="relative z-10">
-              <h3 className="font-bold text-xl">งานแนะแนว</h3>
-              <p className="text-purple-100 text-xs mt-1">ค้นพบตัวเอง สู่เส้นทางอนาคต</p>
+            <div className="flex items-center gap-2 mt-2">
+              <div className="w-full bg-slate-100 rounded-full h-2.5">
+                <div className="bg-red-600 h-2.5 rounded-full" style={{ width: '95%' }}></div>
+              </div>
+              <span className="text-red-600 font-bold text-xs">95%</span>
             </div>
-            <div className="bg-white/20 backdrop-blur-sm rounded-xl px-4 py-1.5 inline-flex items-center justify-between w-max gap-3 z-10">
-              <span className="text-xs font-semibold">สมาชิก 28 คน</span>
-              <span>➔</span>
-            </div>
-            <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🎓</div>
-          </Link>
+            <p className="text-[8px] text-slate-400 mt-1 text-right">จากนักเรียนทั้งหมด 1,248 คน</p>
+          </div>
+
         </div>
 
-        {/* 🟣 3. ส่วนข่าวสาร, ปฏิทิน, และ แกลเลอรีภาพกิจกรรม */}
+        {/* 📰 3. คอลัมน์ด้านล่าง 3 ส่วน */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* กล่องข่าวสาร (ปรับให้เด่น สะดุดตา) */}
-          <div className="bg-rose-50/60 rounded-3xl shadow-sm border-2 border-rose-200 p-6 relative overflow-hidden">
-            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
-            <div className="flex justify-between items-center mb-5">
-              <h3 className="font-extrabold text-lg flex items-center gap-2 text-rose-700">
-                <span className="relative flex h-3 w-3">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
-                </span>
-                ประกาศด่วน / ข่าวสาร
+          {/* ข่าวประชาสัมพันธ์ */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <span className="text-red-600 text-xl">📢</span> กระดานประชาสัมพันธ์
               </h3>
-              <Link href="/login" className="text-xs text-rose-600 hover:underline font-semibold">ดูทั้งหมด ➔</Link>
-            </div>
-            <div className="space-y-4">
-              {[
-                { tag: "ด่วนที่สุด", color: "bg-rose-600", text: "เปิดรับสมัครสมาชิกชุมนุม ประจำภาคเรียนที่ 1/2569", date: "12 พ.ย. 2569" },
-                { tag: "ใหม่", color: "bg-blue-500", text: "กิจกรรมจิตอาสา ทำความสะอาดโรงเรียน (นับชั่วโมงได้)", date: "10 พ.ย. 2569" },
-                { tag: "แจ้งเตือน", color: "bg-amber-500", text: "ตารางกิจกรรมเครื่องแบบ ประจำเดือนพฤศจิกายน", date: "8 พ.ย. 2569" },
-              ].map((news, i) => (
-                <div key={i} className="flex gap-3 items-start pb-3 border-b border-rose-100 last:border-0 last:pb-0">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap mt-0.5 shadow-sm ${news.color}`}>{news.tag}</span>
-                  <div>
-                    <p className="text-sm text-slate-800 hover:text-rose-600 cursor-pointer font-bold leading-tight">{news.text}</p>
-                    <p className="text-[10px] text-slate-500 mt-1.5">{news.date}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* กล่องปฏิทินกิจกรรม */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-base flex items-center gap-2 text-slate-800">
-                <span className="text-blue-500">📅</span> ปฏิทินกิจกรรม
-              </h3>
-              <Link href="/login" className="text-xs text-blue-600 hover:underline">ดูทั้งหมด ➔</Link>
+              <Link href="#" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</Link>
             </div>
             <div className="space-y-3">
               {[
-                { day: "15", m: "พ.ย.", title: "อบรมผู้นำเยาวชน (กิจกรรมเครื่องแบบ)", loc: "หอประชุมโรงเรียน", color: "text-emerald-500" },
-                { day: "18", m: "พ.ย.", title: "กิจกรรมจิตอาสา ปลูกต้นไม้", loc: "บริเวณโรงเรียน", color: "text-blue-500" },
-                { day: "22", m: "พ.ย.", title: "แนะแนว TCAS และอาชีพในอนาคต", loc: "หอประชุมโรงเรียน", color: "text-purple-500" },
+                { type: "ประกาศ", color: "bg-red-600", text: "กำหนดการรับสมัครกิจกรรมชุมนุม ปีการศึกษา 2569", date: "12 ม.ค. 2569" },
+                { type: "ข่าวสาร", color: "bg-blue-500", text: "กิจกรรมจิตอาสา \"เชียงคำสะอาด เมืองน่าอยู่\"", date: "10 ม.ค. 2569" },
+                { type: "ประชาสัมพันธ์", color: "bg-emerald-500", text: "เปิดรับสมัครชมรมดนตรีสากล", date: "8 ม.ค. 2569" },
+                { type: "ประกาศ", color: "bg-red-600", text: "กำหนดการเข้าค่ายลูกเสือ - เนตรนารี ประจำปี 2569", date: "5 ม.ค. 2569" },
+                { type: "ข่าวสาร", color: "bg-orange-500", text: "แนะแนวการศึกษาต่อระดับอุดมศึกษา", date: "3 ม.ค. 2569" },
+              ].map((news, i) => (
+                <div key={i} className="flex gap-3 items-center pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                  <span className={`px-2 py-1 rounded-md text-[10px] font-bold text-white w-20 text-center shrink-0 ${news.color}`}>{news.type}</span>
+                  <p className="text-xs text-slate-700 hover:text-red-600 cursor-pointer flex-1 truncate">{news.text}</p>
+                  <span className="text-[9px] text-slate-400 shrink-0">{news.date}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* ปฏิทินกิจกรรม */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <span className="text-red-600 text-xl">📅</span> ปฏิทินกิจกรรม
+              </h3>
+              <Link href="#" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</Link>
+            </div>
+            <div className="space-y-3">
+              {[
+                { day: "15", m: "ม.ค.", title: "อบรมแกนนำสภานักเรียน", loc: "หอประชุมโรงเรียน" },
+                { day: "20", m: "ม.ค.", title: "กิจกรรมจิตอาสาพัฒนาชุมชน", loc: "ชุมชนในอำเภอเชียงคำ" },
+                { day: "28", m: "ม.ค.", title: "การประชุมคณะกรรมการชุมนุม", loc: "ห้องประชุม 1" },
+                { day: "5", m: "ก.พ.", title: "แนะแนวศึกษาต่อ ม.6", loc: "หอประชุมโรงเรียน" },
               ].map((cal, i) => (
-                <div key={i} className="flex gap-3 items-center p-2 rounded-xl hover:bg-slate-50 transition cursor-pointer">
-                  <div className="text-center w-10 bg-slate-100 rounded-lg py-1">
-                    <p className="text-base font-black text-slate-800 leading-none">{cal.day}</p>
-                    <p className="text-[9px] text-slate-500 font-bold">{cal.m}</p>
+                <div key={i} className="flex gap-4 items-center pb-2 border-b border-slate-50 last:border-0 last:pb-0">
+                  <div className="text-center shrink-0">
+                    <p className="text-lg font-black text-red-600 leading-none">{cal.day}</p>
+                    <p className="text-[10px] text-slate-500 font-bold">{cal.m}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-bold text-slate-700"><span className={cal.color}>●</span> {cal.title}</p>
-                    <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><span>📍</span> {cal.loc}</p>
+                    <p className="text-xs font-bold text-slate-700">{cal.title}</p>
+                    <p className="text-[10px] text-slate-400 flex items-center gap-1 mt-0.5"><span className="text-blue-500">📍</span> {cal.loc}</p>
                   </div>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* กล่องแกลเลอรีภาพกิจกรรม (แทนกล่องสีเหลือง) */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col h-[280px]">
-            <h3 className="font-bold text-base flex items-center gap-2 text-slate-800 mb-3">
-              <span className="text-amber-500">📸</span> ภาพกิจกรรม
-            </h3>
+          {/* ลิงก์ที่เกี่ยวข้อง */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 flex flex-col">
+            <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
+              <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
+                <span className="text-slate-600 text-xl">🔗</span> ลิงก์ที่เกี่ยวข้อง
+              </h3>
+            </div>
             
-            {/* ตัวกรองหมวดหมู่ */}
-            <div className="flex flex-wrap gap-1.5 mb-4">
-              {["ทั้งหมด", "ชุมนุม", "กิจกรรมเครื่องแบบ", "กิจกรรมเพื่อสังคม", "งานแนะแนว"].map((tab) => (
-                <button 
-                  key={tab} 
-                  onClick={() => setActiveGalleryTab(tab)}
-                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
-                    activeGalleryTab === tab 
-                      ? 'bg-slate-800 text-white border-slate-800' 
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  {tab}
-                </button>
-              ))}
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">📄</span> ดาวน์โหลดเอกสาร
+              </Link>
+              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">📖</span> ระเบียบ / แนวปฏิบัติ
+              </Link>
+              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">📋</span> แบบฟอร์มต่างๆ
+              </Link>
+              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">✉️</span> ติดต่อเรา
+              </Link>
             </div>
 
-            {/* พื้นที่แสดงภาพ (ใช้ Grid) */}
-            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
-              <div className="grid grid-cols-2 gap-3">
-                {filteredGallery.slice(0, 4).map(item => (
-                  <div key={item.id} className={`bg-gradient-to-br ${item.color} rounded-xl p-3 text-white flex flex-col justify-between min-h-[90px] shadow-sm hover:scale-[1.02] transition-transform cursor-pointer`}>
-                    <div className="text-2xl drop-shadow-sm">{item.icon}</div>
-                    <p className="text-[10px] font-bold mt-2 truncate drop-shadow-sm">{item.title}</p>
-                  </div>
-                ))}
-                {filteredGallery.length === 0 && (
-                  <div className="col-span-2 flex items-center justify-center text-slate-400 text-xs py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
-                    ไม่มีภาพกิจกรรมในหมวดหมู่นี้
-                  </div>
-                )}
+            {/* แบนเนอร์เข้าร่วมกิจกรรมด้านล่างสุด */}
+            <Link href="/login" className="mt-auto group bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-4 flex items-center justify-between text-white hover:from-slate-700 hover:to-slate-600 transition shadow-md">
+              <div>
+                <p className="font-bold text-sm">ร่วมกิจกรรม สร้างประสบการณ์</p>
+                <p className="text-xs text-slate-300 mt-1">พัฒนาตนเอง สู่อนาคตที่ดีกว่า</p>
               </div>
-            </div>
+              <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center group-hover:translate-x-1 transition-transform">
+                ➔
+              </div>
+            </Link>
           </div>
 
         </div>
       </main>
+
+      {/* 🛑 Footer สีแดงด้านล่าง */}
+      <div className="mt-10 bg-red-800 text-white py-3 px-4 text-center text-xs font-medium flex flex-col md:flex-row justify-between items-center max-w-7xl mx-auto rounded-t-xl opacity-90">
+        <p>"เชื่อมต่อกิจกรรม สร้างโอกาส พัฒนานักเรียนสู่สังคมที่ยั่งยืน"</p>
+        <p className="mt-1 md:mt-0">งานกิจกรรมพัฒนาผู้เรียน โรงเรียนเชียงคำวิทยาคม</p>
+      </div>
+
     </div>
   );
 }
