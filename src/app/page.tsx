@@ -16,7 +16,7 @@ export default function HomePage() {
       bgColor: "bg-red-500",
       textColor: "text-red-500",
       icon: "👥",
-      link: "#" // เปลี่ยนเป็น path ที่ต้องการ เช่น /club หรือ /login
+      link: "#" 
     },
     {
       title: "กิจกรรมเครื่องแบบ",
@@ -85,7 +85,6 @@ export default function HomePage() {
 
       {/* 🔴 ส่วนหัว (Header Banner) */}
       <header className="relative w-full h-[160px] md:h-[200px] lg:h-[240px] overflow-hidden shadow-lg flex">
-        {/* รูปแบนเนอร์พื้นหลัง */}
         <Image 
           src="/images/banner.jpg" 
           alt="Header Banner" 
@@ -93,40 +92,25 @@ export default function HomePage() {
           priority
           className="object-cover object-center z-0" 
         />
-        
-        {/* เงาดำไล่สี */}
         <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent z-0 hidden md:block"></div>
-        
-        {/* คอนเทนต์ด้านบน จัดให้อยู่มุมขวาบน */}
         <div className="relative z-10 w-full h-full max-w-7xl mx-auto px-4 flex justify-end items-start pt-4 md:pt-6 lg:pt-8">
-          
-          {/* 👤 กล่อง User / Login - แบบแนวนอนกะทัดรัด */}
           <div className="hidden md:flex items-center bg-black/60 backdrop-blur-md pl-2 pr-2 py-1.5 rounded-full border border-white/20 shadow-xl gap-3">
-            
-            {/* ไอคอน / รูปโปรไฟล์ */}
             <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center text-sm shadow-inner shrink-0">
               👤
             </div>
-            
-            {/* ข้อความชื่อผู้ใช้ */}
             <div className="flex flex-col justify-center">
               <span className="text-white font-bold text-xs drop-shadow-md">ผู้เยี่ยมชมทั่วไป</span>
             </div>
-
-            {/* ปุ่มเข้าสู่ระบบ */}
             <Link href="/login" className="ml-1 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold rounded-full transition shadow-md whitespace-nowrap">
               เข้าสู่ระบบ
             </Link>
-            
           </div>
-
         </div>
       </header>
 
       {/* ⚪ แถบเมนูนำทาง */}
       <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
         <div className="bg-white rounded-xl shadow-md p-2 flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
-          
           <button 
             onClick={() => setIsSidebarOpen(true)} 
             className="flex items-center justify-center w-10 h-10 bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-800 rounded-lg transition mr-1 shrink-0"
@@ -141,7 +125,6 @@ export default function HomePage() {
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-pink-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</Link>
-          
         </div>
       </nav>
 
@@ -167,13 +150,13 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดีไซน์ใหม่) */}
+        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดีไซน์ที่ปรับให้กะทัดรัดขึ้น) */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {activities.map((item, index) => (
-            <Link href={item.link} key={index} className={`relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col min-h-[280px] ${item.bgColor}`}>
+            <Link href={item.link} key={index} className={`relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col ${item.bgColor}`}>
               
               {/* 🖼️ รูปภาพครึ่งบน */}
-              <div className="relative w-full h-40 bg-gray-200">
+              <div className="relative w-full h-40 bg-gray-200 shrink-0">
                 <Image 
                   src={item.image} 
                   alt={item.title} 
@@ -187,19 +170,18 @@ export default function HomePage() {
                 {item.icon}
               </div>
 
-              {/* 📝 เนื้อหาครึ่งล่าง (สีทึบ) */}
-              <div className="px-5 pt-8 pb-4 text-white flex flex-col flex-grow">
-                {/* ใช้ whitespace-pre-line เพื่อให้ \n สามารถขึ้นบรรทัดใหม่ได้ */}
-                <h3 className="font-bold text-lg leading-tight mb-1 whitespace-pre-line">{item.title}</h3>
-                <p className="text-sm text-white/90 mb-4">สมาชิก {item.members} คน</p>
+              {/* 📝 เนื้อหาครึ่งล่าง (เรียงปุ่มลูกศรไว้ด้านขวาของข้อความ) */}
+              <div className="px-5 pt-8 pb-4 text-white flex justify-between items-center gap-2">
+                <div className="flex-1">
+                  <h3 className="font-bold text-[15px] xl:text-lg leading-tight mb-1 whitespace-pre-line">{item.title}</h3>
+                  <p className="text-xs text-white/90">สมาชิก {item.members} คน</p>
+                </div>
                 
-                {/* ➡️ ปุ่มลูกศรวงกลม มุมขวาล่าง */}
-                <div className="mt-auto flex justify-end">
-                  <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow hover:scale-110 transition-transform">
-                    <svg className={`w-4 h-4 ${item.textColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </div>
+                {/* ➡️ ปุ่มลูกศรวงกลม */}
+                <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow hover:scale-110 transition-transform shrink-0">
+                  <svg className={`w-4 h-4 ${item.textColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
                 </div>
               </div>
 
@@ -300,7 +282,6 @@ export default function HomePage() {
         <p>"เชื่อมต่อกิจกรรม สร้างโอกาส พัฒนานักเรียนสู่สังคมที่ยั่งยืน"</p>
         <p className="mt-1 md:mt-0">งานกิจกรรมพัฒนาผู้เรียน โรงเรียนเชียงคำวิทยาคม</p>
       </div>
-
     </div>
   );
 }
