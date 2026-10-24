@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { createClient } from "@supabase/supabase-js";
 import Swal from "sweetalert2";
@@ -11,9 +11,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function StudentUniformSetupPage() {
-  const [studentIdCard, setStudentIdCard] = useState("");
   const [studentData, setStudentData] = useState<any | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
   // ค่ากิจกรรมที่เลือก/ดึงได้
@@ -23,6 +22,81 @@ export default function StudentUniformSetupPage() {
   const [level1, setLevel1] = useState("");
   const [level2, setLevel2] = useState("");
   const [level3, setLevel3] = useState("");
+
+  // ดึงข้อมูลนักเรียนที่ล็อกอินอยู่อัตโนมัติเมื่อเปิดหน้า
+  useEffect(() => {
+    fetchLoggedInStudentData();
+  }, []);
+
+  const fetchLoggedInStudentData = async () => {
+    setLoading(true);
+    try {
+      // 1. ดึงข้อมูล User จาก Auth Session ปัจจุบัน
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        Swal.fire({
+          icon: "error",
+          title: "ไม่พบข้อมูลการเข้าสู่ระบบ",
+          text: "กรุณาล็อกอินใหม่อีกครั้ง",
+        });
+        setLoading(false);
+        return;
+      }
+
+      // 2. ดึงข้อมูลโปรไฟล์นักเรียนจากตาราง profiles
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+      if (!profile) {
+        Swal.fire({ icon: "warning", title: "ไม่พบข้อมูลโปรไฟล์นักเรียน" });
+        setLoading(false);
+        return;
+      }
+
+      // 3. ค้นหารายชื่อในตาราง uniform_activities โดยใช้รหัสนักเรียนหรือชื่อ-สกุล
+      const studentIdCard = profile.student_id_card || user.email?.split("@")[0] || "";
+      let orCondition = `student_id_card.eq.${studentIdCard},full_name.ilike.%${profile.full_name}%`;
+
+      const { data: uniformData } = await supabase
+        .from("uniform_activities")
+        .select("*")
+        .or(orCondition)
+        .maybeSingle();
+
+      if (uniformData) {
+        setStudentData(uniformData);
+
+        const currentAct = uniformData.activity_name && uniformData.activity_name !== "EMPTY" 
+          ? uniformData.activity_name 
+          : "เนตรนารี";
+        setSelectedActivity(currentAct);
+
+        setLevel1(uniformData.level_1 && uniformData.level_1 !== "EMPTY" ? uniformData.level_1 : "");
+        setLevel2(uniformData.level_2 && uniformData.level_2 !== "EMPTY" ? uniformData.level_2 : "");
+        setLevel3(uniformData.level_3 && uniformData.level_3 !== "EMPTY" ? uniformData.level_3 : "");
+      } else {
+        // กรณีที่ยังไม่มีข้อมูลในตาราง uniform_activities ให้สร้างข้อมูลจำลองจาก profile
+        const newStudentObj = {
+          id: user.id,
+          full_name: profile.full_name,
+          grade_level: profile.grade_level,
+          classroom: profile.classroom,
+          student_id_card: studentIdCard,
+          activity_name: "เนตรนารี",
+        };
+        setStudentData(newStudentObj);
+        setSelectedActivity("เนตรนารี");
+      }
+    } catch (error: any) {
+      console.error("Error fetching student data:", error);
+      Swal.fire({ icon: "error", title: "เกิดข้อผิดพลาดในการโหลดข้อมูล", text: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // กำหนดชื่อยศ/ระดับย่อย และคำนำหน้าดร็อปดาวน์ตามระเบียบกิจกรรม
   const getLevelConfig = (actName: string = "") => {
@@ -80,57 +154,6 @@ export default function StudentUniformSetupPage() {
     return list;
   };
 
-  // ค้นหารายชื่อนักเรียน
-  const handleSearchStudent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!studentIdCard.trim()) return;
-
-    setLoading(true);
-    setStudentData(null);
-
-    const term = studentIdCard.trim();
-    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term);
-
-    let orCondition = `student_id_card.eq.${term},full_name.ilike.%${term}%`;
-    if (isUuid) {
-      orCondition += `,id.eq.${term}`;
-    }
-
-    const { data, error } = await supabase
-      .from("uniform_activities")
-      .select("*")
-      .or(orCondition)
-      .maybeSingle();
-
-    if (error) {
-      console.error("Error searching student:", error);
-      Swal.fire({ icon: "error", title: "เกิดข้อผิดพลาดในการค้นหา", text: error.message });
-      setLoading(false);
-      return;
-    }
-
-    if (data) {
-      setStudentData(data);
-
-      // ดึงชื่อกิจกรรมจาก DB อัตโนมัติ (หากไม่มีให้ตั้งเป็นเนตรนารี)
-      const currentAct = data.activity_name && data.activity_name !== "EMPTY" ? data.activity_name : "เนตรนารี";
-      setSelectedActivity(currentAct);
-
-      setLevel1(data.level_1 && data.level_1 !== "EMPTY" ? data.level_1 : "");
-      setLevel2(data.level_2 && data.level_2 !== "EMPTY" ? data.level_2 : "");
-      setLevel3(data.level_3 && data.level_3 !== "EMPTY" ? data.level_3 : "");
-    } else {
-      Swal.fire({
-        icon: "warning",
-        title: "ไม่พบข้อมูลนักเรียน",
-        text: `ไม่พบรายชื่อกิจกรรมเครื่องแบบที่ตรงกับ "${term}" กรุณาตรวจสอบรหัสอีกครั้ง`,
-        confirmButtonColor: "#2563eb",
-      });
-    }
-
-    setLoading(false);
-  };
-
   // บันทึกข้อมูล
   const handleSaveLevels = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -140,6 +163,10 @@ export default function StudentUniformSetupPage() {
     const config = getLevelConfig(selectedActivity);
 
     const payload: any = {
+      full_name: studentData.full_name,
+      grade_level: studentData.grade_level,
+      classroom: studentData.classroom,
+      student_id_card: studentData.student_id_card,
       activity_name: selectedActivity,
       level_1: level1 || "EMPTY",
       level_2: level2 || "EMPTY",
@@ -147,10 +174,10 @@ export default function StudentUniformSetupPage() {
       updated_at: new Date().toISOString(),
     };
 
+    // อัปเดตข้อมูลหรือสร้างเพิ่มกรณีเพิ่งบันทึกครั้งแรก
     const { error } = await supabase
       .from("uniform_activities")
-      .update(payload)
-      .eq("id", studentData.id);
+      .upsert({ id: studentData.id, ...payload });
 
     if (error) {
       Swal.fire({ icon: "error", title: "เกิดข้อผิดพลาดในการบันทึก", text: error.message });
@@ -192,37 +219,21 @@ export default function StudentUniformSetupPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              ดึงข้อมูลกิจกรรมอัตโนมัติ และเลือกระบุสังกัดกลุ่ม กอง หมู่ หมวด ประจำปีการศึกษา
+              ระบบดึงข้อมูลกิจกรรมอัตโนมัติ เลือกระบุสังกัดกลุ่ม กอง หมู่ หมวด ประจำปีการศึกษา
             </p>
           </div>
         </div>
 
-        {/* Search Bar */}
-        <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-          <h2 className="font-bold text-slate-900 text-sm flex items-center gap-2">
-            <span>🔍</span> ค้นหารายชื่อนักเรียน
-          </h2>
-
-          <form onSubmit={handleSearchStudent} className="flex gap-2">
-            <input
-              type="text"
-              placeholder="พิมพ์เลขประจำตัวประชาชน / รหัสนักเรียน / ชื่อ-สกุล..."
-              value={studentIdCard}
-              onChange={(e) => setStudentIdCard(e.target.value)}
-              className="flex-1 px-4 py-2.5 border border-slate-200 rounded-xl text-xs focus:ring-2 focus:ring-purple-500 outline-none"
-            />
-            <button
-              type="submit"
-              disabled={loading}
-              className="px-6 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all"
-            >
-              {loading ? "กำลังค้นหา..." : "ค้นหา"}
-            </button>
-          </form>
-        </div>
+        {/* สถานะกำลังโหลดข้อมูล */}
+        {loading && (
+          <div className="bg-white p-12 rounded-3xl border border-slate-200 shadow-sm text-center">
+            <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-purple-500 border-t-transparent mb-3"></div>
+            <p className="text-xs font-bold text-slate-600">กำลังดึงข้อมูลกิจกรรมเครื่องแบบของคุณ...</p>
+          </div>
+        )}
 
         {/* Student Setup Form */}
-        {studentData && (
+        {!loading && studentData && (
           <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-6">
             
             {/* Profile Info Header */}
