@@ -5,54 +5,49 @@ import Link from "next/link";
 
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeGalleryTab, setActiveGalleryTab] = useState("ทั้งหมด");
+
+  // ข้อมูลจำลองสำหรับภาพกิจกรรม
+  const galleryItems = [
+    { id: 1, category: "ชุมนุม", title: "ประกวดวงดนตรี", color: "from-rose-400 to-rose-500", icon: "🎸" },
+    { id: 2, category: "กิจกรรมเครื่องแบบ", title: "เข้าค่ายลูกเสือ ม.1", color: "from-emerald-400 to-emerald-500", icon: "🏕️" },
+    { id: 3, category: "กิจกรรมเพื่อสังคม", title: "ปลูกป่าชายเลน", color: "from-blue-400 to-blue-500", icon: "🤝" },
+    { id: 4, category: "งานแนะแนว", title: "ปัจฉิมนิเทศ ม.6", color: "from-purple-400 to-purple-500", icon: "🎓" },
+    { id: 5, category: "ชุมนุม", title: "นิทรรศการศิลปะ", color: "from-rose-400 to-rose-500", icon: "🎨" },
+    { id: 6, category: "กิจกรรมเครื่องแบบ", title: "สวนสนาม เนตรนารี", color: "from-emerald-400 to-emerald-500", icon: "🚶‍♀️" },
+  ];
+
+  // คัดกรองภาพตามแท็บที่เลือก
+  const filteredGallery = activeGalleryTab === "ทั้งหมด" 
+    ? galleryItems 
+    : galleryItems.filter(item => item.category === activeGalleryTab);
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans relative overflow-x-hidden">
       
-      {/* 🟢 แถบเมนูด้านข้าง (Sidebar) - ซ่อนไว้เปิดด้วยปุ่ม ☰ */}
-      <div 
-        className={`fixed inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white shadow-2xl transform transition-transform duration-300 ease-in-out ${
-          isSidebarOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
-      >
+      {/* 🟢 แถบเมนูด้านข้าง (Sidebar) */}
+      <div className={`fixed inset-y-0 left-0 z-[60] w-72 bg-slate-900 text-white shadow-2xl transform transition-transform duration-300 ease-in-out ${isSidebarOpen ? "translate-x-0" : "-translate-x-full"}`}>
         <div className="p-5 border-b border-slate-800 flex justify-between items-center">
           <span className="font-bold text-lg">เมนูหลัก</span>
-          <button 
-            onClick={() => setIsSidebarOpen(false)}
-            className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition text-slate-300 hover:text-white"
-          >
-            ✕
-          </button>
+          <button onClick={() => setIsSidebarOpen(false)} className="p-2 bg-slate-800 hover:bg-slate-700 rounded-full transition text-slate-300 hover:text-white">✕</button>
         </div>
         <nav className="p-4 space-y-2">
           <Link href="/" className="block px-4 py-3 bg-blue-600 rounded-xl font-bold shadow-md">🏠 หน้าแรก</Link>
           <Link href="/login" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">🔑 เข้าสู่ระบบ</Link>
           <Link href="/admin" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">⚙️ ระบบ Admin</Link>
-          <Link href="/admin/uniform-import" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">📥 นำเข้าเครื่องแบบ (CSV)</Link>
-          <Link href="/teacher/club/import" className="block px-4 py-3 hover:bg-slate-800 rounded-xl transition">🏫 นำเข้าชุมนุม (CSV)</Link>
         </nav>
       </div>
 
-      {/* ฉากหลังสีดำทึบแสงเมื่อเปิด Sidebar */}
-      {isSidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm transition-opacity"
-          onClick={() => setIsSidebarOpen(false)}
-        ></div>
-      )}
+      {isSidebarOpen && <div className="fixed inset-0 bg-black/50 z-50 backdrop-blur-sm transition-opacity" onClick={() => setIsSidebarOpen(false)}></div>}
 
       {/* 🔵 แถบด้านบนสุด (Header Top Bar) */}
       <div className="bg-white px-4 py-3 flex items-center justify-between shadow-sm relative z-40 border-b border-slate-100">
         <div className="flex items-center gap-4">
-          <button 
-            onClick={() => setIsSidebarOpen(true)}
-            className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition"
-            title="เปิดเมนู"
-          >
+          <button onClick={() => setIsSidebarOpen(true)} className="p-2 text-slate-600 hover:bg-slate-100 rounded-lg transition" title="เปิดเมนู">
             <span className="text-2xl leading-none">☰</span>
           </button>
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-xl">🏛️</div>
+            <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center text-xl">🏛️</div>
             <div>
               <h1 className="font-bold text-slate-800 leading-tight text-base md:text-lg">โรงเรียนเชียงคำวิทยาคม <span className="text-blue-600 hidden md:inline">| งานกิจกรรมพัฒนาผู้เรียน</span></h1>
               <p className="text-[10px] text-slate-500 uppercase tracking-wider">Chiangkhamwittayakhom School</p>
@@ -66,29 +61,11 @@ export default function HomePage() {
         </div>
       </div>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-8 relative z-10">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8 relative z-10">
         
-        {/* 🟡 1. Hero Banner ส่วนต้อนรับ */}
-        <div className="relative bg-gradient-to-r from-blue-100 via-white to-blue-50 rounded-3xl overflow-hidden shadow-sm h-[280px] md:h-[320px] flex items-center border border-blue-100/50">
-          <div className="relative z-10 p-8 md:p-16 w-full text-center md:text-left">
-            <h2 className="text-3xl md:text-5xl font-extrabold text-blue-900 tracking-tight">
-              กิจกรรมพัฒนาผู้เรียน
-            </h2>
-            <h3 className="text-xl md:text-2xl font-bold text-slate-700 mt-2">
-              โรงเรียนเชียงคำวิทยาคม
-            </h3>
-            <p className="mt-4 text-blue-600 font-medium text-base md:text-lg">
-              สร้างประสบการณ์ ✨ สร้างเพื่อน 🤝 สร้างอนาคต 🚀
-            </p>
-          </div>
-        </div>
-
-        {/* 🔴 2. แถบสถิติ 3 กล่อง และปุ่มสมัคร (ปรับปรุงใหม่ตามเงื่อนไข) */}
-        <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 p-4 md:p-6 -mt-16 relative z-20 flex flex-col xl:flex-row items-center justify-between gap-6 border border-slate-100">
-          
+        {/* 🔴 1. แถบสถิติ 3 กล่อง และปุ่มสมัคร */}
+        <div className="bg-white rounded-3xl shadow-sm p-4 md:p-6 flex flex-col xl:flex-row items-center justify-between gap-6 border border-slate-200">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full xl:w-auto divide-y md:divide-y-0 md:divide-x divide-slate-100">
-            
-            {/* กล่องที่ 1: นักเรียนทั้งหมด */}
             <div className="flex items-center gap-4 pt-2 md:pt-0">
               <div className="w-12 h-12 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-2xl shrink-0">👥</div>
               <div>
@@ -96,8 +73,6 @@ export default function HomePage() {
                 <p className="text-xl font-bold text-blue-600">1,256 <span className="text-xs text-slate-500 font-normal">คน</span></p>
               </div>
             </div>
-
-            {/* กล่องที่ 2: กิจกรรมชุมนุม */}
             <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
               <div className="w-12 h-12 bg-rose-100 text-rose-600 rounded-full flex items-center justify-center text-2xl shrink-0">🎸</div>
               <div>
@@ -108,8 +83,6 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-
-            {/* กล่องที่ 3: กิจกรรมเครื่องแบบ (เฉพาะ ม.ต้น) */}
             <div className="flex items-center gap-4 pt-4 md:pt-0 md:pl-6">
               <div className="w-12 h-12 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center text-2xl shrink-0">🏕️</div>
               <div>
@@ -123,19 +96,15 @@ export default function HomePage() {
                 </div>
               </div>
             </div>
-
           </div>
-          
-          {/* ปุ่มสมัคร */}
           <Link href="/login" className="w-full xl:w-auto bg-rose-500 hover:bg-rose-600 text-white px-6 py-3.5 rounded-full font-bold text-base shadow-lg shadow-rose-500/30 transition-all text-center flex items-center justify-center gap-2 shrink-0">
             ⭐ สมัครเข้าร่วมกิจกรรม ➔
           </Link>
-
         </div>
 
-        {/* 🟢 3. กล่องเมนูกิจกรรม 4 สี */}
+        {/* 🟢 2. กล่องเมนูกิจกรรม 4 สี */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Link href="/login" className="group bg-gradient-to-br from-rose-400 to-rose-600 rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all relative overflow-hidden h-40 flex flex-col justify-between">
+          <Link href="/login" className="group bg-gradient-to-br from-rose-400 to-rose-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
             <div className="relative z-10">
               <h3 className="font-bold text-xl">ชุมนุม</h3>
               <p className="text-rose-100 text-xs mt-1">ค้นหาความสนใจ พัฒนาทักษะ</p>
@@ -146,8 +115,7 @@ export default function HomePage() {
             </div>
             <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🎸</div>
           </Link>
-
-          <Link href="/login" className="group bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all relative overflow-hidden h-40 flex flex-col justify-between">
+          <Link href="/login" className="group bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
             <div className="relative z-10">
               <h3 className="font-bold text-xl">กิจกรรมเครื่องแบบ</h3>
               <p className="text-emerald-100 text-xs mt-1">ระเบียบ วินัย ความเป็นผู้นำ</p>
@@ -158,8 +126,7 @@ export default function HomePage() {
             </div>
             <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🏕️</div>
           </Link>
-
-          <Link href="/login" className="group bg-gradient-to-br from-blue-400 to-blue-600 rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all relative overflow-hidden h-40 flex flex-col justify-between">
+          <Link href="/login" className="group bg-gradient-to-br from-blue-400 to-blue-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
             <div className="relative z-10">
               <h3 className="font-bold text-xl">กิจกรรมเพื่อสังคม</h3>
               <p className="text-blue-100 text-xs mt-1">จิตอาสา สาธารณประโยชน์</p>
@@ -170,8 +137,7 @@ export default function HomePage() {
             </div>
             <div className="absolute -right-4 -bottom-4 text-8xl opacity-20">🤝</div>
           </Link>
-
-          <Link href="/login" className="group bg-gradient-to-br from-purple-400 to-purple-600 rounded-3xl p-6 text-white shadow-lg hover:shadow-xl transition-all relative overflow-hidden h-40 flex flex-col justify-between">
+          <Link href="/login" className="group bg-gradient-to-br from-purple-400 to-purple-600 rounded-3xl p-6 text-white shadow-sm hover:shadow-md transition-all relative overflow-hidden h-40 flex flex-col justify-between">
             <div className="relative z-10">
               <h3 className="font-bold text-xl">งานแนะแนว</h3>
               <p className="text-purple-100 text-xs mt-1">ค้นพบตัวเอง สู่เส้นทางอนาคต</p>
@@ -184,28 +150,33 @@ export default function HomePage() {
           </Link>
         </div>
 
-        {/* 🟣 4. ส่วนข่าวสาร, ปฏิทินกิจกรรม และ รูปภาพกราฟิกด้านล่าง */}
+        {/* 🟣 3. ส่วนข่าวสาร, ปฏิทิน, และ แกลเลอรีภาพกิจกรรม */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
-          {/* กล่องข่าวสาร */}
-          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="font-bold text-base flex items-center gap-2 text-slate-800">
-                <span className="text-rose-500">📢</span> ประกาศ/ข่าวสาร
+          {/* กล่องข่าวสาร (ปรับให้เด่น สะดุดตา) */}
+          <div className="bg-rose-50/60 rounded-3xl shadow-sm border-2 border-rose-200 p-6 relative overflow-hidden">
+            <div className="absolute top-0 left-0 w-1.5 h-full bg-rose-500"></div>
+            <div className="flex justify-between items-center mb-5">
+              <h3 className="font-extrabold text-lg flex items-center gap-2 text-rose-700">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+                </span>
+                ประกาศด่วน / ข่าวสาร
               </h3>
-              <Link href="/login" className="text-xs text-blue-600 hover:underline">ดูทั้งหมด ➔</Link>
+              <Link href="/login" className="text-xs text-rose-600 hover:underline font-semibold">ดูทั้งหมด ➔</Link>
             </div>
-            <div className="space-y-3">
+            <div className="space-y-4">
               {[
-                { tag: "ด่วน", color: "bg-rose-500", text: "เปิดรับสมัครสมาชิกชุมนุม ประจำภาคเรียนที่ 1/2569", date: "12 พ.ย. 2569" },
-                { tag: "ใหม่", color: "bg-blue-500", text: "กิจกรรมจิตอาสา ทำความสะอาดโรงเรียน", date: "10 พ.ย. 2569" },
-                { tag: "ประชาสัมพันธ์", color: "bg-emerald-500", text: "ตารางกิจกรรมเครื่องแบบ ประจำเดือนพฤศจิกายน", date: "8 พ.ย. 2569" },
+                { tag: "ด่วนที่สุด", color: "bg-rose-600", text: "เปิดรับสมัครสมาชิกชุมนุม ประจำภาคเรียนที่ 1/2569", date: "12 พ.ย. 2569" },
+                { tag: "ใหม่", color: "bg-blue-500", text: "กิจกรรมจิตอาสา ทำความสะอาดโรงเรียน (นับชั่วโมงได้)", date: "10 พ.ย. 2569" },
+                { tag: "แจ้งเตือน", color: "bg-amber-500", text: "ตารางกิจกรรมเครื่องแบบ ประจำเดือนพฤศจิกายน", date: "8 พ.ย. 2569" },
               ].map((news, i) => (
-                <div key={i} className="flex gap-3 items-start pb-3 border-b border-slate-50 last:border-0 last:pb-0">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap mt-0.5 ${news.color}`}>{news.tag}</span>
+                <div key={i} className="flex gap-3 items-start pb-3 border-b border-rose-100 last:border-0 last:pb-0">
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold text-white whitespace-nowrap mt-0.5 shadow-sm ${news.color}`}>{news.tag}</span>
                   <div>
-                    <p className="text-xs text-slate-700 hover:text-blue-600 cursor-pointer font-medium leading-relaxed">{news.text}</p>
-                    <p className="text-[10px] text-slate-400 mt-1">{news.date}</p>
+                    <p className="text-sm text-slate-800 hover:text-rose-600 cursor-pointer font-bold leading-tight">{news.text}</p>
+                    <p className="text-[10px] text-slate-500 mt-1.5">{news.date}</p>
                   </div>
                 </div>
               ))}
@@ -216,7 +187,7 @@ export default function HomePage() {
           <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6">
             <div className="flex justify-between items-center mb-4">
               <h3 className="font-bold text-base flex items-center gap-2 text-slate-800">
-                <span className="text-rose-500">📅</span> ปฏิทินกิจกรรม
+                <span className="text-blue-500">📅</span> ปฏิทินกิจกรรม
               </h3>
               <Link href="/login" className="text-xs text-blue-600 hover:underline">ดูทั้งหมด ➔</Link>
             </div>
@@ -240,16 +211,45 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* กล่องกราฟิกสีเหลือง */}
-          <div className="bg-gradient-to-br from-amber-400 to-amber-500 rounded-3xl shadow-sm p-6 flex flex-col justify-center items-center text-center relative overflow-hidden min-h-[220px]">
-             <div className="relative z-10 space-y-3">
-                <h3 className="text-2xl font-black text-amber-950 leading-snug">
-                  " เพื่อนกัน <br/> กิจกรรมดี ๆ <br/> ที่เชียงคำวิทยาคม "
-                </h3>
-                <p className="text-amber-900 font-semibold bg-amber-300/60 px-4 py-1.5 rounded-full text-xs backdrop-blur-sm inline-block">
-                  ✨ More Than a School
-                </p>
-             </div>
+          {/* กล่องแกลเลอรีภาพกิจกรรม (แทนกล่องสีเหลือง) */}
+          <div className="bg-white rounded-3xl shadow-sm border border-slate-100 p-6 flex flex-col h-[280px]">
+            <h3 className="font-bold text-base flex items-center gap-2 text-slate-800 mb-3">
+              <span className="text-amber-500">📸</span> ภาพกิจกรรม
+            </h3>
+            
+            {/* ตัวกรองหมวดหมู่ */}
+            <div className="flex flex-wrap gap-1.5 mb-4">
+              {["ทั้งหมด", "ชุมนุม", "กิจกรรมเครื่องแบบ", "กิจกรรมเพื่อสังคม", "งานแนะแนว"].map((tab) => (
+                <button 
+                  key={tab} 
+                  onClick={() => setActiveGalleryTab(tab)}
+                  className={`text-[10px] px-2.5 py-1 rounded-full border transition-colors ${
+                    activeGalleryTab === tab 
+                      ? 'bg-slate-800 text-white border-slate-800' 
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+
+            {/* พื้นที่แสดงภาพ (ใช้ Grid) */}
+            <div className="flex-1 overflow-y-auto pr-1 custom-scrollbar">
+              <div className="grid grid-cols-2 gap-3">
+                {filteredGallery.slice(0, 4).map(item => (
+                  <div key={item.id} className={`bg-gradient-to-br ${item.color} rounded-xl p-3 text-white flex flex-col justify-between min-h-[90px] shadow-sm hover:scale-[1.02] transition-transform cursor-pointer`}>
+                    <div className="text-2xl drop-shadow-sm">{item.icon}</div>
+                    <p className="text-[10px] font-bold mt-2 truncate drop-shadow-sm">{item.title}</p>
+                  </div>
+                ))}
+                {filteredGallery.length === 0 && (
+                  <div className="col-span-2 flex items-center justify-center text-slate-400 text-xs py-8 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                    ไม่มีภาพกิจกรรมในหมวดหมู่นี้
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
         </div>
