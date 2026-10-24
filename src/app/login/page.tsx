@@ -6,14 +6,14 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 
-// สร้าง Supabase Client (แนะแนวนำ URL/Key ไปใส่ใน .env.local)
+// สร้าง Supabase Client
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 export default function LoginPage() {
   const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
+  const [password, setPassword] = useState("12345678"); // กำหนดค่าเริ่มต้นในฟอร์มเป็น 12345678
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
 
@@ -22,11 +22,10 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      // 1. จัดการแปลงUsername ให้เป็นรูปแบบอีเมลของโรงเรียน (@chiangkham.ac.th)
+      // 1. แปลง Username เป็นอีเมลองค์กร (@chiangkham.ac.th)
       let loginEmail = username.trim();
 
       if (!loginEmail.includes("@")) {
-        // หากไม่ได้พิมพ์ @ มาด้วย จะต่อท้ายด้วย @chiangkham.ac.th อัตโนมัติ
         loginEmail = `${loginEmail}@chiangkham.ac.th`;
       }
 
@@ -38,7 +37,7 @@ export default function LoginPage() {
 
       if (authError) throw authError;
 
-      // 3. ดึงข้อมูล Role จากตาราง profiles เพื่อเปลี่ยนหน้าตามสิทธิ์
+      // 3. ดึงข้อมูล Role จากตาราง profiles
       const { data: profile, error: profileError } = await supabase
         .from("profiles")
         .select("role")
@@ -47,7 +46,7 @@ export default function LoginPage() {
 
       if (profileError) throw profileError;
 
-      // 4. สลับหน้าไปยัง Path ตามสิทธิ์ (เช่น /student, /teacher, /admin)
+      // 4. สลับหน้าไปยัง Path ตามสิทธิ์ใช้งาน (เช่น /student, /teacher, /admin)
       const userRole = profile?.role || "student";
       router.push(`/${userRole}`);
 
@@ -73,7 +72,7 @@ export default function LoginPage() {
         <div className="absolute inset-0 bg-gradient-to-br from-slate-900/90 to-red-900/80 backdrop-blur-sm"></div>
       </div>
 
-      {/* 📦 กล่องฟอร์มเข้าสู่ระบบ (ขนาดกะทัดรัด max-w-sm) */}
+      {/* 📦 กล่องฟอร์มเข้าสู่ระบบ */}
       <div className="relative z-10 w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden">
         
         {/* ส่วนหัวกล่อง */}
@@ -104,7 +103,7 @@ export default function LoginPage() {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white text-sm transition-all"
-                  placeholder="รหัสนักเรียน 5 หลัก หรือชื่อครู"
+                  placeholder="เช่น 34833 หรือ ชื่อครู"
                   required
                 />
               </div>
@@ -131,7 +130,7 @@ export default function LoginPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full pl-9 pr-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-red-500 focus:bg-white text-sm transition-all"
-                  placeholder="กรอกรหัสผ่าน"
+                  placeholder="รหัสผ่านตั้งต้น 12345678"
                   required
                 />
               </div>
