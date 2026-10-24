@@ -43,9 +43,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* 🔴 ส่วนหัว (Header Banner) - แบบใช้รูปภาพที่มีข้อความในตัว */}
-      <header className="relative w-full h-[160px] md:h-[200px] lg:h-[250px] overflow-hidden shadow-lg flex items-center">
-        {/* รูปแบนเนอร์พื้นหลัง (แนะนำขนาด 1200x300) */}
+      {/* 🔴 ส่วนหัว (Header Banner) */}
+      <header className="relative w-full h-[160px] md:h-[200px] lg:h-[240px] overflow-hidden shadow-lg flex">
+        {/* รูปแบนเนอร์พื้นหลัง */}
         <Image 
           src="/images/banner.jpg" 
           alt="Header Banner" 
@@ -54,20 +54,20 @@ export default function HomePage() {
           className="object-cover object-center z-0" 
         />
         
-        {/* เงาดำไล่สีเฉพาะฝั่งขวา เพื่อให้กล่อง Login อ่านง่ายขึ้น */}
+        {/* เงาดำไล่สี */}
         <div className="absolute inset-0 bg-gradient-to-l from-black/60 via-transparent to-transparent z-0 hidden md:block"></div>
         
-        {/* คอนเทนต์ด้านบน (จัดกล่อง Login ไปไว้ขวาสุด ลบข้อความซ้ายออก) */}
-        <div className="relative z-10 w-full max-w-7xl mx-auto px-4 flex justify-end">
+        {/* ใช้วิธีจัดให้อยู่ด้านบนขวาด้วย items-start และ pt-4 (padding-top) */}
+        <div className="relative z-10 w-full h-full max-w-7xl mx-auto px-4 flex justify-end items-start pt-4 md:pt-6 lg:pt-8">
           
-          {/* 👤 กล่อง User / Login (แสดงเฉพาะหน้าจอใหญ่) */}
-          <div className="hidden md:flex flex-col items-center bg-black/40 backdrop-blur-sm p-5 rounded-xl border border-white/20 shadow-xl min-w-[220px]">
-            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl mb-2 shadow-inner">
+          {/* 👤 กล่อง User / Login - ปรับขนาดให้เล็กลง (ลด p, min-w, ขนาด font และ icon) */}
+          <div className="hidden md:flex flex-col items-center bg-black/50 backdrop-blur-md p-3 md:p-4 rounded-xl border border-white/20 shadow-xl min-w-[160px] md:min-w-[180px]">
+            <div className="w-8 h-8 md:w-10 md:h-10 bg-white/20 rounded-full flex items-center justify-center text-lg md:text-xl mb-1 shadow-inner">
               👤
             </div>
-            <p className="text-white font-bold text-sm mb-1 drop-shadow-md">ผู้เยี่ยมชมทั่วไป</p>
-            <p className="text-white/80 text-[11px] mb-3">กรุณาเข้าสู่ระบบเพื่อทำรายการ</p>
-            <Link href="/login" className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition shadow-md">
+            <p className="text-white font-bold text-xs md:text-sm mb-0.5 drop-shadow-md">ผู้เยี่ยมชมทั่วไป</p>
+            <p className="text-white/80 text-[9px] md:text-[10px] mb-2.5">กรุณาเข้าสู่ระบบเพื่อทำรายการ</p>
+            <Link href="/login" className="w-full flex items-center justify-center px-3 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold rounded-lg transition shadow-md">
               เข้าสู่ระบบ
             </Link>
           </div>
