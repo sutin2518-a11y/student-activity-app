@@ -54,7 +54,7 @@ export default function HomePage() {
           className="object-cover z-0" 
         />
         
-        {/* แผ่นฟิล์มสีดำจางๆ กันรูปสว่างเกินไป (ลบออกได้ถ้ารูปเข้มอยู่แล้ว) */}
+        {/* แผ่นฟิล์มสีดำจางๆ กันรูปสว่างเกินไป */}
         <div className="absolute inset-0 bg-black/30 z-0"></div>
         
         {/* เนื้อหาด้านบน */}
@@ -69,13 +69,22 @@ export default function HomePage() {
               <p className="text-sm mt-1 opacity-90 drop-shadow-md">อำเภอเชียงคำ จังหวัดพะเยา</p>
             </div>
           </div>
-          <div className="hidden md:block text-center bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20 shadow-lg">
-            <p className="text-yellow-200 font-medium italic text-lg drop-shadow-md">" พัฒนาคนดี <br/> มีความสามารถ <br/> สร้างสังคมที่ยั่งยืน "</p>
+          
+          {/* 👤 กล่อง User / Login (แสดงเฉพาะจอมอนิเตอร์) */}
+          <div className="hidden md:flex flex-col items-center bg-white/10 backdrop-blur-md p-5 rounded-xl border border-white/20 shadow-lg min-w-[220px]">
+            <div className="w-12 h-12 bg-white/20 rounded-full flex items-center justify-center text-2xl mb-2 shadow-inner">
+              👤
+            </div>
+            <p className="text-white font-bold text-sm mb-1 drop-shadow-md">ผู้เยี่ยมชมทั่วไป</p>
+            <p className="text-white/80 text-[11px] mb-3">กรุณาเข้าสู่ระบบเพื่อทำรายการ</p>
+            <Link href="/login" className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-yellow-500 hover:bg-yellow-400 text-slate-900 font-bold rounded-lg transition shadow-md">
+              เข้าสู่ระบบ
+            </Link>
           </div>
         </div>
       </header>
 
-      {/* ⚪ แถบเมนูนำทาง */}
+      {/* ⚪ แถบเมนูนำทาง (เอา Login ฝั่งขวาออกแล้ว) */}
       <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
         <div className="bg-white rounded-xl shadow-md p-2 flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
           
@@ -94,11 +103,6 @@ export default function HomePage() {
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-pink-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</Link>
           
-          <div className="ml-auto pl-2 border-l border-slate-200">
-            <Link href="/login" className="flex items-center gap-2 px-5 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition">
-              <span>👤</span> เข้าสู่ระบบ
-            </Link>
-          </div>
         </div>
       </nav>
 
