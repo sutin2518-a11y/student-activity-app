@@ -71,6 +71,12 @@ export default function HomePage() {
           <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👮</span> กิจกรรมในเครื่องแบบ</Link>
           <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
           <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🧭</span> กิจกรรมแนะแนว</Link>
+          
+          {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Sidebar */}
+          <Link href="/teacher/attendance" className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl transition border border-blue-100">
+            <span className="text-xl">✅</span> ระบบเช็คชื่อ
+          </Link>
+
           <div className="border-t border-slate-100 my-2"></div>
           <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📢</span> ข่าวประชาสัมพันธ์</Link>
           <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📅</span> ปฏิทินกิจกรรม</Link>
@@ -97,27 +103,20 @@ export default function HomePage() {
         {/* เงาดำไล่สี */}
         <div className="absolute inset-0 bg-gradient-to-l from-black/40 via-transparent to-transparent z-0 hidden md:block"></div>
         
-        {/* คอนเทนต์ด้านบน จัดให้อยู่มุมขวาบน และดันชิดขอบบน (ใช้ pt-2 md:pt-3 แทนของเดิม) */}
+        {/* คอนเทนต์ด้านบน */}
         <div className="relative z-10 w-full h-full max-w-7xl mx-auto px-4 flex justify-end items-start pt-2 md:pt-3">
           
-          {/* 👤 กล่อง User / Login - เปลี่ยนพื้นหลังเป็นสีสว่างสดใส (ขาวโปร่งแสง) */}
+          {/* 👤 กล่อง User / Login */}
           <div className="hidden md:flex items-center bg-white/95 backdrop-blur-md pl-2 pr-2 py-1.5 rounded-full border border-white/50 shadow-xl gap-3">
-            
-            {/* ไอคอน / รูปโปรไฟล์ */}
             <div className="w-8 h-8 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center text-sm shadow-inner shrink-0">
               👤
             </div>
-            
-            {/* ข้อความชื่อผู้ใช้ (สีเทาเข้ม) */}
             <div className="flex flex-col justify-center">
               <span className="text-slate-800 font-extrabold text-xs">ผู้เยี่ยมชมทั่วไป</span>
             </div>
-
-            {/* ปุ่มเข้าสู่ระบบ */}
             <Link href="/login" className="ml-1 px-4 py-1.5 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xs font-bold rounded-full transition shadow-md whitespace-nowrap">
               เข้าสู่ระบบ
             </Link>
-            
           </div>
 
         </div>
@@ -140,6 +139,12 @@ export default function HomePage() {
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-600 text-lg">👮</span> กิจกรรมในเครื่องแบบ</Link>
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
+          
+          {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Navbar */}
+          <Link href="/teacher/attendance" className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
+            <span className="text-lg">✅</span> ระบบเช็คชื่อ
+          </Link>
+
           <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-pink-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</Link>
           
         </div>
@@ -167,12 +172,10 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* 🟡 1. การ์ดกิจกรรม 4 สี (ดีไซน์ใหม่ - ย่อขนาดด้านล่าง) */}
+        {/* 🟡 1. การ์ดกิจกรรม 4 สี */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {activities.map((item, index) => (
             <Link href={item.link} key={index} className={`relative rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow flex flex-col ${item.bgColor}`}>
-              
-              {/* 🖼️ รูปภาพครึ่งบน */}
               <div className="relative w-full h-40 bg-gray-200 shrink-0">
                 <Image 
                   src={item.image} 
@@ -181,27 +184,20 @@ export default function HomePage() {
                   className="object-cover"
                 />
               </div>
-
-              {/* 🎯 ไอคอนวงกลมทับเส้นรอยต่อ */}
               <div className={`absolute top-40 -translate-y-1/2 left-4 w-12 h-12 rounded-full ${item.bgColor} flex items-center justify-center text-white border-2 border-white/20 shadow-sm z-10 text-xl`}>
                 {item.icon}
               </div>
-
-              {/* 📝 เนื้อหาครึ่งล่าง (จัดข้อความและลูกศรให้อยู่บรรทัดเดียวกัน) */}
               <div className="px-5 pt-8 pb-4 text-white flex justify-between items-center gap-2">
                 <div className="flex-1">
                   <h3 className="font-bold text-[15px] xl:text-lg leading-tight mb-1 whitespace-pre-line">{item.title}</h3>
                   <p className="text-xs text-white/90">สมาชิก {item.members} คน</p>
                 </div>
-                
-                {/* ➡️ ปุ่มลูกศรวงกลม */}
                 <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center shadow hover:scale-110 transition-transform shrink-0">
                   <svg className={`w-4 h-4 ${item.textColor}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M14 5l7 7m0 0l-7 7m7-7H3" />
                   </svg>
                 </div>
               </div>
-
             </Link>
           ))}
         </div>
