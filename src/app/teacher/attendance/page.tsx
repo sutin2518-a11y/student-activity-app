@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
+import Swal from "sweetalert2";
 
 // เชื่อมต่อ Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -61,7 +62,7 @@ function AttendanceContent() {
     setLoading(true);
     const [grade, room] = selectedRoom.split("/");
 
-    // 2.1 ดึงรายชื่อนักเรียนในห้องจาก student_database
+    // ดึงรายชื่อนักเรียนในห้องจาก student_database
     const { data: studentData, error: studentError } = await supabase
       .from("student_database")
       .select("id, student_id_card, no, full_name, gender")
@@ -71,14 +72,19 @@ function AttendanceContent() {
 
     if (studentError) {
       console.error("Error fetching students:", studentError);
-      alert("เกิดข้อผิดพลาดในการดึงข้อมูลนักเรียน");
+      Swal.fire({
+        icon: "error",
+        title: "เกิดข้อผิดพลาด!",
+        text: "ไม่สามารถดึงข้อมูลนักเรียนได้",
+        confirmButtonColor: "#2563eb",
+      });
       setLoading(false);
       return;
     }
 
     const currentStudents = studentData || [];
 
-    // 2.2 ดึงประวัติการเช็คชื่อที่เคยบันทึกไว้ในตาราง attendance_records ของวันนั้น
+    // ดึงประวัติการเช็คชื่อที่เคยบันทึกไว้ในตาราง attendance_records ของวันนั้น
     const { data: savedRecords } = await supabase
       .from("attendance_records")
       .select("student_id_card, status")
@@ -94,7 +100,7 @@ function AttendanceContent() {
       });
     }
 
-    // 2.3 แมปสถานะให้นักเรียน (ถ้าเคยบันทึกแล้วใช้ค่าเดิม ถ้ายังไม่เคยบันทึกให้เริ่มต้นเป็น "present")
+    // แมปสถานะให้นักเรียน (ถ้าเคยบันทึกแล้วใช้ค่าเดิม ถ้ายังไม่เคยบันทึกให้เริ่มต้นเป็น "present")
     const initialAttendance: { [key: number]: AttendanceStatus } = {};
     currentStudents.forEach((student) => {
       initialAttendance[student.id] = savedStatusMap[student.student_id_card] || "present";
@@ -128,10 +134,15 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
-  // บันทึกข้อมูลลงฐานข้อมูล Supabase (ตาราง attendance_records)
+  // บันทึกข้อมูลลงฐานข้อมูล Supabase (SweetAlert2)
   const handleSaveToDatabase = async () => {
     if (!students.length) {
-      alert("ไม่มีข้อมูลนักเรียนสำหรับบันทึก");
+      Swal.fire({
+        icon: "warning",
+        title: "แจ้งเตือน",
+        text: "ไม่มีข้อมูลนักเรียนสำหรับบันทึก",
+        confirmButtonColor: "#2563eb",
+      });
       return;
     }
 
@@ -155,16 +166,32 @@ function AttendanceContent() {
 
     if (error) {
       console.error("Save error:", error);
-      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + error.message);
+      Swal.fire({
+        icon: "error",
+        title: "บันทึกไม่สำเร็จ!",
+        text: "เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + error.message,
+        confirmButtonColor: "#2563eb",
+      });
     } else {
-      alert(`บันทึกการเช็คชื่อห้อง ${selectedRoom} ประจำวันที่ ${checkDate} เรียบร้อยแล้ว!`);
+      Swal.fire({
+        icon: "success",
+        title: "บันทึกเรียบร้อย!",
+        text: `บันทึกการเช็คชื่อห้อง ${selectedRoom} ประจำวันที่ ${checkDate} เรียบร้อยแล้ว`,
+        timer: 2000,
+        showConfirmButton: false,
+      });
     }
   };
 
   // ส่งออกไฟล์ Excel (.xlsx)
   const handleExportExcel = () => {
     if (!students.length) {
-      alert("ไม่มีข้อมูลนักเรียนสำหรับส่งออก");
+      Swal.fire({
+        icon: "warning",
+        title: "แจ้งเตือน",
+        text: "ไม่มีข้อมูลนักเรียนสำหรับส่งออก",
+        confirmButtonColor: "#2563eb",
+      });
       return;
     }
 
@@ -188,14 +215,14 @@ function AttendanceContent() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet["!cols"] = [
-      { wch: 12 }, // ระดับชั้น
-      { wch: 8 },  // ห้อง
-      { wch: 8 },  // เลขที่
-      { wch: 16 }, // รหัสประจำตัว
-      { wch: 30 }, // ชื่อ-นามสกุล
-      { wch: 10 }, // เพศ
-      { wch: 15 }, // วันที่
-      { wch: 18 }, // สถานะ
+      { wch: 12 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 18 },
     ];
 
     const workbook = XLSX.utils.book_new();
