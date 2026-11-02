@@ -10,11 +10,11 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 type StatItem = {
-  totalStudents: number; // จำนวนนักเรียนทั้งหมดจริงในฐานข้อมูล
-  checkedTotal: number;  // จำนวนคนที่เช็คชื่อแล้ว
-  present: number;       // มา
-  absent: number;        // ขาด
-  leave: number;         // ลา
+  totalStudents: number;
+  checkedTotal: number;
+  present: number;
+  absent: number;
+  leave: number;
 };
 
 function DailySummaryContent() {
@@ -44,34 +44,53 @@ function DailySummaryContent() {
     }
   }, [checkDate]);
 
+  // ฟังก์ชั่นช่วยดึงข้อมูลทั้งหมดจาก Supabase ทะลุขีดจำกัด 1,000 แถว
+  const fetchAllRows = async (tableName: string, columns: string, dateFilter?: string) => {
+    let allRows: any[] = [];
+    let from = 0;
+    const step = 1000;
+    let hasMore = true;
+
+    while (hasMore) {
+      let query = supabase
+        .from(tableName)
+        .select(columns)
+        .range(from, from + step - 1);
+
+      if (dateFilter) {
+        query = query.eq("check_date", dateFilter);
+      }
+
+      const { data, error } = await query;
+
+      if (error) {
+        console.error(`Error fetching ${tableName}:`, error);
+        break;
+      }
+
+      if (data && data.length > 0) {
+        allRows = [...allRows, ...data];
+        if (data.length < step) {
+          hasMore = false;
+        } else {
+          from += step;
+        }
+      } else {
+        hasMore = false;
+      }
+    }
+
+    return allRows;
+  };
+
   const fetchSummaryData = async () => {
     setLoading(true);
 
-    // 1. ดึงรายชื่อนักเรียนจริงทั้งหมดจากตาราง student_database
-    const { data: allStudents, error: studentError } = await supabase
-      .from("student_database")
-      .select("grade_level, classroom");
+    // 1. ดึงนักเรียนทั้งหมดจาก student_database แบบทะลุขีดจำกัด 1,000 คน
+    const students = await fetchAllRows("student_database", "grade_level, classroom");
 
-    if (studentError) {
-      console.error("Error fetching student database:", studentError);
-      setLoading(false);
-      return;
-    }
-
-    // 2. ดึงประวัติการเช็คชื่อตามวันที่เลือกจาก attendance_records
-    const { data: recordsData, error: recordError } = await supabase
-      .from("attendance_records")
-      .select("grade_level, classroom, status")
-      .eq("check_date", checkDate);
-
-    if (recordError) {
-      console.error("Error fetching attendance records:", recordError);
-      setLoading(false);
-      return;
-    }
-
-    const students = allStudents || [];
-    const records = recordsData || [];
+    // 2. ดึงประวัติการเช็คชื่อประจำวันแบบทะลุขีดจำกัด 1,000 คน
+    const records = await fetchAllRows("attendance_records", "grade_level, classroom, status", checkDate);
 
     // โครงสร้างเก็บสถิติ
     const overall: StatItem = {
@@ -88,7 +107,7 @@ function DailySummaryContent() {
       byGrade[g] = { totalStudents: 0, checkedTotal: 0, present: 0, absent: 0, leave: 0 };
     });
 
-    // 3. นับจำนวนนักเรียนจริงทั้งหมด แยกตามระดับชั้นและห้องเรียน
+    // 3. นับจำนวนนักเรียนจริงทั้งหมด
     students.forEach((st) => {
       const g = st.grade_level;
       const r = `${st.grade_level}/${st.classroom}`;
@@ -104,7 +123,7 @@ function DailySummaryContent() {
       byRoom[r].totalStudents++;
     });
 
-    // 4. นับจำนวน มา/ขาด/ลา จากข้อมูลการเช็คชื่อ
+    // 4. นับจำนวน มา/ขาด/ลา
     records.forEach((rec) => {
       const g = rec.grade_level;
       const r = `${rec.grade_level}/${rec.classroom}`;
@@ -135,7 +154,6 @@ function DailySummaryContent() {
     setLoading(false);
   };
 
-  // คำนวณ % การมาเรียนเทียบจากจำนวนนักเรียนทั้งหมดจริง
   const calcPercent = (count: number, total: number) => {
     if (!total) return "0.0%";
     return `${((count / total) * 100).toFixed(1)}%`;
