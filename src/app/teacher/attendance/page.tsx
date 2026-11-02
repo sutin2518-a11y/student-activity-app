@@ -108,12 +108,14 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
-  // ฟังก์ชั่นส่งออกไฟล์ Excel
+  // ฟังก์ชั่นส่งออกไฟล์ Excel (เพิ่มคอลัมน์ ระดับชั้น และ ห้อง)
   const handleExportExcel = () => {
     if (!students.length) {
       alert("ไม่มีข้อมูลนักเรียนสำหรับส่งออก");
       return;
     }
+
+    const [grade, room] = selectedRoom.split("/");
 
     const statusText: { [key in AttendanceStatus]: string } = {
       present: "มา",
@@ -123,6 +125,8 @@ function AttendanceContent() {
 
     // แปลงข้อมูลเป็นรูปแบบตารางสำหรับ Excel
     const exportData = students.map((student) => ({
+      "ระดับชั้น": grade,
+      "ห้อง": room,
       "เลขที่": student.no,
       "รหัสประจำตัว": student.student_id_card,
       "ชื่อ-นามสกุล": student.full_name,
@@ -136,6 +140,8 @@ function AttendanceContent() {
 
     // กำหนดความกว้างของคอลัมน์ให้อ่านง่าย
     worksheet["!cols"] = [
+      { wch: 12 }, // ระดับชั้น
+      { wch: 8 },  // ห้อง
       { wch: 8 },  // เลขที่
       { wch: 16 }, // รหัสประจำตัว
       { wch: 30 }, // ชื่อ-นามสกุล
