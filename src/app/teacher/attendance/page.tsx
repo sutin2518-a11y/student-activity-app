@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import * as XLSX from "xlsx";
 
 // เชื่อมต่อ Supabase
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -32,7 +33,7 @@ function AttendanceContent() {
 
   const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
 
-  // อ่านค่าจาก URL เมื่อโหลดหน้าเว็บ (เพื่อรองรับลิงก์ด่วน)
+  // อ่านค่าจาก URL เมื่อโหลดหน้าเว็บ
   useEffect(() => {
     setCheckDate(new Date().toISOString().split("T")[0]);
     const roomFromUrl = searchParams.get("room");
@@ -107,6 +108,50 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
+  // ฟังก์ชั่นส่งออกไฟล์ Excel
+  const handleExportExcel = () => {
+    if (!students.length) {
+      alert("ไม่มีข้อมูลนักเรียนสำหรับส่งออก");
+      return;
+    }
+
+    const statusText: { [key in AttendanceStatus]: string } = {
+      present: "มา",
+      absent: "ขาด",
+      leave: "ลา",
+    };
+
+    // แปลงข้อมูลเป็นรูปแบบตารางสำหรับ Excel
+    const exportData = students.map((student) => ({
+      "เลขที่": student.no,
+      "รหัสประจำตัว": student.student_id_card,
+      "ชื่อ-นามสกุล": student.full_name,
+      "เพศ": student.gender || "-",
+      "วันที่เช็คชื่อ": checkDate,
+      "สถานะการมาเรียน": statusText[attendance[student.id]] || "มา",
+    }));
+
+    // สร้าง Workbook และ Sheet
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+
+    // กำหนดความกว้างของคอลัมน์ให้อ่านง่าย
+    worksheet["!cols"] = [
+      { wch: 8 },  // เลขที่
+      { wch: 16 }, // รหัสประจำตัว
+      { wch: 30 }, // ชื่อ-นามสกุล
+      { wch: 10 }, // เพศ
+      { wch: 15 }, // วันที่
+      { wch: 18 }, // สถานะ
+    ];
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, `ห้อง ${selectedRoom.replace("/", "-")}`);
+
+    // ส่งออกเป็นไฟล์ .xlsx
+    const fileName = `รายงานการเช็คชื่อ_${selectedRoom.replace("/", "-")}_${checkDate}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
       {/* Header */}
@@ -150,7 +195,7 @@ function AttendanceContent() {
           ))}
         </div>
 
-        {/* ปุ่มลิงก์ด่วนห้อง 1-12 ของระดับชั้นที่เลือก */}
+        {/* ปุ่มลิงก์ด่วนห้อง 1-12 */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2 mt-4">
           {Array.from({ length: 12 }, (_, i) => i + 1).map((roomNum) => {
             const roomName = `${activeGrade}/${roomNum}`;
@@ -175,8 +220,8 @@ function AttendanceContent() {
       {/* แถบการจัดการเมื่อเลือกห้องเรียนแล้ว */}
       {selectedRoom ? (
         <div className="space-y-4">
-          {/* Quick Actions (มาทั้งหมด / ขาดทั้งหมด / ลาทั้งหมด) */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
+          {/* Quick Actions (มาทั้งหมด / ขาดทั้งหมด / ลาทั้งหมด / ดาวน์โหลด Excel) */}
+          <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div>
               <span className="text-lg font-bold text-blue-900">กำลังเช็คชื่อ: {selectedRoom}</span>
               <span className="ml-3 text-xs bg-blue-200 text-blue-800 font-semibold px-2.5 py-1 rounded-full">
@@ -185,7 +230,7 @@ function AttendanceContent() {
             </div>
             
             {students.length > 0 && (
-              <div className="flex gap-2 w-full sm:w-auto">
+              <div className="flex flex-wrap gap-2 w-full lg:w-auto">
                 <button
                   onClick={() => handleSetAllStatus("present")}
                   className="flex-1 sm:flex-none bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg shadow-sm transition"
@@ -203,6 +248,14 @@ function AttendanceContent() {
                   className="flex-1 sm:flex-none bg-amber-500 hover:bg-amber-600 text-white text-xs sm:text-sm font-semibold px-3 py-2 rounded-lg shadow-sm transition"
                 >
                   ! ลาทั้งหมด
+                </button>
+
+                {/* ปุ่มดาวน์โหลด Excel */}
+                <button
+                  onClick={handleExportExcel}
+                  className="flex-1 sm:flex-none bg-emerald-800 hover:bg-emerald-900 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-md transition flex items-center justify-center gap-1.5"
+                >
+                  📊 ดาวน์โหลด Excel
                 </button>
               </div>
             )}
