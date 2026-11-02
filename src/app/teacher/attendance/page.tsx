@@ -34,7 +34,7 @@ function AttendanceContent() {
 
   const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
 
-  // อ่านค่าจาก URL และตั้งค่าวันที่เมื่อโหลดหน้าเว็บ
+  // 1. อ่านค่าจาก URL และตั้งค่าวันที่ปัจจุบันเมื่อเข้าหน้าเว็บ
   useEffect(() => {
     setCheckDate(new Date().toISOString().split("T")[0]);
     const roomFromUrl = searchParams.get("room");
@@ -47,42 +47,61 @@ function AttendanceContent() {
     }
   }, [searchParams]);
 
-  // ดึงรายชื่อนักเรียนเมื่อมีการเลือกห้องเรียน
+  // 2. ดึงรายชื่อนักเรียนและประวัติการเช็คชื่อเมื่อมีการเปลี่ยนห้องหรือเปลี่ยนวันที่
   useEffect(() => {
-    if (selectedRoom) {
+    if (selectedRoom && checkDate) {
       fetchStudents();
     } else {
       setStudents([]);
       setAttendance({});
     }
-  }, [selectedRoom]);
+  }, [selectedRoom, checkDate]);
 
   const fetchStudents = async () => {
     setLoading(true);
     const [grade, room] = selectedRoom.split("/");
 
-    const { data, error } = await supabase
+    // 2.1 ดึงรายชื่อนักเรียนในห้องจาก student_database
+    const { data: studentData, error: studentError } = await supabase
       .from("student_database")
       .select("id, student_id_card, no, full_name, gender")
       .eq("grade_level", grade)
       .eq("classroom", room)
       .order("no", { ascending: true });
 
-    if (error) {
-      console.error("Error fetching students:", error);
+    if (studentError) {
+      console.error("Error fetching students:", studentError);
       alert("เกิดข้อผิดพลาดในการดึงข้อมูลนักเรียน");
-    } else {
-      const studentData = data || [];
-      setStudents(studentData);
-      
-      // ตั้งค่าเริ่มต้นให้ทุกคนเป็น "มา" (Present)
-      const initialAttendance: { [key: number]: AttendanceStatus } = {};
-      studentData.forEach((student) => {
-        initialAttendance[student.id] = "present";
-      });
-      setAttendance(initialAttendance);
+      setLoading(false);
+      return;
     }
-    
+
+    const currentStudents = studentData || [];
+
+    // 2.2 ดึงประวัติการเช็คชื่อที่เคยบันทึกไว้ในตาราง attendance_records ของวันนั้น
+    const { data: savedRecords } = await supabase
+      .from("attendance_records")
+      .select("student_id_card, status")
+      .eq("check_date", checkDate)
+      .eq("grade_level", grade)
+      .eq("classroom", room);
+
+    // สร้าง Map จับคู่ (student_id_card -> status)
+    const savedStatusMap: { [key: string]: AttendanceStatus } = {};
+    if (savedRecords) {
+      savedRecords.forEach((rec) => {
+        savedStatusMap[rec.student_id_card] = rec.status as AttendanceStatus;
+      });
+    }
+
+    // 2.3 แมปสถานะให้นักเรียน (ถ้าเคยบันทึกแล้วใช้ค่าเดิม ถ้ายังไม่เคยบันทึกให้เริ่มต้นเป็น "present")
+    const initialAttendance: { [key: number]: AttendanceStatus } = {};
+    currentStudents.forEach((student) => {
+      initialAttendance[student.id] = savedStatusMap[student.student_id_card] || "present";
+    });
+
+    setStudents(currentStudents);
+    setAttendance(initialAttendance);
     setLoading(false);
   };
 
