@@ -1,0 +1,304 @@
+"use client";
+
+import { useState, useEffect, Suspense } from "react";
+import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
+import * as XLSX from "xlsx";
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || "";
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
+
+type StatItem = {
+  present: number;
+  absent: number;
+  leave: number;
+  total: number;
+};
+
+function DailySummaryContent() {
+  const [checkDate, setCheckDate] = useState<string>("");
+  const [loading, setLoading] = useState<boolean>(true);
+  const [selectedGradeFilter, setSelectedGradeFilter] = useState<string>("ทั้งหมด");
+
+  const [overallStats, setOverallStats] = useState<StatItem>({ present: 0, absent: 0, leave: 0, total: 0 });
+  const [gradeStats, setGradeStats] = useState<{ [grade: string]: StatItem }>({});
+  const [roomStats, setRoomStats] = useState<{ [room: string]: StatItem }>({});
+
+  const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
+
+  useEffect(() => {
+    setCheckDate(new Date().toISOString().split("T")[0]);
+  }, []);
+
+  useEffect(() => {
+    if (checkDate) {
+      fetchSummaryData();
+    }
+  }, [checkDate]);
+
+  const fetchSummaryData = async () => {
+    setLoading(true);
+
+    const { data, error } = await supabase
+      .from("attendance_records")
+      .select("grade_level, classroom, status")
+      .eq("check_date", checkDate);
+
+    if (error) {
+      console.error("Error fetching summary:", error);
+      setLoading(false);
+      return;
+    }
+
+    const records = data || [];
+
+    const overall: StatItem = { present: 0, absent: 0, leave: 0, total: records.length };
+    const byGrade: { [grade: string]: StatItem } = {};
+    const byRoom: { [room: string]: StatItem } = {};
+
+    grades.forEach((g) => {
+      byGrade[g] = { present: 0, absent: 0, leave: 0, total: 0 };
+    });
+
+    records.forEach((rec) => {
+      const g = rec.grade_level;
+      const r = `${rec.grade_level}/${rec.classroom}`;
+      const status = rec.status;
+
+      let key: "present" | "absent" | "leave" = "present";
+      if (status === "absent" || status === "ขาด") key = "absent";
+      else if (status === "leave" || status === "ลา") key = "leave";
+      else key = "present";
+
+      overall[key]++;
+
+      if (!byGrade[g]) {
+        byGrade[g] = { present: 0, absent: 0, leave: 0, total: 0 };
+      }
+      byGrade[g][key]++;
+      byGrade[g].total++;
+
+      if (!byRoom[r]) {
+        byRoom[r] = { present: 0, absent: 0, leave: 0, total: 0 };
+      }
+      byRoom[r][key]++;
+      byRoom[r].total++;
+    });
+
+    setOverallStats(overall);
+    setGradeStats(byGrade);
+    setRoomStats(byRoom);
+    setLoading(false);
+  };
+
+  const calcPercent = (count: number, total: number) => {
+    if (!total) return "0.0%";
+    return `${((count / total) * 100).toFixed(1)}%`;
+  };
+
+  const exportSummaryExcel = () => {
+    const gradeRows = Object.keys(gradeStats).map((g) => ({
+      "ระดับชั้น": g,
+      "มา (คน)": gradeStats[g].present,
+      "ขาด (คน)": gradeStats[g].absent,
+      "ลา (คน)": gradeStats[g].leave,
+      "รวมเช็คชื่อ (คน)": gradeStats[g].total,
+      "เปอร์เซ็นต์การมาเรียน": calcPercent(gradeStats[g].present, gradeStats[g].total),
+    }));
+
+    const roomRows = Object.keys(roomStats)
+      .sort()
+      .map((r) => ({
+        "ห้องเรียน": `ห้อง ${r}`,
+        "มา (คน)": roomStats[r].present,
+        "ขาด (คน)": roomStats[r].absent,
+        "ลา (คน)": roomStats[r].leave,
+        "รวมเช็คชื่อ (คน)": roomStats[r].total,
+        "เปอร์เซ็นต์การมาเรียน": calcPercent(roomStats[r].present, roomStats[r].total),
+      }));
+
+    const wb = XLSX.utils.book_new();
+    const wsGrade = XLSX.utils.json_to_sheet(gradeRows);
+    const wsRoom = XLSX.utils.json_to_sheet(roomRows);
+
+    XLSX.utils.book_append_sheet(wb, wsGrade, "สรุปรายระดับชั้น");
+    XLSX.utils.book_append_sheet(wb, wsRoom, "สรุปรายห้องเรียน");
+
+    XLSX.writeFile(wb, `รายงานสรุปภาพรวมการมาเรียน_${checkDate}.xlsx`);
+  };
+
+  const filteredRooms = Object.keys(roomStats)
+    .filter((roomKey) => selectedGradeFilter === "ทั้งหมด" || roomKey.startsWith(selectedGradeFilter))
+    .sort();
+
+  return (
+    <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
+      {/* ส่วนหัว และ การเลือกวันที่ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
+        <div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/teacher/attendance"
+              className="text-sm font-semibold bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg transition"
+            >
+              ← กลับหน้าเช็คชื่อ
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-800">📊 สรุปรายงานการมาเรียนประจำวัน</h1>
+          </div>
+          <p className="text-sm text-gray-500 mt-1">โรงเรียนเชียงคำวิทยาคม</p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            type="date"
+            value={checkDate}
+            onChange={(e) => setCheckDate(e.target.value)}
+            className="border p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium shadow-sm"
+          />
+          <button
+            onClick={exportSummaryExcel}
+            className="bg-emerald-700 hover:bg-emerald-800 text-white font-semibold text-sm px-4 py-2 rounded-md shadow transition flex items-center gap-1.5"
+          >
+            📊 ส่งออกสรุป Excel
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="bg-white rounded-xl p-12 text-center border text-gray-500">
+          กำลังประมวลผลข้อมูลสรุปประจำวันที่ {checkDate}...
+        </div>
+      ) : (
+        <>
+          {/* 1. สรุปภาพรวม (Overall Cards) */}
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 mb-3">📌 1. ภาพรวมทั้งโรงเรียน</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="bg-white border rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-semibold text-gray-500 uppercase">เช็คชื่อแล้วทั้งหมด</p>
+                <p className="text-2xl font-extrabold text-gray-800 mt-1">{overallStats.total} <span className="text-sm font-normal text-gray-500">คน</span></p>
+              </div>
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-semibold text-emerald-700 uppercase">มาเรียน</p>
+                <p className="text-2xl font-extrabold text-emerald-800 mt-1">
+                  {overallStats.present} <span className="text-sm font-normal text-emerald-600">คน ({calcPercent(overallStats.present, overallStats.total)})</span>
+                </p>
+              </div>
+              <div className="bg-rose-50 border border-rose-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-semibold text-rose-700 uppercase">ขาดเรียน</p>
+                <p className="text-2xl font-extrabold text-rose-800 mt-1">
+                  {overallStats.absent} <span className="text-sm font-normal text-rose-600">คน ({calcPercent(overallStats.absent, overallStats.total)})</span>
+                </p>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 shadow-sm">
+                <p className="text-xs font-semibold text-amber-700 uppercase">ลา</p>
+                <p className="text-2xl font-extrabold text-amber-800 mt-1">
+                  {overallStats.leave} <span className="text-sm font-normal text-amber-600">คน ({calcPercent(overallStats.leave, overallStats.total)})</span>
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* 2. สรุปรายระดับชั้น (ม.1 - ม.6) */}
+          <div>
+            <h2 className="text-lg font-bold text-gray-800 mb-3">🏫 2. สรุปจำแนกตามระดับชั้น</h2>
+            <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+              <table className="w-full border-collapse text-left text-sm text-gray-700">
+                <thead className="bg-gray-50 border-b font-bold text-gray-700">
+                  <tr>
+                    <th className="p-3.5">ระดับชั้น</th>
+                    <th className="p-3.5 text-center text-emerald-700">มา (คน)</th>
+                    <th className="p-3.5 text-center text-rose-600">ขาด (คน)</th>
+                    <th className="p-3.5 text-center text-amber-600">ลา (คน)</th>
+                    <th className="p-3.5 text-center">รวมเช็คชื่อ</th>
+                    <th className="p-3.5 text-center">อัตราการมาเรียน</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {grades.map((grade) => {
+                    const stat = gradeStats[grade] || { present: 0, absent: 0, leave: 0, total: 0 };
+                    return (
+                      <tr key={grade} className="hover:bg-gray-50 transition">
+                        <td className="p-3.5 font-bold text-gray-800">{grade}</td>
+                        <td className="p-3.5 text-center font-semibold text-emerald-600">{stat.present}</td>
+                        <td className="p-3.5 text-center font-semibold text-rose-600">{stat.absent}</td>
+                        <td className="p-3.5 text-center font-semibold text-amber-600">{stat.leave}</td>
+                        <td className="p-3.5 text-center font-bold text-gray-800">{stat.total}</td>
+                        <td className="p-3.5 text-center font-semibold text-blue-600">{calcPercent(stat.present, stat.total)}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* 3. สรุปรายห้องเรียน */}
+          <div>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3">
+              <h2 className="text-lg font-bold text-gray-800">🚪 3. สรุปจำแนกตามห้องเรียน</h2>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-gray-600">ตัวกรองระดับชั้น:</span>
+                <select
+                  value={selectedGradeFilter}
+                  onChange={(e) => setSelectedGradeFilter(e.target.value)}
+                  className="border p-1.5 rounded-lg text-sm bg-white outline-none focus:ring-2 focus:ring-blue-500 shadow-sm"
+                >
+                  <option value="ทั้งหมด">แสดงทุกระดับชั้น</option>
+                  {grades.map((g) => (
+                    <option key={g} value={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            {filteredRooms.length > 0 ? (
+              <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+                <table className="w-full border-collapse text-left text-sm text-gray-700">
+                  <thead className="bg-gray-50 border-b font-bold text-gray-700">
+                    <tr>
+                      <th className="p-3.5">ห้องเรียน</th>
+                      <th className="p-3.5 text-center text-emerald-700">มา (คน)</th>
+                      <th className="p-3.5 text-center text-rose-600">ขาด (คน)</th>
+                      <th className="p-3.5 text-center text-amber-600">ลา (คน)</th>
+                      <th className="p-3.5 text-center">รวม</th>
+                      <th className="p-3.5 text-center">เปอร์เซ็นต์มาเรียน</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {filteredRooms.map((roomKey) => {
+                      const stat = roomStats[roomKey];
+                      return (
+                        <tr key={roomKey} className="hover:bg-blue-50/50 transition">
+                          <td className="p-3.5 font-bold text-gray-800">ห้อง {roomKey}</td>
+                          <td className="p-3.5 text-center font-semibold text-emerald-600">{stat.present}</td>
+                          <td className="p-3.5 text-center font-semibold text-rose-600">{stat.absent}</td>
+                          <td className="p-3.5 text-center font-semibold text-amber-600">{stat.leave}</td>
+                          <td className="p-3.5 text-center font-bold text-gray-800">{stat.total}</td>
+                          <td className="p-3.5 text-center font-semibold text-blue-600">{calcPercent(stat.present, stat.total)}</td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="bg-white rounded-xl p-8 text-center border text-gray-400">
+                ยังไม่มีการบันทึกข้อมูลการเช็คชื่อของวันที่ {checkDate} ในระดับชั้นที่เลือก
+              </div>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function DailySummaryPage() {
+  return (
+    <Suspense fallback={<div className="p-8 text-center text-gray-500">กำลังโหลดหน้ารายงานสรุป...</div>}>
+      <DailySummaryContent />
+    </Suspense>
+  );
+}

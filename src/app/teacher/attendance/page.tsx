@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { createClient } from "@supabase/supabase-js";
+import Link from "next/link";
 import * as XLSX from "xlsx";
 import Swal from "sweetalert2";
 
@@ -234,21 +235,29 @@ function AttendanceContent() {
 
   return (
     <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
-      {/* ส่วนหัวหน้าเว็บ */}
+      {/* ส่วนหัวหน้าเว็บพร้อมปุ่มลิงก์ดูสรุปรายวัน */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">✅ ระบบเช็คชื่อนักเรียน โรงเรียนเชียงคำวิทยาคม</h1>
           <p className="text-sm text-gray-500">เลือกระดับชั้นและห้องเรียนเพื่อดำเนินการเช็คชื่อประจำวัน</p>
         </div>
         
-        <div className="flex items-center gap-2">
-          <label className="text-sm font-semibold text-gray-700">วันที่:</label>
-          <input 
-            type="date" 
-            value={checkDate}
-            onChange={(e) => setCheckDate(e.target.value)}
-            className="border p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium shadow-sm"
-          />
+        <div className="flex items-center gap-3">
+          <Link 
+            href="/teacher/summary" 
+            className="text-xs sm:text-sm bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-bold px-3 py-2 rounded-lg border border-indigo-200 transition flex items-center gap-1 shadow-sm"
+          >
+            📊 ดูสรุปรายวัน
+          </Link>
+          <div className="flex items-center gap-1.5">
+            <label className="text-sm font-semibold text-gray-700">วันที่:</label>
+            <input 
+              type="date" 
+              value={checkDate}
+              onChange={(e) => setCheckDate(e.target.value)}
+              className="border p-2 rounded-md outline-none focus:ring-2 focus:ring-blue-500 bg-white font-medium shadow-sm text-sm"
+            />
+          </div>
         </div>
       </div>
 
