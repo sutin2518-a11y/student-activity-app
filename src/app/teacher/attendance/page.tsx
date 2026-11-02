@@ -30,10 +30,10 @@ function AttendanceContent() {
   const [students, setStudents] = useState<Student[]>([]);
   const [attendance, setAttendance] = useState<{ [key: number]: AttendanceStatus }>({});
   const [loading, setLoading] = useState<boolean>(false);
+  const [saving, setSaving] = useState<boolean>(false);
 
   const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
 
-  // อ่านค่าจาก URL เมื่อโหลดหน้าเว็บ
   useEffect(() => {
     setCheckDate(new Date().toISOString().split("T")[0]);
     const roomFromUrl = searchParams.get("room");
@@ -46,7 +46,6 @@ function AttendanceContent() {
     }
   }, [searchParams]);
 
-  // ดึงรายชื่อนักเรียนเมื่อมีการเลือกห้องเรียน
   useEffect(() => {
     if (selectedRoom) {
       fetchStudents();
@@ -74,7 +73,6 @@ function AttendanceContent() {
       const studentData = data || [];
       setStudents(studentData);
       
-      // ตั้งค่าเริ่มต้นให้ทุกคนเป็น "มา" (Present)
       const initialAttendance: { [key: number]: AttendanceStatus } = {};
       studentData.forEach((student) => {
         initialAttendance[student.id] = "present";
@@ -85,13 +83,11 @@ function AttendanceContent() {
     setLoading(false);
   };
 
-  // เลือกห้องเรียนแบบรวดเร็ว
   const handleSelectRoom = (roomName: string) => {
     setSelectedRoom(roomName);
     router.push(`?room=${encodeURIComponent(roomName)}`);
   };
 
-  // เปลี่ยนสถานะรายบุคคล
   const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
     setAttendance((prev) => ({
       ...prev,
@@ -99,7 +95,6 @@ function AttendanceContent() {
     }));
   };
 
-  // เลือกสถานะแบบทั้งห้อง
   const handleSetAllStatus = (status: AttendanceStatus) => {
     const updatedAttendance: { [key: number]: AttendanceStatus } = {};
     students.forEach((student) => {
@@ -108,7 +103,39 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
-  // ฟังก์ชั่นส่งออกไฟล์ Excel (เพิ่มคอลัมน์ ระดับชั้น และ ห้อง)
+  // ฟังก์ชั่นบันทึกข้อมูลลงฐานข้อมูล Supabase (ตาราง attendance_records)
+  const handleSaveToDatabase = async () => {
+    if (!students.length) {
+      alert("ไม่มีข้อมูลนักเรียนสำหรับบันทึก");
+      return;
+    }
+
+    setSaving(true);
+    const [grade, room] = selectedRoom.split("/");
+
+    const recordsToInsert = students.map((student) => ({
+      student_id_card: student.student_id_card,
+      full_name: student.full_name,
+      grade_level: grade,
+      classroom: room,
+      check_date: checkDate,
+      status: attendance[student.id] || "present",
+    }));
+
+    const { error } = await supabase
+      .from("attendance_records")
+      .upsert(recordsToInsert, { onConflict: "student_id_card,check_date" });
+
+    setSaving(false);
+
+    if (error) {
+      console.error("Save error:", error);
+      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล: " + error.message);
+    } else {
+      alert(`บันทึกการเช็คชื่อห้อง ${selectedRoom} ประจำวันที่ ${checkDate} เรียบร้อยแล้ว!`);
+    }
+  };
+
   const handleExportExcel = () => {
     if (!students.length) {
       alert("ไม่มีข้อมูลนักเรียนสำหรับส่งออก");
@@ -116,14 +143,12 @@ function AttendanceContent() {
     }
 
     const [grade, room] = selectedRoom.split("/");
-
     const statusText: { [key in AttendanceStatus]: string } = {
       present: "มา",
       absent: "ขาด",
       leave: "ลา",
     };
 
-    // แปลงข้อมูลเป็นรูปแบบตารางสำหรับ Excel
     const exportData = students.map((student) => ({
       "ระดับชั้น": grade,
       "ห้อง": room,
@@ -135,32 +160,27 @@ function AttendanceContent() {
       "สถานะการมาเรียน": statusText[attendance[student.id]] || "มา",
     }));
 
-    // สร้าง Workbook และ Sheet
     const worksheet = XLSX.utils.json_to_sheet(exportData);
-
-    // กำหนดความกว้างของคอลัมน์ให้อ่านง่าย
     worksheet["!cols"] = [
-      { wch: 12 }, // ระดับชั้น
-      { wch: 8 },  // ห้อง
-      { wch: 8 },  // เลขที่
-      { wch: 16 }, // รหัสประจำตัว
-      { wch: 30 }, // ชื่อ-นามสกุล
-      { wch: 10 }, // เพศ
-      { wch: 15 }, // วันที่
-      { wch: 18 }, // สถานะ
+      { wch: 12 },
+      { wch: 8 },
+      { wch: 8 },
+      { wch: 16 },
+      { wch: 30 },
+      { wch: 10 },
+      { wch: 15 },
+      { wch: 18 },
     ];
 
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, `ห้อง ${selectedRoom.replace("/", "-")}`);
 
-    // ส่งออกเป็นไฟล์ .xlsx
     const fileName = `รายงานการเช็คชื่อ_${selectedRoom.replace("/", "-")}_${checkDate}.xlsx`;
     XLSX.writeFile(workbook, fileName);
   };
 
   return (
     <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">✅ ระบบเช็คชื่อนักเรียน โรงเรียนเชียงคำวิทยาคม</h1>
@@ -178,13 +198,11 @@ function AttendanceContent() {
         </div>
       </div>
 
-      {/* แผงลิงก์ด่วนเลือกห้องเรียนสำหรับครูทุกคน */}
       <div className="bg-white rounded-xl border shadow-sm p-4 md:p-5">
         <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">
           📌 ลิงก์ด่วนเลือกห้องเรียน
         </h2>
 
-        {/* แท็บเลือกระดับชั้น (ม.1 - ม.6) */}
         <div className="flex gap-2 border-b pb-3 overflow-x-auto">
           {grades.map((grade) => (
             <button
@@ -201,7 +219,6 @@ function AttendanceContent() {
           ))}
         </div>
 
-        {/* ปุ่มลิงก์ด่วนห้อง 1-12 */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2 mt-4">
           {Array.from({ length: 12 }, (_, i) => i + 1).map((roomNum) => {
             const roomName = `${activeGrade}/${roomNum}`;
@@ -223,10 +240,8 @@ function AttendanceContent() {
         </div>
       </div>
 
-      {/* แถบการจัดการเมื่อเลือกห้องเรียนแล้ว */}
       {selectedRoom ? (
         <div className="space-y-4">
-          {/* Quick Actions (มาทั้งหมด / ขาดทั้งหมด / ลาทั้งหมด / ดาวน์โหลด Excel) */}
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div>
               <span className="text-lg font-bold text-blue-900">กำลังเช็คชื่อ: {selectedRoom}</span>
@@ -256,6 +271,15 @@ function AttendanceContent() {
                   ! ลาทั้งหมด
                 </button>
 
+                {/* ปุ่มบันทึกข้อมูลลงฐานข้อมูล */}
+                <button
+                  onClick={handleSaveToDatabase}
+                  disabled={saving}
+                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-md transition flex items-center justify-center gap-1.5 disabled:opacity-50"
+                >
+                  {saving ? "กำลังบันทึก..." : "💾 บันทึกเข้าฐานข้อมูล"}
+                </button>
+
                 {/* ปุ่มดาวน์โหลด Excel */}
                 <button
                   onClick={handleExportExcel}
@@ -267,7 +291,6 @@ function AttendanceContent() {
             )}
           </div>
 
-          {/* ตารางแสดงรายชื่อนักเรียน */}
           {loading ? (
             <div className="bg-white rounded-xl p-12 text-center border text-gray-500">
               กำลังโหลดข้อมูลนักเรียนห้อง {selectedRoom}...
