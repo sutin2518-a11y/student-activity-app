@@ -34,6 +34,7 @@ function AttendanceContent() {
 
   const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
 
+  // อ่านค่าจาก URL และตั้งค่าวันที่เมื่อโหลดหน้าเว็บ
   useEffect(() => {
     setCheckDate(new Date().toISOString().split("T")[0]);
     const roomFromUrl = searchParams.get("room");
@@ -46,6 +47,7 @@ function AttendanceContent() {
     }
   }, [searchParams]);
 
+  // ดึงรายชื่อนักเรียนเมื่อมีการเลือกห้องเรียน
   useEffect(() => {
     if (selectedRoom) {
       fetchStudents();
@@ -73,6 +75,7 @@ function AttendanceContent() {
       const studentData = data || [];
       setStudents(studentData);
       
+      // ตั้งค่าเริ่มต้นให้ทุกคนเป็น "มา" (Present)
       const initialAttendance: { [key: number]: AttendanceStatus } = {};
       studentData.forEach((student) => {
         initialAttendance[student.id] = "present";
@@ -83,11 +86,13 @@ function AttendanceContent() {
     setLoading(false);
   };
 
+  // เลือกห้องเรียนแบบรวดเร็ว
   const handleSelectRoom = (roomName: string) => {
     setSelectedRoom(roomName);
     router.push(`?room=${encodeURIComponent(roomName)}`);
   };
 
+  // เปลี่ยนสถานะรายบุคคล
   const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
     setAttendance((prev) => ({
       ...prev,
@@ -95,6 +100,7 @@ function AttendanceContent() {
     }));
   };
 
+  // เลือกสถานะแบบทั้งห้อง
   const handleSetAllStatus = (status: AttendanceStatus) => {
     const updatedAttendance: { [key: number]: AttendanceStatus } = {};
     students.forEach((student) => {
@@ -103,7 +109,7 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
-  // ฟังก์ชั่นบันทึกข้อมูลลงฐานข้อมูล Supabase (ตาราง attendance_records)
+  // บันทึกข้อมูลลงฐานข้อมูล Supabase (ตาราง attendance_records)
   const handleSaveToDatabase = async () => {
     if (!students.length) {
       alert("ไม่มีข้อมูลนักเรียนสำหรับบันทึก");
@@ -136,6 +142,7 @@ function AttendanceContent() {
     }
   };
 
+  // ส่งออกไฟล์ Excel (.xlsx)
   const handleExportExcel = () => {
     if (!students.length) {
       alert("ไม่มีข้อมูลนักเรียนสำหรับส่งออก");
@@ -162,14 +169,14 @@ function AttendanceContent() {
 
     const worksheet = XLSX.utils.json_to_sheet(exportData);
     worksheet["!cols"] = [
-      { wch: 12 },
-      { wch: 8 },
-      { wch: 8 },
-      { wch: 16 },
-      { wch: 30 },
-      { wch: 10 },
-      { wch: 15 },
-      { wch: 18 },
+      { wch: 12 }, // ระดับชั้น
+      { wch: 8 },  // ห้อง
+      { wch: 8 },  // เลขที่
+      { wch: 16 }, // รหัสประจำตัว
+      { wch: 30 }, // ชื่อ-นามสกุล
+      { wch: 10 }, // เพศ
+      { wch: 15 }, // วันที่
+      { wch: 18 }, // สถานะ
     ];
 
     const workbook = XLSX.utils.book_new();
@@ -181,6 +188,7 @@ function AttendanceContent() {
 
   return (
     <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
+      {/* ส่วนหัวหน้าเว็บ */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">✅ ระบบเช็คชื่อนักเรียน โรงเรียนเชียงคำวิทยาคม</h1>
@@ -198,11 +206,13 @@ function AttendanceContent() {
         </div>
       </div>
 
+      {/* แผงลิงก์ด่วนเลือกห้องเรียน ม.1 - ม.6 */}
       <div className="bg-white rounded-xl border shadow-sm p-4 md:p-5">
         <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">
           📌 ลิงก์ด่วนเลือกห้องเรียน
         </h2>
 
+        {/* แท็บเลือกระดับชั้น */}
         <div className="flex gap-2 border-b pb-3 overflow-x-auto">
           {grades.map((grade) => (
             <button
@@ -219,6 +229,7 @@ function AttendanceContent() {
           ))}
         </div>
 
+        {/* ปุ่มเลือกห้อง 1 - 12 */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2 mt-4">
           {Array.from({ length: 12 }, (_, i) => i + 1).map((roomNum) => {
             const roomName = `${activeGrade}/${roomNum}`;
@@ -240,6 +251,7 @@ function AttendanceContent() {
         </div>
       </div>
 
+      {/* ส่วนตารางและการจัดการเมื่อเลือกห้องเรียน */}
       {selectedRoom ? (
         <div className="space-y-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -271,7 +283,7 @@ function AttendanceContent() {
                   ! ลาทั้งหมด
                 </button>
 
-                {/* ปุ่มบันทึกข้อมูลลงฐานข้อมูล */}
+                {/* ปุ่มบันทึกเข้าฐานข้อมูล Supabase */}
                 <button
                   onClick={handleSaveToDatabase}
                   disabled={saving}
@@ -291,6 +303,7 @@ function AttendanceContent() {
             )}
           </div>
 
+          {/* ตารางแสดงรายชื่อนักเรียน */}
           {loading ? (
             <div className="bg-white rounded-xl p-12 text-center border text-gray-500">
               กำลังโหลดข้อมูลนักเรียนห้อง {selectedRoom}...
