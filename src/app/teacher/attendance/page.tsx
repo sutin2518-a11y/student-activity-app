@@ -338,15 +338,6 @@ function AttendanceContent() {
                   ! ลาทั้งหมด
                 </button>
 
-                {/* ปุ่มบันทึกเข้าฐานข้อมูล Supabase */}
-                <button
-                  onClick={handleSaveToDatabase}
-                  disabled={saving}
-                  className="flex-1 sm:flex-none bg-blue-600 hover:bg-blue-700 text-white text-xs sm:text-sm font-semibold px-4 py-2 rounded-lg shadow-md transition flex items-center justify-center gap-1.5 disabled:opacity-50"
-                >
-                  {saving ? "กำลังบันทึก..." : "💾 บันทึกเข้าฐานข้อมูล"}
-                </button>
-
                 {/* ปุ่มดาวน์โหลด Excel */}
                 <button
                   onClick={handleExportExcel}
@@ -364,64 +355,81 @@ function AttendanceContent() {
               กำลังโหลดข้อมูลนักเรียนห้อง {selectedRoom}...
             </div>
           ) : students.length > 0 ? (
-            <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
-              <table className="w-full border-collapse text-left text-sm text-gray-700">
-                <thead className="bg-gray-50 border-b font-bold text-gray-700">
-                  <tr>
-                    <th className="p-3.5 text-center w-16">เลขที่</th>
-                    <th className="p-3.5 text-center w-32">รหัสประจำตัว</th>
-                    <th className="p-3.5 text-left">ชื่อ-นามสกุล</th>
-                    <th className="p-3.5 text-center w-64">สถานะการมาเรียน</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100">
-                  {students.map((student) => (
-                    <tr key={student.id} className="hover:bg-blue-50/50 transition">
-                      <td className="p-3.5 text-center font-bold text-gray-800">{student.no}</td>
-                      <td className="p-3.5 text-center font-mono text-gray-500">{student.student_id_card}</td>
-                      <td className="p-3.5 font-medium text-gray-900">{student.full_name}</td>
-                      <td className="p-3.5 text-center">
-                        <div className="flex justify-center gap-4">
-                          <label className="cursor-pointer flex items-center gap-1.5 text-emerald-700 font-semibold">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              value="present"
-                              checked={attendance[student.id] === "present"}
-                              onChange={() => handleStatusChange(student.id, "present")}
-                              className="w-4 h-4 accent-emerald-600"
-                            />
-                            มา
-                          </label>
-                          <label className="cursor-pointer flex items-center gap-1.5 text-rose-600 font-semibold">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              value="absent"
-                              checked={attendance[student.id] === "absent"}
-                              onChange={() => handleStatusChange(student.id, "absent")}
-                              className="w-4 h-4 accent-rose-600"
-                            />
-                            ขาด
-                          </label>
-                          <label className="cursor-pointer flex items-center gap-1.5 text-amber-600 font-semibold">
-                            <input
-                              type="radio"
-                              name={`status-${student.id}`}
-                              value="leave"
-                              checked={attendance[student.id] === "leave"}
-                              onChange={() => handleStatusChange(student.id, "leave")}
-                              className="w-4 h-4 accent-amber-500"
-                            />
-                            ลา
-                          </label>
-                        </div>
-                      </td>
+            <>
+              <div className="overflow-x-auto rounded-xl border bg-white shadow-sm">
+                <table className="w-full border-collapse text-left text-sm text-gray-700">
+                  <thead className="bg-gray-50 border-b font-bold text-gray-700">
+                    <tr>
+                      <th className="p-3.5 text-center w-16">เลขที่</th>
+                      <th className="p-3.5 text-center w-32">รหัสประจำตัว</th>
+                      <th className="p-3.5 text-left">ชื่อ-นามสกุล</th>
+                      <th className="p-3.5 text-center w-64">สถานะการมาเรียน</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {students.map((student) => (
+                      <tr key={student.id} className="hover:bg-blue-50/50 transition">
+                        <td className="p-3.5 text-center font-bold text-gray-800">{student.no}</td>
+                        <td className="p-3.5 text-center font-mono text-gray-500">{student.student_id_card}</td>
+                        <td className="p-3.5 font-medium text-gray-900">{student.full_name}</td>
+                        <td className="p-3.5 text-center">
+                          <div className="flex justify-center gap-4">
+                            <label className="cursor-pointer flex items-center gap-1.5 text-emerald-700 font-semibold">
+                              <input
+                                type="radio"
+                                name={`status-${student.id}`}
+                                value="present"
+                                checked={attendance[student.id] === "present"}
+                                onChange={() => handleStatusChange(student.id, "present")}
+                                className="w-4 h-4 accent-emerald-600"
+                              />
+                              มา
+                            </label>
+                            <label className="cursor-pointer flex items-center gap-1.5 text-rose-600 font-semibold">
+                              <input
+                                type="radio"
+                                name={`status-${student.id}`}
+                                value="absent"
+                                checked={attendance[student.id] === "absent"}
+                                onChange={() => handleStatusChange(student.id, "absent")}
+                                className="w-4 h-4 accent-rose-600"
+                              />
+                              ขาด
+                            </label>
+                            <label className="cursor-pointer flex items-center gap-1.5 text-amber-600 font-semibold">
+                              <input
+                                type="radio"
+                                name={`status-${student.id}`}
+                                value="leave"
+                                checked={attendance[student.id] === "leave"}
+                                onChange={() => handleStatusChange(student.id, "leave")}
+                                className="w-4 h-4 accent-amber-500"
+                              />
+                              ลา
+                            </label>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* ปุ่มบันทึกลอยติดขอบล่าง (Sticky Floating Bottom Bar) */}
+              <div className="sticky bottom-4 z-40 bg-white/95 backdrop-blur-md p-4 rounded-2xl border border-gray-200 shadow-2xl flex flex-col sm:flex-row items-center justify-between gap-3 mt-6">
+                <div className="text-sm font-semibold text-gray-700 text-center sm:text-left">
+                  📌 เช็คชื่อห้อง <span className="text-blue-600 font-bold">{selectedRoom}</span> ประจำวันที่ <span className="font-bold">{checkDate}</span> ({students.length} คน)
+                </div>
+
+                <button
+                  onClick={handleSaveToDatabase}
+                  disabled={saving}
+                  className="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white font-bold px-8 py-3 rounded-xl shadow-lg hover:shadow-blue-200 transition transform active:scale-95 flex items-center justify-center gap-2 text-base disabled:opacity-50"
+                >
+                  {saving ? "⏳ กำลังบันทึก..." : "💾 บันทึกเข้าฐานข้อมูล"}
+                </button>
+              </div>
+            </>
           ) : (
             <div className="bg-white rounded-xl p-12 text-center border text-gray-500">
               ไม่พบข้อมูลนักเรียนในห้อง {selectedRoom}
