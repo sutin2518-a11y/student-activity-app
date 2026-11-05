@@ -7,7 +7,7 @@ import Image from "next/image";
 export default function HomePage() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  // 📌 ข้อมูลสำหรับการ์ดกิจกรรมทั้ง 4 หมวดหมู่
+  // 📌 ข้อมูลสำหรับการ์ดกิจกรรมทั้ง 4 หมวดหมู่ (เชื่อมลิงก์เข้าโฟลเดอร์จริง)
   const activities = [
     {
       title: "ชุมนุม",
@@ -16,7 +16,7 @@ export default function HomePage() {
       bgColor: "bg-red-500",
       textColor: "text-red-500",
       icon: "👥",
-      link: "#" 
+      link: "/teacher/club" 
     },
     {
       title: "กิจกรรมเครื่องแบบ",
@@ -25,7 +25,7 @@ export default function HomePage() {
       bgColor: "bg-blue-500",
       textColor: "text-blue-500",
       icon: "🎓",
-      link: "#"
+      link: "/student/uniform"
     },
     {
       title: "กิจกรรมเพื่อสังคม\nและสาธารณประโยชน์",
@@ -34,7 +34,7 @@ export default function HomePage() {
       bgColor: "bg-emerald-500",
       textColor: "text-emerald-500",
       icon: "🌱",
-      link: "#"
+      link: "/student/volunteer"
     },
     {
       title: "งานแนะแนว",
@@ -43,7 +43,7 @@ export default function HomePage() {
       bgColor: "bg-amber-500",
       textColor: "text-amber-500",
       icon: "🧭",
-      link: "#"
+      link: "/student/guidance"
     }
   ];
 
@@ -67,20 +67,22 @@ export default function HomePage() {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-1 font-semibold text-sm">
           <Link href="/" className="flex items-center gap-3 p-3 bg-red-50 text-red-700 rounded-xl"><span className="text-xl">🏠</span> หน้าหลัก</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👥</span> กิจกรรมชุมนุม</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👮</span> กิจกรรมในเครื่องแบบ</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🧭</span> กิจกรรมแนะแนว</Link>
+          <Link href="/teacher/club" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👥</span> กิจกรรมชุมนุม</Link>
+          <Link href="/student/uniform" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👮</span> กิจกรรมในเครื่องแบบ</Link>
+          <Link href="/student/volunteer" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
+          <Link href="/student/guidance" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🧭</span> กิจกรรมแนะแนว</Link>
           
           {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Sidebar */}
           <Link href="/teacher/attendance" className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl transition border border-blue-100">
             <span className="text-xl">✅</span> ระบบเช็คชื่อ
           </Link>
+          <Link href="/teacher/summary" className="flex items-center gap-3 p-3 bg-emerald-50 hover:bg-emerald-100 text-emerald-700 rounded-xl transition border border-emerald-100">
+            <span className="text-xl">📊</span> รายงานสรุปประจำวัน
+          </Link>
 
           <div className="border-t border-slate-100 my-2"></div>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📢</span> ข่าวประชาสัมพันธ์</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📅</span> ปฏิทินกิจกรรม</Link>
-          <Link href="#" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📄</span> เอกสาร / ดาวน์โหลด</Link>
+          <a href="#news" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📢</span> ข่าวประชาสัมพันธ์</a>
+          <a href="#calendar" onClick={() => setIsSidebarOpen(false)} className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">📅</span> ปฏิทินกิจกรรม</a>
         </div>
         <div className="p-4 border-t border-slate-100">
           <Link href="/login" className="flex items-center justify-center gap-2 w-full p-3 bg-slate-800 text-white rounded-xl hover:bg-slate-700 transition">
@@ -122,7 +124,7 @@ export default function HomePage() {
         </div>
       </header>
 
-      {/* ⚪ แถบเมนูนำทาง */}
+      {/* ⚪ แถบเมนูนำทาง (เชื่อมลิงก์จริง) */}
       <nav className="max-w-7xl mx-auto px-2 md:px-4 -mt-4 relative z-20">
         <div className="bg-white rounded-xl shadow-md p-2 flex items-center overflow-x-auto whitespace-nowrap hide-scrollbar gap-2 text-sm font-bold text-slate-700">
           
@@ -135,17 +137,17 @@ export default function HomePage() {
           </button>
 
           <Link href="/" className="flex items-center gap-2 px-4 py-2 bg-red-800 text-white rounded-lg"><span className="text-lg">🏠</span> หน้าหลัก</Link>
-          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-500 text-lg">👥</span> กิจกรรมชุมนุม</Link>
-          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-600 text-lg">👮</span> กิจกรรมในเครื่องแบบ</Link>
-          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
-          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
+          <Link href="/teacher/club" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-500 text-lg">👥</span> กิจกรรมชุมนุม</Link>
+          <Link href="/student/uniform" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-600 text-lg">👮</span> กิจกรรมในเครื่องแบบ</Link>
+          <Link href="/student/volunteer" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
+          <Link href="/student/guidance" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
           
           {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Navbar */}
           <Link href="/teacher/attendance" className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
             <span className="text-lg">✅</span> ระบบเช็คชื่อ
           </Link>
 
-          <Link href="#" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-pink-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</Link>
+          <a href="#news" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-pink-500 text-lg">📢</span> ข่าวประชาสัมพันธ์</a>
           
         </div>
       </nav>
@@ -205,12 +207,12 @@ export default function HomePage() {
         {/* 📰 2. คอลัมน์ด้านล่าง 3 ส่วน */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-2">
           {/* ข่าวประชาสัมพันธ์ */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div id="news" className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
               <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <span className="text-red-600 text-xl">📢</span> กระดานประชาสัมพันธ์
               </h3>
-              <Link href="#" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</Link>
+              <a href="#news" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</a>
             </div>
             <div className="space-y-3">
               {[
@@ -230,12 +232,12 @@ export default function HomePage() {
           </div>
 
           {/* ปฏิทินกิจกรรม */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <div id="calendar" className="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
             <div className="flex justify-between items-center mb-4 border-b border-slate-100 pb-2">
               <h3 className="font-bold text-slate-800 text-base flex items-center gap-2">
                 <span className="text-red-600 text-xl">📅</span> ปฏิทินกิจกรรม
               </h3>
-              <Link href="#" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</Link>
+              <a href="#calendar" className="text-xs text-blue-600 font-semibold hover:underline">ดูทั้งหมด ➔</a>
             </div>
             <div className="space-y-3">
               {[
@@ -266,17 +268,17 @@ export default function HomePage() {
               </h3>
             </div>
             <div className="grid grid-cols-2 gap-2 mb-4">
-              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
-                <span className="text-base">📄</span> ดาวน์โหลดเอกสาร
+              <Link href="/teacher/attendance" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">✅</span> ระบบเช็คชื่อ
               </Link>
-              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
-                <span className="text-base">📖</span> ระเบียบ / แนวปฏิบัติ
+              <Link href="/teacher/summary" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">📊</span> สรุปรายงาน
               </Link>
-              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
-                <span className="text-base">📋</span> แบบฟอร์มต่างๆ
+              <Link href="/student/uniform" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">👮</span> กิจกรรมเครื่องแบบ
               </Link>
-              <Link href="#" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
-                <span className="text-base">✉️</span> ติดต่อเรา
+              <Link href="/student/volunteer" className="flex items-center gap-2 bg-blue-50 text-blue-700 text-xs font-semibold px-3 py-2.5 rounded-lg border border-blue-100 hover:bg-blue-100 transition">
+                <span className="text-base">🤝</span> กิจกรรมจิตอาสา
               </Link>
             </div>
             <Link href="/login" className="mt-auto group bg-gradient-to-r from-slate-800 to-slate-700 rounded-xl p-4 flex items-center justify-between text-white hover:from-slate-700 hover:to-slate-600 transition shadow-md">
