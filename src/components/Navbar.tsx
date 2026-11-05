@@ -6,44 +6,37 @@ import { usePathname } from "next/navigation";
 export default function Navbar() {
   const pathname = usePathname();
 
-  // รายการเมนูทั้งหมดในระบบ
-  const navItems = [
-    { label: "🏠 ลงทะเบียนกิจกรรม", href: "/" },
-    { label: "🤝 บันทึกจิตอาสา", href: "/volunteer" },
-    { label: "📋 สำหรับครู (เช็คชื่อ)", href: "/teacher" },
-    { label: "⚙️ ระบบ Admin", href: "/admin" },
+  const menuItems = [
+    { name: "หน้าหลัก", href: "/", icon: "🏠" },
+    { name: "กิจกรรมชุมนุม", href: "/teacher/club", icon: "👥" },
+    { name: "กิจกรรมในเครื่องแบบ", href: "/student/uniform", icon: "👔" },
+    { name: "กิจกรรมเพื่อสังคมฯ", href: "/student/volunteer", icon: "🤝" },
+    { name: "กิจกรรมแนะแนว", href: "/student/guidance", icon: "💡" },
+    { name: "ระบบเช็คชื่อ", href: "/teacher/attendance", icon: "✅" },
   ];
 
   return (
-    <nav className="bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-50">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-        
-        {/* โลโก้ / ชื่อระบบ */}
-        <Link href="/" className="flex items-center gap-2 font-bold text-base hover:opacity-90">
-          <span className="text-xl">🎓</span>
-          <span>ระบบกิจกรรมพัฒนาผู้เรียน</span>
-        </Link>
-
-        {/* แถบเมนูคลิกเปลี่ยนหน้า */}
-        <div className="flex items-center gap-1">
-          {navItems.map((item) => {
+    <nav className="bg-white border-b shadow-sm sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex items-center gap-2 overflow-x-auto py-2 scrollbar-none">
+          {menuItems.map((item) => {
             const isActive = pathname === item.href;
             return (
               <Link
                 key={item.href}
                 href={item.href}
-                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition-all ${
+                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-sm font-semibold transition whitespace-nowrap ${
                   isActive
-                    ? "bg-blue-600 text-white shadow-md"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-rose-600 text-white shadow-sm"
+                    : "text-gray-700 hover:bg-gray-100 hover:text-rose-600"
                 }`}
               >
-                {item.label}
+                <span>{item.icon}</span>
+                <span>{item.name}</span>
               </Link>
             );
           })}
         </div>
-
       </div>
     </nav>
   );

@@ -36,7 +36,6 @@ function AttendanceContent() {
 
   const grades = ["ม.1", "ม.2", "ม.3", "ม.4", "ม.5", "ม.6"];
 
-  // 1. อ่านค่าจาก URL และตั้งค่าวันที่ปัจจุบันเมื่อเข้าหน้าเว็บ
   useEffect(() => {
     setCheckDate(new Date().toISOString().split("T")[0]);
     const roomFromUrl = searchParams.get("room");
@@ -49,7 +48,6 @@ function AttendanceContent() {
     }
   }, [searchParams]);
 
-  // 2. ดึงรายชื่อนักเรียนและประวัติการเช็คชื่อเมื่อมีการเปลี่ยนห้องหรือเปลี่ยนวันที่
   useEffect(() => {
     if (selectedRoom && checkDate) {
       fetchStudents();
@@ -63,7 +61,6 @@ function AttendanceContent() {
     setLoading(true);
     const [grade, room] = selectedRoom.split("/");
 
-    // ดึงรายชื่อนักเรียนในห้องจาก student_database
     const { data: studentData, error: studentError } = await supabase
       .from("student_database")
       .select("id, student_id_card, no, full_name, gender")
@@ -85,7 +82,6 @@ function AttendanceContent() {
 
     const currentStudents = studentData || [];
 
-    // ดึงประวัติการเช็คชื่อที่เคยบันทึกไว้ในตาราง attendance_records ของวันนั้น
     const { data: savedRecords } = await supabase
       .from("attendance_records")
       .select("student_id_card, status")
@@ -93,7 +89,6 @@ function AttendanceContent() {
       .eq("grade_level", grade)
       .eq("classroom", room);
 
-    // สร้าง Map จับคู่ (student_id_card -> status)
     const savedStatusMap: { [key: string]: AttendanceStatus } = {};
     if (savedRecords) {
       savedRecords.forEach((rec) => {
@@ -101,7 +96,6 @@ function AttendanceContent() {
       });
     }
 
-    // แมปสถานะให้นักเรียน (ถ้าเคยบันทึกแล้วใช้ค่าเดิม ถ้ายังไม่เคยบันทึกให้เริ่มต้นเป็น "present")
     const initialAttendance: { [key: number]: AttendanceStatus } = {};
     currentStudents.forEach((student) => {
       initialAttendance[student.id] = savedStatusMap[student.student_id_card] || "present";
@@ -112,13 +106,11 @@ function AttendanceContent() {
     setLoading(false);
   };
 
-  // เลือกห้องเรียนแบบรวดเร็ว
   const handleSelectRoom = (roomName: string) => {
     setSelectedRoom(roomName);
     router.push(`?room=${encodeURIComponent(roomName)}`);
   };
 
-  // เปลี่ยนสถานะรายบุคคล
   const handleStatusChange = (studentId: number, status: AttendanceStatus) => {
     setAttendance((prev) => ({
       ...prev,
@@ -126,7 +118,6 @@ function AttendanceContent() {
     }));
   };
 
-  // เลือกสถานะแบบทั้งห้อง
   const handleSetAllStatus = (status: AttendanceStatus) => {
     const updatedAttendance: { [key: number]: AttendanceStatus } = {};
     students.forEach((student) => {
@@ -135,7 +126,6 @@ function AttendanceContent() {
     setAttendance(updatedAttendance);
   };
 
-  // บันทึกข้อมูลลงฐานข้อมูล Supabase (SweetAlert2)
   const handleSaveToDatabase = async () => {
     if (!students.length) {
       Swal.fire({
@@ -184,7 +174,6 @@ function AttendanceContent() {
     }
   };
 
-  // ส่งออกไฟล์ Excel (.xlsx)
   const handleExportExcel = () => {
     if (!students.length) {
       Swal.fire({
@@ -235,7 +224,6 @@ function AttendanceContent() {
 
   return (
     <div className="p-4 md:p-8 font-sans max-w-7xl mx-auto space-y-6">
-      {/* ส่วนหัวหน้าเว็บพร้อมปุ่มลิงก์ดูสรุปรายวัน */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">✅ ระบบเช็คชื่อนักเรียน โรงเรียนเชียงคำวิทยาคม</h1>
@@ -261,13 +249,11 @@ function AttendanceContent() {
         </div>
       </div>
 
-      {/* แผงลิงก์ด่วนเลือกห้องเรียน ม.1 - ม.6 */}
       <div className="bg-white rounded-xl border shadow-sm p-4 md:p-5">
         <h2 className="text-sm font-bold text-gray-600 uppercase tracking-wider mb-3">
           📌 ลิงก์ด่วนเลือกห้องเรียน
         </h2>
 
-        {/* แท็บเลือกระดับชั้น */}
         <div className="flex gap-2 border-b pb-3 overflow-x-auto">
           {grades.map((grade) => (
             <button
@@ -284,7 +270,6 @@ function AttendanceContent() {
           ))}
         </div>
 
-        {/* ปุ่มเลือกห้อง 1 - 12 */}
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-12 gap-2 mt-4">
           {Array.from({ length: 12 }, (_, i) => i + 1).map((roomNum) => {
             const roomName = `${activeGrade}/${roomNum}`;
@@ -306,7 +291,6 @@ function AttendanceContent() {
         </div>
       </div>
 
-      {/* ส่วนตารางและการจัดการเมื่อเลือกห้องเรียน */}
       {selectedRoom ? (
         <div className="space-y-4">
           <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4 bg-blue-50 p-4 rounded-xl border border-blue-100">
@@ -348,7 +332,6 @@ function AttendanceContent() {
             )}
           </div>
 
-          {/* ตารางแสดงรายชื่อนักเรียน */}
           {loading ? (
             <div className="bg-white rounded-xl p-12 text-center border text-gray-500">
               กำลังโหลดข้อมูลนักเรียนห้อง {selectedRoom}...
