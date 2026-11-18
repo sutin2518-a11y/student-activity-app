@@ -1,9 +1,32 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import Swal from "sweetalert2";
+
+
+// อ่านประวัติแบบแบ่งหน้า เพื่อไม่ให้การนับสะสมขาดข้อมูลเมื่อมีมากกว่า 1,000 แถว
+async function readAttendanceHistory(activityType: string, activityId: string) {
+  const result: Array<{ student_key: string; attendance_date: string; status: string; evaluation: string | null }> = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("attendance_records")
+      .select("student_key, attendance_date, status, evaluation")
+      .eq("activity_type", activityType)
+      .eq("activity_id", activityId)
+      .order("attendance_date", { ascending: false })
+      .order("student_key", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(`อ่านประวัติเช็คชื่อไม่ได้: ${error.message}`);
+    result.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return result;
+}
+
+const VALID_STATUSES = new Set(["มา", "ลา", "ป่วย", "ขาด"]);
 
 export default function TeacherUniformPage() {
   const [searchTeacher, setSearchTeacher] = useState("");
@@ -15,6 +38,8 @@ export default function TeacherUniformPage() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const loadRequestId = useRef(0);
 
   // ตัวกรองระดับชั้น (ม.1 - ม.3)
   const [activeGradeFilter, setActiveGradeFilter] = useState<string>("ALL");
@@ -31,7 +56,7 @@ export default function TeacherUniformPage() {
   const [historyPresentMap, setHistoryPresentMap] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
     setAttendanceDate(todayStr);
     loadTeacherDatalist();
     autoFetchLoggedInTeacher(todayStr);
@@ -185,94 +210,102 @@ export default function TeacherUniformPage() {
     fetchUniformsByName(searchTeacher, attendanceDate);
   };
 
+  // อ่านเฉพาะนักเรียนของกิจกรรม/ระดับชั้น และใช้ activity_id เดิมสำหรับความเข้ากันได้กับข้อมูลย้อนหลัง
   const loadUniformStudents = async (act: any, dateStr: string) => {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
+    setLoadError("");
+    setStudents([]);
+    setAttendanceStatus({});
+    setEvaluations({});
+    setHistoryPresentMap({});
     setSelectedL1("ALL");
     setSelectedL2("ALL");
     setSelectedL3("ALL");
+    try {
+      const cleanNum = act.cleanGradeNum || String(act.grade_level || "").replace(/^ม\./, "").trim();
+      const gradeVariants = Array.from(new Set([act.grade_level, `ม.${cleanNum}`, cleanNum]));
+      let activityVariants = [act.activity_name];
+      if (act.activity_name.includes("ประโยชน์") || act.activity_name.includes("บำเพ็ญ")) {
+        activityVariants = ["ผู้บำเพ็ญประโยชน์", "ผู้ทำประโยชน์"];
+      }
 
-    const cleanNum = act.cleanGradeNum || act.grade_level.replace(/^ม\./, "").trim();
-    const gradeVariants = [act.grade_level, `ม.${cleanNum}`, cleanNum];
+      const { data, error: rosterError } = await supabase
+        .from("uniform_activities")
+        .select("*")
+        .in("activity_name", activityVariants)
+        .in("grade_level", gradeVariants)
+        .limit(1000)
+        .order("classroom", { ascending: true })
+        .order("no", { ascending: true });
+      if (rosterError) throw new Error(`อ่านรายชื่อเครื่องแบบไม่ได้: ${rosterError.message}`);
 
-    let activityVariants = [act.activity_name];
-    if (act.activity_name.includes("ประโยชน์") || act.activity_name.includes("บำเพ็ญ")) {
-      activityVariants = ["ผู้บำเพ็ญประโยชน์", "ผู้ทำประโยชน์"];
-    }
+      const formatted = (data || []).map((s: any, idx: number) => ({
+        // ใช้ student_id_card (เลขประจำตัว) ให้ตรงกับการนำเข้า ไม่ใช้ id ของแถว
+        id: String(s.student_id_card ?? "").trim(),
+        rowKey: `uniform-student-${s.id || s.student_id_card || idx}-${idx}`,
+        no: s.no || idx + 1,
+        name: s.full_name || "ไม่ระบุชื่อ",
+        grade: String(s.grade_level || act.grade_level).replace(/^ม\./, "").trim(),
+        room: s.classroom || "-",
+        level_1: String(s.level_1 || "").trim(),
+        level_2: String(s.level_2 || "").trim(),
+        level_3: String(s.level_3 || "").trim(),
+      }));
+      if (formatted.some(s => !s.id)) {
+        throw new Error("พบรายชื่อเครื่องแบบที่ไม่มีเลขประจำตัว กรุณาตรวจ uniform_activities ก่อนเช็คชื่อ");
+      }
 
-    // 1. ดึงรายชื่อนักเรียนในกิจกรรม
-    const { data } = await supabase
-      .from("uniform_activities")
-      .select("*")
-      .in("activity_name", activityVariants)
-      .in("grade_level", gradeVariants)
-      .limit(1000)
-      .order("classroom", { ascending: true })
-      .order("no", { ascending: true });
+      // บันทึกในระบบเดิมใช้ UNIFORM_<ชื่อกิจกรรม> (ไม่มี _M1/_M2/_M3)
+      // จึงต้องอ่านด้วยรหัสเดียวกัน เพื่อให้เปิดประวัติเก่ากลับมาได้
+      const activityKey = `UNIFORM_${act.activity_name}`;
+      // อ่านรหัสเดิม 2 แบบโดยไม่แก้ไขประวัติ: รูปแบบขณะบันทึก และรูปแบบมีระดับชั้นที่เคยใช้ตอนอ่าน
+      const history = [
+        ...(await readAttendanceHistory("UNIFORM", activityKey)),
+        ...(await readAttendanceHistory("UNIFORM", `${activityKey}_M${cleanNum}`)),
+      ];
+      if (requestId !== loadRequestId.current) return false;
 
-    const formatted = (data || []).map((s: any, idx: number) => ({
-      id: String(s.student_id_card || s.id || idx),
-      rowKey: `uniform-student-${s.id || s.student_id_card || idx}-${idx}`,
-      no: s.no || idx + 1,
-      name: s.full_name || "ไม่ระบุชื่อ",
-      grade: s.grade_level || act.grade_level,
-      room: s.classroom || "-",
-      level_1: String(s.level_1 || "").trim(),
-      level_2: String(s.level_2 || "").trim(),
-      level_3: String(s.level_3 || "").trim(),
-    }));
-
-    const activityKey = `UNIFORM_${act.activity_name}_M${cleanNum}`;
-
-    // 2. ดึงประวัติการเช็คชื่อย้อนหลังทั้งหมดของกิจกรรมนี้ (ทุกวัน)
-    const { data: allHistory } = await supabase
-      .from("attendance_records")
-      .select("student_key, attendance_date, status, evaluation")
-      .eq("activity_type", "UNIFORM")
-      .eq("activity_id", activityKey);
-
-    // สร้าง Map นับจำนวนวันที่มาเรียนสะสมย้อนหลัง (ไม่นับวันปัจจุบันที่กำลังเช็คอยู่)
-    const pastPresentCounts: { [key: string]: number } = {};
-    const existTodayMap: { [key: string]: any } = {};
-
-    (allHistory || []).forEach((r: any) => {
-      if (r.attendance_date === dateStr) {
-        existTodayMap[r.student_key] = r;
-      } else {
-        if (r.status === "มา") {
-          pastPresentCounts[r.student_key] = (pastPresentCounts[r.student_key] || 0) + 1;
+      const pastDates = new Map<string, Set<string>>();
+      const today = new Map<string, (typeof history)[number]>();
+      for (const record of history) {
+        const id = String(record.student_key || "").trim();
+        if (record.attendance_date === dateStr) {
+          if (!today.has(id)) today.set(id, record);
+        } else if (record.status === "มา") {
+          if (!pastDates.has(id)) pastDates.set(id, new Set());
+          pastDates.get(id)!.add(record.attendance_date);
         }
       }
-    });
-
-    setHistoryPresentMap(pastPresentCounts);
-
-    // 3. กำหนดค่าเริ่มต้น และคำนวณการประเมินผลอัตโนมัติ (เกณฑ์ 80% = 14 ครั้ง)
-    const initSt: { [key: string]: string } = {};
-    const initEv: { [key: string]: string } = {};
-
-    formatted.forEach((s) => {
-      const todayStatus = existTodayMap[s.id]?.status || "มา";
-      initSt[s.id] = todayStatus;
-
-      // คำนวณวันมาเรียนสะสมรวมวันนี้
-      const pastPresent = pastPresentCounts[s.id] || 0;
-      const totalPresent = pastPresent + (todayStatus === "มา" ? 1 : 0);
-
-      // หากมีบันทึกใน DB เดิม ให้ใช้ค่าเดิมก่อน ถ้าไม่มีให้คำนวณตามเกณฑ์ >= 14 ครั้ง = ผ
-      if (existTodayMap[s.id]?.evaluation) {
-        initEv[s.id] = existTodayMap[s.id].evaluation;
-      } else {
-        initEv[s.id] = totalPresent >= 14 ? "ผ" : "มผ";
+      const counts: Record<string, number> = {};
+      const statuses: Record<string, string> = {};
+      const evals: Record<string, string> = {};
+      for (const s of formatted) {
+        const savedToday = today.get(s.id);
+        const status = savedToday?.status || "";
+        const past = pastDates.get(s.id)?.size || 0;
+        counts[s.id] = past;
+        statuses[s.id] = VALID_STATUSES.has(status) ? status : "";
+        const total = past + (status === "มา" ? 1 : 0);
+        evals[s.id] = savedToday?.evaluation || (total >= 14 ? "ผ" : "มผ");
       }
-    });
-
-    setStudents(formatted);
-    setAttendanceStatus(initSt);
-    setEvaluations(initEv);
-    setLoading(false);
+      setHistoryPresentMap(counts);
+      setAttendanceStatus(statuses);
+      setEvaluations(evals);
+      setStudents(formatted);
+      return true;
+    } catch (err) {
+      if (requestId === loadRequestId.current) {
+        setLoadError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลเช็คชื่อได้");
+      }
+      return false;
+    } finally {
+      if (requestId === loadRequestId.current) setLoading(false);
+    }
   };
 
   const handleDateChange = (newDate: string) => {
+    if (!newDate) return;
     setAttendanceDate(newDate);
     if (selectedActivity) {
       loadUniformStudents(selectedActivity, newDate);
@@ -333,46 +366,59 @@ export default function TeacherUniformPage() {
   };
 
   const handleSaveAttendance = async () => {
-    if (!selectedActivity || students.length === 0) return;
-    setSavingAttendance(true);
+    if (!selectedActivity || !attendanceDate || students.length === 0 || loadError || loading || savingAttendance) return;
 
-    const activityKey = `UNIFORM_${selectedActivity.activity_name}`;
-
-    const rawPayload = students.map((s) => ({
-      activity_type: "UNIFORM",
-      activity_id: activityKey,
-      student_key: String(s.id),
-      attendance_date: attendanceDate,
-      status: attendanceStatus[s.id] || "มา",
-      evaluation: evaluations[s.id] || "ผ",
-      updated_at: new Date().toISOString(),
-    }));
-
-    // กรองขจัดรายการซ้ำ
-    const uniqueMap = new Map();
-    rawPayload.forEach((item) => {
-      if (item.student_key) {
-        uniqueMap.set(item.student_key, item);
-      }
-    });
-    const payload = Array.from(uniqueMap.values());
-
-    const { error } = await supabase
-      .from("attendance_records")
-      .upsert(payload, { onConflict: "activity_type,activity_id,student_key,attendance_date" });
-
-    if (error) {
-      Swal.fire({ icon: "error", title: "เกิดข้อผิดพลาดในการบันทึก", text: error.message });
-    } else {
-      Swal.fire({
-        icon: "success",
-        title: "บันทึกสำเร็จ! 🎉",
-        text: `บันทึกกิจกรรมเครื่องแบบเรียบร้อยแล้ว (${payload.length} รายการ)`,
-        confirmButtonColor: "#2563eb",
-        customClass: { popup: "rounded-3xl font-sans" },
-      });
+    const marked = students.filter(s => VALID_STATUSES.has(attendanceStatus[s.id]));
+    if (marked.length === 0) {
+      await Swal.fire({ icon: "warning", title: "ยังไม่ได้เช็คชื่อ", text: "กรุณาเลือกสถานะนักเรียนก่อนกดบันทึก" });
+      return;
     }
-    setSavingAttendance(false);
+    if (marked.length < students.length) {
+      const confirm = await Swal.fire({
+        icon: "question", title: "มีนักเรียนที่ยังไม่ได้เช็คชื่อ",
+        text: `เช็คแล้ว ${marked.length} จาก ${students.length} คน ระบบจะบันทึกเฉพาะคนที่เช็คแล้วเท่านั้น`,
+        showCancelButton: true, confirmButtonText: "บันทึกเฉพาะที่เช็คแล้ว", cancelButtonText: "กลับไปเช็คชื่อ",
+      });
+      if (!confirm.isConfirmed) return;
+    }
+
+    const payload = Array.from(new Map(marked.map(s => [s.id, {
+      activity_type: "UNIFORM",
+      activity_id: `UNIFORM_${selectedActivity.activity_name}`,
+      student_key: s.id,
+      attendance_date: attendanceDate,
+      status: attendanceStatus[s.id],
+      evaluation: evaluations[s.id] || "มผ",  // เกณฑ์เดิม 14 ครั้ง ยังไม่เปลี่ยนโดยไม่รับรองระเบียบ
+      updated_at: new Date().toISOString(),
+    }])).values());
+
+    setSavingAttendance(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("กรุณาเข้าสู่ระบบก่อนบันทึกการเช็คชื่อ");
+      const { error } = await supabase
+        .from("attendance_records")
+        .upsert(payload, { onConflict: "activity_type,activity_id,student_key,attendance_date" });
+      if (error) throw new Error(error.message);
+
+      const verified = await loadUniformStudents(selectedActivity, attendanceDate); // อ่านจากฐานข้อมูลอีกครั้งเพื่อยืนยันการทำงาน
+      if (!verified) {
+        await Swal.fire({ icon: "warning", title: "บันทึกแล้ว แต่ยังตรวจสอบผลไม่ได้", text: "ฐานข้อมูลตอบรับการบันทึก แต่การโหลดข้อมูลกลับล้มเหลว โปรดตรวจสอบก่อนบันทึกซ้ำ" });
+        return;
+      }
+      await Swal.fire({
+        icon: "success", title: "บันทึกเช็คชื่อสำเร็จ",
+        text: `บันทึกกิจกรรมเครื่องแบบ ${marked.length} คน ประจำวันที่ ${attendanceDate}`,
+        confirmButtonColor: "#2563eb",
+      });
+    } catch (err) {
+      await Swal.fire({
+        icon: "error", title: "บันทึกไม่สำเร็จ",
+        text: err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+      });
+    } finally {
+      setSavingAttendance(false);
+    }
   };
 
   const presentCount = displayedStudents.filter((s) => attendanceStatus[s.id] === "มา").length;
@@ -401,7 +447,7 @@ export default function TeacherUniformPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              จัดการเวลาเรียนและประเมินผล (ผ่านเกณฑ์ 80% = มาเรียน 14 ครั้งขึ้นไป จาก 18 ครั้ง)
+              จัดการเวลาเรียนและประเมินผล (เกณฑ์เดิม 14 ครั้งจาก 18 ครั้ง (77.8%) — โปรดตรวจระเบียบก่อนปรับเกณฑ์)
             </p>
           </div>
         </div>
@@ -590,6 +636,11 @@ export default function TeacherUniformPage() {
               </div>
             )}
 
+            {loadError && (
+              <div role="alert" className="p-4 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 font-bold">
+                ⚠️ {loadError} — ยังไม่สามารถบันทึกได้
+              </div>
+            )}
             {/* สถิติ Dashboard */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
@@ -610,6 +661,10 @@ export default function TeacherUniformPage() {
               </div>
             </div>
 
+            <p className="text-xs text-amber-700 font-bold">
+              ยังไม่เช็คชื่อ {displayedStudents.filter(s => !VALID_STATUSES.has(attendanceStatus[s.id])).length} คน (ในรายการที่แสดง)
+              — ไม่มีสถานะเริ่มต้นเป็น “มา” จนกว่าครูจะเลือก
+            </p>
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={handleMarkAllPresent}
@@ -620,7 +675,7 @@ export default function TeacherUniformPage() {
               </button>
 
               <span className="text-xs text-slate-500 font-medium">
-                💡 เกณฑ์ประเมิน: มาเรียนสะสม $\ge$ 14 ครั้ง (จาก 18 ครั้ง) ประเมิน "ผ่าน (ผ)"
+                💡 เกณฑ์เดิม: มาเรียนสะสม 14/18 ครั้ง (77.8%) จึงเป็น "ผ" — ต้องยืนยันเกณฑ์ก่อนใช้งานจริง
               </span>
             </div>
 
@@ -683,7 +738,7 @@ export default function TeacherUniformPage() {
                           <td className="p-3 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <select
-                                value={evaluations[s.id] || "ผ"}
+                                value={evaluations[s.id] || "มผ"}
                                 onChange={(e) => setEvaluations((p) => ({ ...p, [s.id]: e.target.value }))}
                                 className={`px-2.5 py-1 border rounded-xl text-xs font-black outline-none transition-all ${
                                   evaluations[s.id] === "ผ"
@@ -708,22 +763,41 @@ export default function TeacherUniformPage() {
               </div>
             )}
 
-            {students.length > 0 && (
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleSaveAttendance}
-                  disabled={savingAttendance}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-2"
-                >
-                  <span>💾</span>
-                  <span>{savingAttendance ? "กำลังบันทึกข้อมูล..." : "บันทึกข้อมูลเวลาเรียนและผลประเมินลงฐานข้อมูล"}</span>
-                </button>
-              </div>
-            )}
           </div>
         )}
 
+        {/* พื้นที่เผื่อท้ายหน้า ไม่ให้แถวสุดท้ายถูกแถบบันทึกบัง */}
+        {selectedActivity && students.length > 0 && <div aria-hidden="true" className="h-40 sm:h-28" />}
       </div>
+
+      {/* แถบบันทึกติดขอบล่างหน้าจอ — ใช้ปุ่มและฟังก์ชันบันทึกเดิม */}
+      {selectedActivity && students.length > 0 && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur-md sm:px-6"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0 text-center sm:text-left" aria-live="polite">
+              <p className="truncate text-xs font-bold text-slate-800 sm:text-sm">
+                💾 {`${selectedActivity.activity_name} (${selectedActivity.grade_level})`}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                วันที่ {attendanceDate} · เช็คชื่อแล้ว {students.filter(s => VALID_STATUSES.has(attendanceStatus[s.id])).length}/{students.length} คน
+              </p>
+              {loadError && <p role="alert" className="text-[11px] font-semibold text-rose-700">อ่านข้อมูลผิดพลาด — ไม่สามารถบันทึกได้</p>}
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveAttendance}
+              disabled={savingAttendance || loading || !!loadError}
+              className="w-full shrink-0 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-purple-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              aria-label="บันทึกหรืออัปเดตผลเช็คชื่อกิจกรรม"
+            >
+              {savingAttendance ? "⏳ กำลังบันทึก..." : "💾 บันทึก / อัปเดตการเช็คชื่อ"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

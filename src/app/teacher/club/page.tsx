@@ -1,9 +1,32 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabase";
 import Swal from "sweetalert2";
+
+
+// อ่านประวัติแบบแบ่งหน้า เพื่อไม่ให้การนับสะสมขาดข้อมูลเมื่อมีมากกว่า 1,000 แถว
+async function readAttendanceHistory(activityType: string, activityId: string) {
+  const result: Array<{ student_key: string; attendance_date: string; status: string; evaluation: string | null }> = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data, error } = await supabase
+      .from("attendance_records")
+      .select("student_key, attendance_date, status, evaluation")
+      .eq("activity_type", activityType)
+      .eq("activity_id", activityId)
+      .order("attendance_date", { ascending: false })
+      .order("student_key", { ascending: true })
+      .range(from, from + pageSize - 1);
+    if (error) throw new Error(`อ่านประวัติเช็คชื่อไม่ได้: ${error.message}`);
+    result.push(...(data || []));
+    if (!data || data.length < pageSize) break;
+  }
+  return result;
+}
+
+const VALID_STATUSES = new Set(["มา", "ลา", "ป่วย", "ขาด"]);
 
 export default function TeacherClubPage() {
   const [searchTeacher, setSearchTeacher] = useState("");
@@ -15,6 +38,8 @@ export default function TeacherClubPage() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [savingAttendance, setSavingAttendance] = useState(false);
+  const [loadError, setLoadError] = useState("");
+  const loadRequestId = useRef(0);
 
   // ตัวกรองระดับชั้น (ม.1 - ม.6)
   const [activeGradeFilter, setActiveGradeFilter] = useState<string>("ALL");
@@ -24,7 +49,7 @@ export default function TeacherClubPage() {
   const [historyPresentMap, setHistoryPresentMap] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
-    const todayStr = new Date().toISOString().split("T")[0];
+    const todayStr = new Date(Date.now() - new Date().getTimezoneOffset() * 60_000).toISOString().slice(0, 10);
     setAttendanceDate(todayStr);
     loadTeacherDatalist();
     autoFetchLoggedInTeacher(todayStr);
@@ -157,77 +182,86 @@ export default function TeacherClubPage() {
     fetchClubsByName(searchTeacher, attendanceDate);
   };
 
+  // รายชื่อชุมนุมจาก club_activities (ตามระบบเดิม) และประวัติจาก attendance_records
   const loadClubStudents = async (clubName: string, dateStr: string) => {
+    const requestId = ++loadRequestId.current;
     setLoading(true);
+    setLoadError("");
+    setStudents([]);
+    setAttendanceStatus({});
+    setEvaluations({});
+    setHistoryPresentMap({});
     setActiveGradeFilter("ALL");
 
-    // ดึงรายชื่อนักเรียนในชุมนุมจากตาราง club_activities
-    const { data } = await supabase
-      .from("club_activities")
-      .select("*")
-      .eq("club_name", clubName)
-      .limit(1000)
-      .order("grade_level", { ascending: true })
-      .order("classroom", { ascending: true })
-      .order("no", { ascending: true });
+    try {
+      const { data, error: rosterError } = await supabase
+        .from("club_activities")
+        .select("*")
+        .eq("club_name", clubName)
+        .limit(1000)
+        .order("grade_level", { ascending: true })
+        .order("classroom", { ascending: true })
+        .order("no", { ascending: true });
+      if (rosterError) throw new Error(`อ่านรายชื่อชุมนุมไม่ได้: ${rosterError.message}`);
 
-    const formatted = (data || []).map((s: any, idx: number) => ({
-      id: String(s.student_id || s.id || idx),
-      rowKey: `club-student-${s.id || s.student_id || idx}-${idx}`,
-      no: s.no || idx + 1,
-      name: s.full_name || "ไม่ระบุชื่อ",
-      grade: String(s.grade_level || "").replace(/^ม\./, "").trim(),
-      room: s.classroom || "-",
-    }));
+      const formatted = (data || []).map((s: any, idx: number) => ({
+        // ไม่ใช้ id ของแถวฐานข้อมูลแทนรหัสนักเรียน เพราะจะบันทึกประวัติผิดคน
+        id: String(s.student_id ?? "").trim(),
+        rowKey: `club-student-${s.id || s.student_id || idx}-${idx}`,
+        no: s.no || idx + 1,
+        name: s.full_name || "ไม่ระบุชื่อ",
+        grade: String(s.grade_level || "").replace(/^ม\./, "").trim(),
+        room: s.classroom || "-",
+      }));
+      if (formatted.some(s => !s.id)) {
+        throw new Error("พบรายชื่อชุมนุมที่ไม่มีรหัสนักเรียน กรุณาตรวจข้อมูลใน club_activities ก่อนเช็คชื่อ");
+      }
 
-    const activityKey = `CLUB_${clubName}`;
+      const activityKey = `CLUB_${clubName}`;
+      const history = await readAttendanceHistory("CLUB", activityKey);
+      if (requestId !== loadRequestId.current) return false;
 
-    // ดึงประวัติการเช็คชื่อสะสม
-    const { data: allHistory } = await supabase
-      .from("attendance_records")
-      .select("student_key, attendance_date, status, evaluation")
-      .eq("activity_type", "CLUB")
-      .eq("activity_id", activityKey);
-
-    const pastPresentCounts: { [key: string]: number } = {};
-    const existTodayMap: { [key: string]: any } = {};
-
-    (allHistory || []).forEach((r: any) => {
-      if (r.attendance_date === dateStr) {
-        existTodayMap[r.student_key] = r;
-      } else {
-        if (r.status === "มา") {
-          pastPresentCounts[r.student_key] = (pastPresentCounts[r.student_key] || 0) + 1;
+      const pastDates = new Map<string, Set<string>>();
+      const today = new Map<string, (typeof history)[number]>();
+      for (const record of history) {
+        const id = String(record.student_key || "").trim();
+        if (record.attendance_date === dateStr) {
+          if (!today.has(id)) today.set(id, record);
+        } else if (record.status === "มา") {
+          if (!pastDates.has(id)) pastDates.set(id, new Set());
+          pastDates.get(id)!.add(record.attendance_date);
         }
       }
-    });
-
-    setHistoryPresentMap(pastPresentCounts);
-
-    const initSt: { [key: string]: string } = {};
-    const initEv: { [key: string]: string } = {};
-
-    formatted.forEach((s) => {
-      const todayStatus = existTodayMap[s.id]?.status || "มา";
-      initSt[s.id] = todayStatus;
-
-      const pastPresent = pastPresentCounts[s.id] || 0;
-      const totalPresent = pastPresent + (todayStatus === "มา" ? 1 : 0);
-
-      if (existTodayMap[s.id]?.evaluation) {
-        initEv[s.id] = existTodayMap[s.id].evaluation;
-      } else {
-        initEv[s.id] = totalPresent >= 14 ? "ผ" : "มผ";
+      const counts: Record<string, number> = {};
+      const statuses: Record<string, string> = {};
+      const evals: Record<string, string> = {};
+      for (const s of formatted) {
+        const savedToday = today.get(s.id);
+        // ไม่มีบันทึกในวันนั้น = ยังไม่เช็คชื่อ ไม่ใช่ "มา"
+        const status = savedToday?.status || "";
+        const past = pastDates.get(s.id)?.size || 0;
+        counts[s.id] = past;
+        statuses[s.id] = VALID_STATUSES.has(status) ? status : "";
+        const total = past + (status === "มา" ? 1 : 0);
+        evals[s.id] = savedToday?.evaluation || (total >= 14 ? "ผ" : "มผ");
       }
-    });
-
-    setStudents(formatted);
-    setAttendanceStatus(initSt);
-    setEvaluations(initEv);
-    setLoading(false);
+      setHistoryPresentMap(counts);
+      setAttendanceStatus(statuses);
+      setEvaluations(evals);
+      setStudents(formatted);
+      return true;
+    } catch (err) {
+      if (requestId === loadRequestId.current) {
+        setLoadError(err instanceof Error ? err.message : "ไม่สามารถโหลดข้อมูลเช็คชื่อได้");
+      }
+      return false;
+    } finally {
+      if (requestId === loadRequestId.current) setLoading(false);
+    }
   };
 
   const handleDateChange = (newDate: string) => {
+    if (!newDate) return;
     setAttendanceDate(newDate);
     if (selectedClub) {
       loadClubStudents(selectedClub.club_name, newDate);
@@ -267,56 +301,59 @@ export default function TeacherClubPage() {
   };
 
   const handleSaveAttendance = async () => {
-    if (!selectedClub || students.length === 0) return;
-    setSavingAttendance(true);
+    if (!selectedClub || !attendanceDate || students.length === 0 || loadError || loading || savingAttendance) return;
 
-    const clubTitle = selectedClub.club_name || selectedClub.title;
-    const activityKey = `CLUB_${clubTitle}`;
-
-    // 1. สร้างรายการข้อมูล (ดึง student_id ที่ถูกต้อง)
-    const rawPayload = students.map((s) => {
-      const studentKey = String(s.student_id || s.id || "").trim();
-      return {
-        activity_type: "CLUB",
-        activity_id: activityKey,
-        student_key: studentKey,
-        attendance_date: attendanceDate,
-        status: attendanceStatus[s.id || s.student_id] || "มา",
-        evaluation: evaluations[s.id || s.student_id] || "ผ",
-        updated_at: new Date().toISOString(),
-      };
-    }).filter((item) => item.student_key !== "" && item.student_key !== "undefined");
-
-    // 2. ขจัดรายการที่ student_key ซ้ำกัน
-    const uniqueMap = new Map();
-    rawPayload.forEach((item) => {
-      uniqueMap.set(item.student_key, item);
-    });
-    const payload = Array.from(uniqueMap.values());
-
-    if (payload.length === 0) {
-      setSavingAttendance(false);
-      return Swal.fire({ icon: "warning", title: "ไม่พบรหัสนักเรียนที่ถูกต้องในการบันทึก" });
+    const marked = students.filter(s => VALID_STATUSES.has(attendanceStatus[s.id]));
+    if (marked.length === 0) {
+      await Swal.fire({ icon: "warning", title: "ยังไม่ได้เช็คชื่อ", text: "กรุณาเลือกสถานะนักเรียนก่อนกดบันทึก" });
+      return;
     }
-
-    // 3. บันทึกลง Supabase
-    const { error } = await supabase
-      .from("attendance_records")
-      .upsert(payload, { onConflict: "activity_type,activity_id,student_key,attendance_date" });
-
-    if (error) {
-      console.error("Save Error:", error.message);
-      Swal.fire({ icon: "error", title: "เกิดข้อผิดพลาดในการบันทึก", text: error.message });
-    } else {
-      Swal.fire({
-        icon: "success",
-        title: "บันทึกเวลาเรียนสำเร็จ! 🎉",
-        text: `บันทึกกิจกรรมชุมนุม ${clubTitle} จำนวน ${payload.length} รายการ เรียบร้อยแล้ว`,
-        confirmButtonColor: "#2563eb",
-        customClass: { popup: "rounded-3xl font-sans" },
+    if (marked.length < students.length) {
+      const confirm = await Swal.fire({
+        icon: "question", title: "มีนักเรียนที่ยังไม่ได้เช็คชื่อ",
+        text: `เช็คแล้ว ${marked.length} จาก ${students.length} คน ระบบจะบันทึกเฉพาะคนที่เช็คแล้วเท่านั้น`,
+        showCancelButton: true, confirmButtonText: "บันทึกเฉพาะที่เช็คแล้ว", cancelButtonText: "กลับไปเช็คชื่อ",
       });
+      if (!confirm.isConfirmed) return;
     }
-    setSavingAttendance(false);
+
+    const payload = Array.from(new Map(marked.map(s => [s.id, {
+      activity_type: "CLUB",
+      activity_id: `CLUB_${selectedClub.club_name}`,
+      student_key: s.id,
+      attendance_date: attendanceDate,
+      status: attendanceStatus[s.id],
+      evaluation: evaluations[s.id] || "มผ",  // เกณฑ์เดิม 14 ครั้ง ยังไม่เปลี่ยนโดยไม่รับรองระเบียบ
+      updated_at: new Date().toISOString(),
+    }])).values());
+
+    setSavingAttendance(true);
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      if (userError || !user) throw new Error("กรุณาเข้าสู่ระบบก่อนบันทึกการเช็คชื่อ");
+      const { error } = await supabase
+        .from("attendance_records")
+        .upsert(payload, { onConflict: "activity_type,activity_id,student_key,attendance_date" });
+      if (error) throw new Error(error.message);
+
+      const verified = await loadClubStudents(selectedClub.club_name, attendanceDate); // อ่านจากฐานข้อมูลอีกครั้งเพื่อยืนยันการทำงาน
+      if (!verified) {
+        await Swal.fire({ icon: "warning", title: "บันทึกแล้ว แต่ยังตรวจสอบผลไม่ได้", text: "ฐานข้อมูลตอบรับการบันทึก แต่การโหลดข้อมูลกลับล้มเหลว โปรดตรวจสอบก่อนบันทึกซ้ำ" });
+        return;
+      }
+      await Swal.fire({
+        icon: "success", title: "บันทึกเช็คชื่อสำเร็จ",
+        text: `บันทึกกิจกรรมชุมนุม ${marked.length} คน ประจำวันที่ ${attendanceDate}`,
+        confirmButtonColor: "#2563eb",
+      });
+    } catch (err) {
+      await Swal.fire({
+        icon: "error", title: "บันทึกไม่สำเร็จ",
+        text: err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการบันทึกข้อมูล",
+      });
+    } finally {
+      setSavingAttendance(false);
+    }
   };
 
   const displayedStudents = students.filter((s) => {
@@ -345,7 +382,7 @@ export default function TeacherClubPage() {
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-1">
-              จัดการเวลาเรียนกิจกรรมชุมนุมประจำสัปดาห์ (ประเมินผ่านเกณฑ์ 80% = มาเรียน 14 ครั้งขึ้นไป จาก 18 ครั้ง)
+              จัดการเวลาเรียนกิจกรรมชุมนุมประจำสัปดาห์ (เกณฑ์เดิม 14 ครั้งจาก 18 ครั้ง (77.8%) — โปรดตรวจระเบียบก่อนปรับเกณฑ์)
             </p>
           </div>
         </div>
@@ -459,6 +496,11 @@ export default function TeacherClubPage() {
               </div>
             </div>
 
+            {loadError && (
+              <div role="alert" className="p-4 bg-rose-50 border border-rose-300 rounded-xl text-xs text-rose-800 font-bold">
+                ⚠️ {loadError} — ยังไม่สามารถบันทึกได้
+              </div>
+            )}
             {/* Dashboard Statistics */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
               <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-center">
@@ -479,6 +521,10 @@ export default function TeacherClubPage() {
               </div>
             </div>
 
+            <p className="text-xs text-amber-700 font-bold">
+              ยังไม่เช็คชื่อ {displayedStudents.filter(s => !VALID_STATUSES.has(attendanceStatus[s.id])).length} คน (ในรายการที่แสดง)
+              — ไม่มีสถานะเริ่มต้นเป็น “มา” จนกว่าครูจะเลือก
+            </p>
             <div className="flex justify-between items-center pt-2">
               <button
                 onClick={handleMarkAllPresent}
@@ -489,7 +535,7 @@ export default function TeacherClubPage() {
               </button>
 
               <span className="text-xs text-slate-500 font-medium">
-                💡 เกณฑ์ประเมิน: มาเรียนสะสม $\ge$ 14 ครั้ง (จาก 18 ครั้ง) ประเมิน "ผ่าน (ผ)"
+                💡 เกณฑ์เดิม: มาเรียนสะสม 14/18 ครั้ง (77.8%) จึงเป็น "ผ" — ต้องยืนยันเกณฑ์ก่อนใช้งานจริง
               </span>
             </div>
 
@@ -546,7 +592,7 @@ export default function TeacherClubPage() {
                           <td className="p-3 text-center">
                             <div className="flex flex-col items-center gap-1">
                               <select
-                                value={evaluations[s.id] || "ผ"}
+                                value={evaluations[s.id] || "มผ"}
                                 onChange={(e) => setEvaluations((p) => ({ ...p, [s.id]: e.target.value }))}
                                 className={`px-2.5 py-1 border rounded-xl text-xs font-black outline-none transition-all ${
                                   evaluations[s.id] === "ผ"
@@ -571,22 +617,41 @@ export default function TeacherClubPage() {
               </div>
             )}
 
-            {students.length > 0 && (
-              <div className="flex justify-end pt-2">
-                <button
-                  onClick={handleSaveAttendance}
-                  disabled={savingAttendance}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs rounded-2xl shadow-md transition-all flex items-center gap-2"
-                >
-                  <span>💾</span>
-                  <span>{savingAttendance ? "กำลังบันทึกข้อมูล..." : "บันทึกข้อมูลเวลาเรียนและผลประเมินชุมนุม"}</span>
-                </button>
-              </div>
-            )}
           </div>
         )}
 
+        {/* พื้นที่เผื่อท้ายหน้า ไม่ให้แถวสุดท้ายถูกแถบบันทึกบัง */}
+        {selectedClub && students.length > 0 && <div aria-hidden="true" className="h-40 sm:h-28" />}
       </div>
+
+      {/* แถบบันทึกติดขอบล่างหน้าจอ — ใช้ปุ่มและฟังก์ชันบันทึกเดิม */}
+      {selectedClub && students.length > 0 && (
+        <div
+          className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 px-4 pt-3 shadow-[0_-8px_24px_rgba(15,23,42,0.12)] backdrop-blur-md sm:px-6"
+          style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
+        >
+          <div className="mx-auto flex max-w-6xl flex-col gap-2 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+            <div className="min-w-0 text-center sm:text-left" aria-live="polite">
+              <p className="truncate text-xs font-bold text-slate-800 sm:text-sm">
+                💾 {`ชุมนุม${selectedClub.club_name}`}
+              </p>
+              <p className="text-[11px] text-slate-600">
+                วันที่ {attendanceDate} · เช็คชื่อแล้ว {students.filter(s => VALID_STATUSES.has(attendanceStatus[s.id])).length}/{students.length} คน
+              </p>
+              {loadError && <p role="alert" className="text-[11px] font-semibold text-rose-700">อ่านข้อมูลผิดพลาด — ไม่สามารถบันทึกได้</p>}
+            </div>
+            <button
+              type="button"
+              onClick={handleSaveAttendance}
+              disabled={savingAttendance || loading || !!loadError}
+              className="w-full shrink-0 rounded-xl bg-purple-600 px-6 py-3 text-sm font-bold text-white shadow-md transition-colors hover:bg-purple-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-purple-600 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
+              aria-label="บันทึกหรืออัปเดตผลเช็คชื่อกิจกรรม"
+            >
+              {savingAttendance ? "⏳ กำลังบันทึก..." : "💾 บันทึก / อัปเดตการเช็คชื่อ"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
