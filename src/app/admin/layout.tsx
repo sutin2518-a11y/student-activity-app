@@ -14,6 +14,7 @@ export default function AdminLayout({
 
   const adminMenus = [
     { title: "📊 ภาพรวมระบบ", href: "/admin" },
+    { title: "🎓 จัดการทะเบียนนักเรียน", href: "/admin/students" },
     { title: "📥 นำเข้าเครื่องแบบ (CSV)", href: "/admin/uniform-import" },
     { title: "🏫 นำเข้าข้อมูลชุมนุม (CSV)", href: "/teacher/club/import" },
     { title: "🤝 จัดการกิจกรรมจิตอาสา", href: "/admin/volunteer" },

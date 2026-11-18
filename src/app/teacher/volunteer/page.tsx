@@ -9,6 +9,11 @@ export default function TeacherVolunteerApprovalPage() {
   const [pendingRecords, setPendingRecords] = useState<any[]>([]);
   const [approvedRecords, setApprovedRecords] = useState<any[]>([]);
   const [assignedClasses, setAssignedClasses] = useState<any[]>([]);
+  // แยกปัญหา Login / ไม่พบห้อง / อ่านฐานข้อมูลล้มเหลว ออกจากกัน
+  const [advisorState, setAdvisorState] = useState<
+    "loading" | "needs-login" | "not-assigned" | "error" | "ready"
+  >("loading");
+  const [advisorNotice, setAdvisorNotice] = useState("");
   const [studentSummaries, setStudentSummaries] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<"PENDING" | "APPROVED" | "SUMMARY">("PENDING");
@@ -32,98 +37,119 @@ export default function TeacherVolunteerApprovalPage() {
 
   const fetchAdvisorRecords = async () => {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    setAdvisorState("loading");
+    setAdvisorNotice("");
+    // รีเซ็ตข้อมูลเก่าป้องกันแสดงรายชื่อจากบัญชีที่เคยเข้าใช้ก่อนหน้า
+    setAssignedClasses([]);
+    setPendingRecords([]);
+    setApprovedRecords([]);
+    setStudentSummaries([]);
+    setSelectedStudentCards([]);
 
     try {
-      const userEmail = user.email?.toLowerCase().trim();
-
-      const { data: advisorMap, error: mapErr } = await supabase
-        .from("classroom_advisors")
-        .select("grade_level, classroom")
-        .or(`teacher_email.ilike.${userEmail},teacher_id.eq.${user.id}`);
-
-      if (mapErr) console.error("Error fetching advisor map:", mapErr.message);
-
-      if (advisorMap && advisorMap.length > 0) {
-        setAssignedClasses(advisorMap);
-
-        let allStudents: any[] = [];
-        for (const room of advisorMap) {
-          const cleanGrade = room.grade_level.toString().replace(/^ม\./, "").trim();
-          const gradeVariants = [cleanGrade, `ม.${cleanGrade}`];
-          const cleanClassroom = room.classroom.toString().trim();
-
-          const { data: stds } = await supabase
-            .from("profiles")
-            .select("id, full_name, student_id_card, grade_level, classroom")
-            .in("grade_level", gradeVariants)
-            .eq("classroom", cleanClassroom)
-            .order("student_id_card", { ascending: true });
-
-          if (stds) allStudents.push(...stds);
-        }
-
-        const studentIds = allStudents.map((s) => s.id);
-
-        if (studentIds.length > 0) {
-          const { data: records } = await supabase
-            .from("volunteer_records")
-            .select("*, profiles!inner(full_name, grade_level, classroom, student_id_card)")
-            .in("student_id", studentIds)
-            .order("created_at", { ascending: false });
-
-          if (records) {
-            setPendingRecords(records.filter((r) => r.status === "PENDING"));
-            setApprovedRecords(records.filter((r) => r.status !== "PENDING"));
-
-            const summaries = allStudents.map((student) => {
-              const studentApprovedRecords = records.filter(
-                (r) => r.student_id === student.id && r.status === "APPROVED"
-              );
-
-              const totalMins = studentApprovedRecords.reduce(
-                (sum, r) => sum + (r.hours || 0) * 60 + (r.minutes || 0),
-                0
-              );
-
-              const cleanStdGrade = student.grade_level?.toString().replace(/^ม\./, "").trim();
-              const isJunior = ["1", "2", "3"].includes(cleanStdGrade);
-              const requiredHours = isJunior ? 8 : 10;
-              const isPass = totalMins >= requiredHours * 60;
-
-              return {
-                ...student,
-                approvedHours: Math.floor(totalMins / 60),
-                approvedMinutes: totalMins % 60,
-                totalMinutes: totalMins,
-                requiredHours,
-                isPass,
-                recordCount: studentApprovedRecords.length,
-              };
-            });
-
-            setStudentSummaries(summaries);
-          }
-        } else {
-          setPendingRecords([]);
-          setApprovedRecords([]);
-          setStudentSummaries([]);
-        }
-      } else {
-        setAssignedClasses([]);
-        setPendingRecords([]);
-        setApprovedRecords([]);
-        setStudentSummaries([]);
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) throw new Error(`ตรวจสอบบัญชีไม่สำเร็จ: ${authError.message}`);
+      const user = authData.user;
+      if (!user) {
+        setAdvisorState("needs-login");
+        setAdvisorNotice("กรุณาเข้าสู่ระบบกิจกรรมด้วยบัญชีครูที่ปรึกษาก่อน (การเปิดเบราว์เซอร์ด้วยบัญชี Google อย่างเดียวไม่เท่ากับเข้าสู่ Supabase Auth)");
+        return;
       }
+
+      const userEmail = user.email?.trim().toLowerCase();
+      if (!userEmail) throw new Error("บัญชี Supabase Auth นี้ไม่มีอีเมลสำหรับตรวจสอบครูที่ปรึกษา");
+
+      // ไม่ประกอบ .or() เป็นข้อความเอง: ถ้าเงื่อนไขหนึ่งผิดจะไม่ทำให้ทั้งคำค้นล้มเหลว
+      // รองรับแถวเดิมที่ teacher_id เป็น NULL และยังเชื่อมผ่าน teacher_email ได้
+      const [{ data: byEmail, error: emailError }, { data: byId, error: idError }] =
+        await Promise.all([
+          supabase.from("classroom_advisors")
+            .select("grade_level, classroom")
+            .ilike("teacher_email", userEmail),
+          supabase.from("classroom_advisors")
+            .select("grade_level, classroom")
+            .eq("teacher_id", user.id),
+        ]);
+
+      if (emailError || idError) {
+        throw new Error(`ตรวจข้อมูลครูที่ปรึกษาไม่สำเร็จ: ${emailError?.message || idError?.message}`);
+      }
+
+      const foundRooms = [...(byEmail ?? []), ...(byId ?? [])];
+      const seen = new Set<string>();
+      const advisorMap = foundRooms.filter((room) => {
+        const key = `${String(room.grade_level).replace(/^ม\./, "").trim()}/${String(room.classroom).trim()}`;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      if (advisorMap.length === 0) {
+        setAdvisorState("not-assigned");
+        setAdvisorNotice("เข้าสู่ระบบแล้ว แต่ยังไม่พบห้องที่ปรึกษาของบัญชีนี้ใน classroom_advisors กรุณาตรวจความตรงกันของอีเมลในทะเบียน (รวมช่องว่างหน้า/หลัง)");
+        return;
+      }
+      setAssignedClasses(advisorMap);
+
+      const allStudents: any[] = [];
+      for (const room of advisorMap) {
+        const cleanGrade = String(room.grade_level).replace(/^ม\./, "").trim();
+        const gradeVariants = [cleanGrade, `ม.${cleanGrade}`];
+        const cleanClassroom = String(room.classroom).trim();
+
+        const { data: stds, error: studentError } = await supabase
+          .from("profiles")
+          .select("id, full_name, student_id_card, grade_level, classroom")
+          .in("grade_level", gradeVariants)
+          .eq("classroom", cleanClassroom)
+          .order("student_id_card", { ascending: true });
+        if (studentError) throw new Error(`ดึงรายชื่อนักเรียนห้อง ม.${cleanGrade}/${cleanClassroom} ไม่สำเร็จ: ${studentError.message}`);
+        if (stds) allStudents.push(...stds);
+      }
+      const uniqueStudents = [...new Map(allStudents.map((s) => [s.id, s])).values()];
+      const studentIds = uniqueStudents.map((s) => s.id);
+
+      if (studentIds.length === 0) {
+        setAdvisorNotice("พบห้องที่ปรึกษาแล้ว แต่ยังไม่พบนักเรียนของห้องนี้ใน profiles (อาจยังไม่มีบัญชีนักเรียนในระบบ) ต้องตรวจ student_database เพิ่มเติมก่อนจัดทำรายงาน");
+        setAdvisorState("ready");
+        return;
+      }
+
+      const { data: records, error: recordsError } = await supabase
+        .from("volunteer_records")
+        .select("*, profiles!inner(full_name, grade_level, classroom, student_id_card)")
+        .in("student_id", studentIds)
+        .order("created_at", { ascending: false });
+      if (recordsError) throw new Error(`อ่านคำขอจิตอาสาไม่สำเร็จ: ${recordsError.message}`);
+      const safeRecords = records ?? [];
+      setPendingRecords(safeRecords.filter((r) => r.status === "PENDING"));
+      setApprovedRecords(safeRecords.filter((r) => r.status !== "PENDING"));
+
+      const summaries = uniqueStudents.map((student) => {
+        const approved = safeRecords.filter(
+          (r) => r.student_id === student.id && r.status === "APPROVED"
+        );
+        const totalMins = approved.reduce(
+          (sum, r) => sum + (r.hours || 0) * 60 + (r.minutes || 0), 0
+        );
+        const cleanStdGrade = String(student.grade_level ?? "").replace(/^ม\./, "").trim();
+        const requiredHours = ["1", "2", "3"].includes(cleanStdGrade) ? 8 : 10;
+        return {
+          ...student,
+          approvedHours: Math.floor(totalMins / 60),
+          approvedMinutes: totalMins % 60,
+          totalMinutes: totalMins,
+          requiredHours,
+          isPass: totalMins >= requiredHours * 60,
+          recordCount: approved.length,
+        };
+      });
+      setStudentSummaries(summaries);
+      setAdvisorState("ready");
     } catch (err) {
-      console.error("Unexpected error:", err);
+      console.error("Failed to load teacher volunteer advisor data", err);
+      setAdvisorState("error");
+      setAdvisorNotice(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการอ่านข้อมูลครูที่ปรึกษา");
     } finally {
       setLoading(false);
     }
@@ -701,6 +727,37 @@ export default function TeacherVolunteerApprovalPage() {
   const isAllSelected =
     studentSummaries.length > 0 && selectedStudentCards.length === studentSummaries.length;
 
+  // เมื่อยังไม่ยืนยันบัญชี/ห้อง จะไม่แสดงปุ่มอนุมัติหรือบันทึกยกห้อง
+  if (advisorState !== "ready") {
+    return (
+      <main className="min-h-screen bg-slate-50 p-6 text-slate-800 font-sans">
+        <section className="max-w-2xl mx-auto bg-white border border-slate-200 rounded-3xl p-7 shadow-sm space-y-4">
+          <h1 className="text-xl font-bold">ตรวจสอบกิจกรรมจิตอาสา (ครูที่ปรึกษา)</h1>
+          <p className="text-sm text-slate-700" role="status">
+            {advisorState === "loading" ? "กำลังตรวจสอบบัญชีและห้องที่ปรึกษา..." : advisorNotice}
+          </p>
+          <div className="flex flex-wrap gap-3">
+            {advisorState === "needs-login" ? (
+              <Link href="/login" className="px-4 py-2 rounded-xl bg-blue-700 text-white text-sm font-bold">
+                เข้าสู่ระบบกิจกรรม
+              </Link>
+            ) : advisorState !== "loading" ? (
+              <button onClick={fetchAdvisorRecords} className="px-4 py-2 rounded-xl bg-blue-700 text-white text-sm font-bold">
+                ตรวจสอบอีกครั้ง
+              </button>
+            ) : null}
+            <Link href="/teacher" className="px-4 py-2 rounded-xl border border-slate-300 text-sm">
+              กลับหน้าเมนูครู
+            </Link>
+          </div>
+          <p className="text-xs text-amber-700">
+            ยังไม่ควรบันทึกหรืออนุมัติชั่วโมงจริงจนกว่าจะตั้งค่า RLS ของตารางจิตอาสาให้ปลอดภัย
+          </p>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans p-6 text-slate-800">
       <div className="max-w-5xl mx-auto space-y-6">
@@ -741,6 +798,12 @@ export default function TeacherVolunteerApprovalPage() {
             </button>
           </div>
         </div>
+
+        {advisorNotice && (
+          <div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+            {advisorNotice}
+          </div>
+        )}
 
         {/* แถบสลับ Tab และปุ่มการทำงาน Bulk */}
         <div className="flex justify-between items-center flex-wrap gap-3">
