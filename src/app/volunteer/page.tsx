@@ -9,6 +9,7 @@ export default function StudentVolunteerPage() {
   const [studentProfile, setStudentProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [loadError, setLoadError] = useState("");
 
   // Form State
   const [activityName, setActivityName] = useState("");
@@ -28,37 +29,41 @@ export default function StudentVolunteerPage() {
 
   const fetchMyRecords = async () => {
     setLoading(true);
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    setLoadError("");
+    setStudentProfile(null);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("กรุณาเข้าสู่ระบบด้วยบัญชีนักเรียนก่อนใช้งาน");
 
-    if (user) {
-      // 1. ดึงข้อมูลชั้นเรียนของนักเรียน
-      const { data: prof } = await supabase
+      const { data: profile, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, role, grade_level, classroom, full_name")
         .eq("id", user.id)
         .single();
-      setStudentProfile(prof);
+      if (profileError || !profile) throw new Error("ไม่พบข้อมูลนักเรียนที่เชื่อมกับบัญชีนี้");
+      if (profile.role !== "student") throw new Error("หน้านี้สำหรับบัญชีนักเรียนเท่านั้น");
+      setStudentProfile(profile);
 
-      // 2. ดึงประวัติกิจกรรมจิตอาสา
-      const { data } = await supabase
+      const { data: history, error: historyError } = await supabase
         .from("volunteer_records")
-        .select("*")
+        .select("id, activity_name, activity_date, hours, minutes, description, drive_url, status, created_at")
         .eq("student_id", user.id)
         .order("created_at", { ascending: false });
-
-      if (data) setRecords(data);
+      if (historyError) throw new Error(`อ่านประวัติจิตอาสาไม่สำเร็จ: ${historyError.message}`);
+      setRecords(history ?? []);
+    } catch (error) {
+      setRecords([]);
+      setLoadError(error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลจิตอาสาได้");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setSelectedFile(file);
-      setPreviewUrl(URL.createObjectURL(file));
-    }
+    const file = e.target.files?.[0] ?? null;
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setSelectedFile(file);
+    setPreviewUrl(file ? URL.createObjectURL(file) : null);
   };
 
   const convertBase64 = (file: File): Promise<string> => {
@@ -75,97 +80,93 @@ export default function StudentVolunteerPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submitting) return;
     setSubmitting(true);
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    if (!user) {
-      Swal.fire({
-        icon: "warning",
-        title: "แจ้งเตือน",
-        text: "กรุณาเข้าสู่ระบบก่อนทำรายการ",
-        confirmButtonColor: "#2563eb",
-        customClass: { popup: "rounded-3xl font-sans" },
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    if (hours === 0 && minutes === 0) {
-      Swal.fire({
-        icon: "warning",
-        title: "ข้อมูลไม่ถูกต้อง",
-        text: "กรุณาระบุเวลาอย่างน้อย 1 นาทีขึ้นไป",
-        confirmButtonColor: "#2563eb",
-        customClass: { popup: "rounded-3xl font-sans" },
-      });
-      setSubmitting(false);
-      return;
-    }
-
-    let uploadedDriveUrl = "";
-
-    if (selectedFile) {
-      try {
-        const base64Data = await convertBase64(selectedFile);
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
-          method: "POST",
-          body: JSON.stringify({
-            fileData: base64Data,
-            fileName: `volunteer_${Date.now()}_${selectedFile.name}`,
-            mimeType: selectedFile.type,
-          }),
-        });
-
-        const resData = await response.json();
-        if (resData.status === "success") {
-          uploadedDriveUrl = resData.url;
-        }
-      } catch (err) {
-        console.error("Upload Drive Error:", err);
+    try {
+      const { data: { user }, error: authError } = await supabase.auth.getUser();
+      if (authError || !user) throw new Error("กรุณาเข้าสู่ระบบก่อนบันทึกกิจกรรม");
+      // เป็นเพียงการตรวจใน UI: สิทธิ์จริงต้องบังคับด้วย RLS ที่ Supabase
+      if (!studentProfile || studentProfile.id !== user.id || studentProfile.role !== "student") {
+        throw new Error("ไม่พบข้อมูลนักเรียนที่เข้าสู่ระบบ กรุณาโหลดหน้าใหม่");
       }
-    }
 
-    const { error } = await supabase.from("volunteer_records").insert([
-      {
+      const safeHours = Number(hours);
+      const safeMinutes = Number(minutes);
+      if (
+        !activityName.trim() || !activityDate ||
+        !Number.isInteger(safeHours) || !Number.isInteger(safeMinutes) ||
+        safeHours < 0 || safeHours > 24 || safeMinutes < 0 || safeMinutes > 59 ||
+        (safeHours === 0 && safeMinutes === 0) ||
+        safeHours * 60 + safeMinutes > 24 * 60
+      ) {
+        throw new Error("กรุณากรอกชื่อกิจกรรม วันที่ และเวลาให้ถูกต้อง (ไม่เกิน 24 ชั่วโมง)");
+      }
+
+      let uploadedDriveUrl = "";
+      if (selectedFile) {
+        if (!selectedFile.type.startsWith("image/") || selectedFile.size > 5 * 1024 * 1024) {
+          throw new Error("แนบได้เฉพาะไฟล์รูปภาพขนาดไม่เกิน 5 MB");
+        }
+        try {
+          const base64Data = await convertBase64(selectedFile);
+          const response = await fetch(GOOGLE_SCRIPT_URL, {
+            method: "POST",
+            body: JSON.stringify({
+              fileData: base64Data,
+              fileName: `volunteer_${Date.now()}_${selectedFile.name}`,
+              mimeType: selectedFile.type,
+            }),
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const result = await response.json();
+          if (result?.status !== "success" || typeof result.url !== "string" ||
+            !/^https:\/\//.test(result.url)) {
+            throw new Error("ปลายทางไม่ยืนยันลิงก์รูปภาพ");
+          }
+          uploadedDriveUrl = result.url;
+        } catch (uploadError) {
+          console.error("Volunteer evidence upload failed", uploadError);
+          throw new Error("อัปโหลดหลักฐานไม่สำเร็จ จึงยังไม่ได้บันทึกกิจกรรม กรุณาลองอีกครั้ง");
+        }
+      }
+
+      const { error } = await supabase.from("volunteer_records").insert([{
         student_id: user.id,
-        activity_name: activityName,
+        activity_name: activityName.trim(),
         activity_date: activityDate,
-        hours: Number(hours),
-        minutes: Number(minutes),
+        hours: safeHours,
+        minutes: safeMinutes,
         drive_url: uploadedDriveUrl,
-        description: description,
-        status: "PENDING",
-      },
-    ]);
+        description: description.trim(),
+        status: "PENDING", // นักเรียนไม่สามารถอนุมัติชั่วโมงของตนเองได้จากหน้าเว็บนี้
+      }]);
+      if (error) throw new Error(`บันทึกข้อมูลไม่สำเร็จ: ${error.message}`);
 
-    if (error) {
-      Swal.fire({
-        icon: "error",
-        title: "เกิดข้อผิดพลาด",
-        text: error.message,
-        confirmButtonColor: "#ef4444",
-        customClass: { popup: "rounded-3xl font-sans" },
-      });
-    } else {
-      Swal.fire({
-        icon: "success",
-        title: "ส่งบันทึกกิจกรรมสำเร็จ! 🎉",
-        text: "อัปโหลดรูปภาพไปยัง Google Drive และส่งขออนุมัติเรียบร้อยแล้ว",
+      await Swal.fire({
+        icon: "success", title: "ส่งกิจกรรมให้ครูตรวจแล้ว",
+        text: selectedFile
+          ? "บันทึกกิจกรรมและหลักฐานสำเร็จ สถานะรอครูตรวจอนุมัติ"
+          : "บันทึกกิจกรรมสำเร็จ สถานะรอครูตรวจอนุมัติ (ไม่ได้แนบรูปภาพ)",
         confirmButtonColor: "#2563eb",
-        customClass: { popup: "rounded-3xl font-sans" },
       });
       setActivityName("");
       setActivityDate("");
       setHours(1);
       setMinutes(0);
       setSelectedFile(null);
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
       setPreviewUrl(null);
       setDescription("");
-      fetchMyRecords();
+      await fetchMyRecords();
+    } catch (error) {
+      await Swal.fire({
+        icon: "error", title: "บันทึกไม่สำเร็จ",
+        text: error instanceof Error ? error.message : "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ",
+        confirmButtonColor: "#ef4444",
+      });
+    } finally {
+      setSubmitting(false);
     }
-    setSubmitting(false);
   };
 
   // 🌟 คำนวณชั่วโมงรวมที่อนุมัติแล้ว + ประเมินผล ผ/มผ
@@ -182,7 +183,7 @@ export default function StudentVolunteerPage() {
   );
   const requiredHours = isJunior ? 8 : 10;
   const requiredMinutes = requiredHours * 60;
-  const isPass = totalApprovedMinutes >= requiredMinutes;
+  const isPass = totalApprovedMinutes >= requiredMinutes; // ใช้แสดงความคืบหน้าเบื้องต้นเท่านั้น
   const progressPercent = Math.min(
     100,
     Math.round((totalApprovedMinutes / requiredMinutes) * 100)
@@ -198,7 +199,7 @@ export default function StudentVolunteerPage() {
             <div>
               <h1 className="text-2xl font-bold text-slate-900">🤝 บันทึกชั่วโมงจิตอาสา</h1>
               <p className="text-xs text-slate-500 mt-1">
-                ระดับชั้น ม.{studentProfile?.grade_level?.replace(/^ม\./, "")}/{studentProfile?.classroom} | เกณฑ์ประเมิน: {requiredHours} ชั่วโมง / ภาคเรียน
+                ระดับชั้น ม.{studentProfile?.grade_level?.replace(/^ม\./, "")}/{studentProfile?.classroom} | เป้าหมายเบื้องต้น: {requiredHours} ชั่วโมง (รอยืนยันเกณฑ์ประเมิน)
               </p>
             </div>
 
@@ -217,7 +218,7 @@ export default function StudentVolunteerPage() {
                     : "bg-rose-500 text-white border-rose-600"
                 }`}
               >
-                {isPass ? "ผ" : "มผ"}
+                {isPass ? "ถึงเป้า*" : "สะสม*"}
               </div>
             </div>
           </div>
@@ -230,8 +231,8 @@ export default function StudentVolunteerPage() {
               </span>
               <span className={isPass ? "text-emerald-600" : "text-amber-600"}>
                 {isPass
-                  ? "🎉 ผ่านเกณฑ์ประเมินขั้นต่ำแล้ว"
-                  : `ขาดอีก ${Math.ceil((requiredMinutes - totalApprovedMinutes) / 60)} ชม. จะผ่านเกณฑ์`}
+                  ? "ถึงเป้าหมายชั่วโมงเบื้องต้นแล้ว"
+                  : `ยังขาด ${Math.ceil((requiredMinutes - totalApprovedMinutes) / 60)} ชม. ตามเป้าหมายเบื้องต้น`}
               </span>
             </div>
             <div className="w-full bg-slate-100 rounded-full h-3 overflow-hidden border">
@@ -243,6 +244,16 @@ export default function StudentVolunteerPage() {
               ></div>
             </div>
           </div>
+          <p className="text-xs text-amber-700 bg-amber-50 rounded-xl p-3 border border-amber-200">
+            * ชั่วโมงที่แสดงเป็นยอดรวมรายการอนุมัติที่มีอยู่ทั้งหมด ยังไม่ใช่ผลประเมิน ผ/มผ อย่างเป็นทางการ
+            เพราะฐานข้อมูลเดิมยังไม่มีปีการศึกษาและภาคเรียน กรุณารอการปรับเกณฑ์และแยกภาคเรียนก่อนออกผลประเมิน
+          </p>
+          {loadError && (
+            <div role="alert" className="rounded-xl bg-rose-50 p-3 text-sm text-rose-800 border border-rose-200">
+              {loadError} <a href="/login" className="underline font-semibold">เข้าสู่ระบบ</a>
+              <button type="button" onClick={fetchMyRecords} className="ml-3 underline">ลองใหม่</button>
+            </div>
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -333,10 +344,10 @@ export default function StudentVolunteerPage() {
 
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || loading || !!loadError || !studentProfile}
                 className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all disabled:opacity-50"
               >
-                {submitting ? "กำลังอัปโหลดรูปและบันทึก..." : "ส่งขออนุมัติ"}
+                {submitting ? "กำลังบันทึก..." : "ส่งขออนุมัติ"}
               </button>
             </form>
           </div>
