@@ -46,13 +46,14 @@ export default function AuthCompletePage() {
 
         const user = userData.user;
         const email = (user.email ?? "").trim().toLowerCase();
+        const isCkwAccount = email.endsWith(SCHOOL_DOMAIN);
         const googleIdentity = user.identities?.some((identity) => identity.provider === "google");
-        if (!email.endsWith(SCHOOL_DOMAIN) || !googleIdentity || !user.email_confirmed_at) {
+        if (!googleIdentity || !user.email_confirmed_at) {
           await supabase.auth.signOut();
-          throw new Error("ต้องเข้าสู่ระบบด้วยบัญชี Google Workspace @chiangkham.ac.th ที่ยืนยันแล้วเท่านั้น");
+          throw new Error("กรุณาเข้าสู่ระบบด้วยบัญชี Google ที่ยืนยันอีเมลแล้ว");
         }
 
-        if (mounted) setStatus("ยืนยันบัญชีโรงเรียนแล้ว กำลังตรวจสอบบทบาท...");
+        if (mounted) setStatus("ยืนยันบัญชี Google แล้ว กำลังตรวจสอบสิทธิ์การใช้งาน...");
         const { data: profile, error: profileError } = await supabase
           .from("profiles")
           .select("role")
@@ -60,16 +61,40 @@ export default function AuthCompletePage() {
           .maybeSingle();
         if (profileError) throw new Error("อ่านข้อมูลสิทธิ์ผู้ใช้ไม่สำเร็จ: " + profileError.message);
 
+        // โรงเรียนภายนอกเชียงคำวิทยาคมจะเข้าได้เฉพาะผู้ที่ผู้ดูแลเพิ่มสิทธิ์
+        // ไว้ใน sports_user_roles แล้วเท่านั้น ไม่เปิดให้บัญชี Google ทั่วไปเข้าใช้ระบบได้เอง
+        const { data: sportsRoles, error: sportsRoleError } = await supabase
+          .from("sports_user_roles")
+          .select("role")
+          .eq("user_id", user.id)
+          .eq("is_active", true);
+        const missingRoleTable = sportsRoleError?.code === "42P01" || sportsRoleError?.code === "PGRST205";
+        if (sportsRoleError && !missingRoleTable) {
+          throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleError.message);
+        }
+
+        const hasSportsAccess = (sportsRoles || []).some((item: { role: string }) =>
+          ["super_admin", "competition_admin", "school_manager", "referee", "viewer"].includes(String(item.role))
+        );
         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
         const destination = PATH_BY_ROLE[role];
-        if (!destination) {
-          if (mounted) {
-            setNeedsProvisioning(true);
-            setError("บัญชีโรงเรียนผ่านการยืนยันแล้ว แต่ยังไม่ได้เชื่อมสิทธิ์ในระบบกิจกรรม กรุณาติดต่อผู้ดูแลเพื่อจับคู่บัญชีครู/นักเรียนเดิม ไม่ต้องสมัครด้วยรหัสผ่านใหม่");
-          }
+
+        if (isCkwAccount && destination) {
+          if (mounted) router.replace(destination);
           return;
         }
-        if (mounted) router.replace(destination);
+        if (hasSportsAccess) {
+          if (mounted) router.replace("/group-sports");
+          return;
+        }
+        if (!isCkwAccount) {
+          await supabase.auth.signOut();
+          throw new Error("บัญชีนี้ยังไม่ได้รับสิทธิ์เข้าระบบกีฬากลุ่ม กรุณาติดต่อผู้ประสานงานการแข่งขันให้เพิ่มบัญชีในทะเบียนผู้ใช้งานก่อน");
+        }
+        if (mounted) {
+          setNeedsProvisioning(true);
+          setError("บัญชีโรงเรียนผ่านการยืนยันแล้ว แต่ยังไม่ได้เชื่อมสิทธิ์ในระบบกิจกรรม กรุณาติดต่อผู้ดูแลเพื่อจับคู่บัญชีครู/นักเรียนเดิม ไม่ต้องสมัครด้วยรหัสผ่านใหม่");
+        }
       } catch (err) {
         if (mounted) setError(err instanceof Error ? err.message : "เข้าสู่ระบบไม่สำเร็จ");
       }

@@ -1,0 +1,996 @@
+"use client";
+
+import Link from "next/link";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "@/lib/supabase";
+
+type Competition = {
+  id: string;
+  name: string;
+  academic_year: string;
+  status: string;
+  start_date?: string | null;
+  end_date?: string | null;
+};
+
+type School = {
+  id: string;
+  school_code?: string | null;
+  name: string;
+  district?: string | null;
+  province?: string | null;
+  status?: string;
+};
+
+type SportEvent = {
+  id: string;
+  competition_id: string;
+  event_code?: string | null;
+  sport_name: string;
+  event_type: "team" | "individual" | "athletics";
+  gender_rule: string;
+  level_rule: string;
+  competition_format?: string;
+  max_athletes_per_entry?: number | null;
+  points_win?: number;
+  points_draw?: number;
+  points_loss?: number;
+  venue_name?: string | null;
+  status: string;
+};
+
+type Entry = {
+  id: string;
+  competition_id: string;
+  event_id: string;
+  school_id: string;
+  entry_type: "team" | "individual";
+  entry_name: string;
+  coach_name?: string | null;
+  status: string;
+  athlete_count?: number;
+};
+
+type Match = {
+  id: string;
+  competition_id: string;
+  event_id: string;
+  match_number?: string | null;
+  group_name?: string | null;
+  round_name: string;
+  school_a_id?: string | null;
+  school_b_id?: string | null;
+  scheduled_at?: string | null;
+  venue_name?: string | null;
+  status: string;
+};
+
+type MatchResult = {
+  id?: string;
+  match_id: string;
+  score_a: number;
+  score_b: number;
+  winner_school_id?: string | null;
+};
+
+type EventResult = {
+  id: string;
+  event_id: string;
+  entry_id: string;
+  school_id: string;
+  entry_name: string;
+  rank?: number | null;
+  performance_value?: number | null;
+  performance_unit?: string | null;
+  result_text?: string | null;
+};
+
+type Medal = {
+  id: string;
+  competition_id: string;
+  event_id: string;
+  school_id: string;
+  medal_type: "gold" | "silver" | "bronze";
+};
+
+type AthleteInput = {
+  student_code: string | null;
+  full_name: string;
+  grade_level: string | null;
+  gender: string | null;
+};
+
+type TabKey = "overview" | "schools" | "events" | "entries" | "matches" | "standings" | "medals";
+type UserRole = { role: string; school_id?: string | null; competition_id?: string | null };
+
+const DEMO_COMPETITION: Competition = {
+  id: "demo-competition",
+  name: "การแข่งขันกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา",
+  academic_year: "2569",
+  status: "draft",
+};
+
+const DEMO_SCHOOLS: School[] = [
+  { id: "demo-school-a", school_code: "DEMO-A", name: "โรงเรียนตัวอย่าง A", district: "อำเภอตัวอย่าง", province: "พะเยา", status: "active" },
+  { id: "demo-school-b", school_code: "DEMO-B", name: "โรงเรียนตัวอย่าง B", district: "อำเภอตัวอย่าง", province: "พะเยา", status: "active" },
+  { id: "demo-school-c", school_code: "DEMO-C", name: "โรงเรียนตัวอย่าง C", district: "อำเภอตัวอย่าง", province: "พะเยา", status: "active" },
+  { id: "demo-school-d", school_code: "DEMO-D", name: "โรงเรียนตัวอย่าง D", district: "อำเภอตัวอย่าง", province: "พะเยา", status: "active" },
+];
+
+const DEMO_EVENTS: SportEvent[] = [
+  { id: "demo-event-football", competition_id: DEMO_COMPETITION.id, event_code: "FB-MJ", sport_name: "ฟุตบอลชาย ม.ต้น", event_type: "team", gender_rule: "ชาย", level_rule: "ม.ต้น", competition_format: "league", max_athletes_per_entry: 20, points_win: 3, points_draw: 1, points_loss: 0, status: "registration" },
+  { id: "demo-event-volleyball", competition_id: DEMO_COMPETITION.id, event_code: "VB-FS", sport_name: "วอลเลย์บอลหญิง ม.ปลาย", event_type: "team", gender_rule: "หญิง", level_rule: "ม.ปลาย", competition_format: "knockout", max_athletes_per_entry: 12, points_win: 3, points_draw: 0, points_loss: 0, status: "registration" },
+  { id: "demo-event-run", competition_id: DEMO_COMPETITION.id, event_code: "AT-100M", sport_name: "วิ่ง 100 เมตร ชาย ม.ต้น", event_type: "athletics", gender_rule: "ชาย", level_rule: "ม.ต้น", competition_format: "time", max_athletes_per_entry: 1, status: "scheduled" },
+  { id: "demo-event-petanque", competition_id: DEMO_COMPETITION.id, event_code: "PT-MIX", sport_name: "เปตองคู่ผสม ม.ปลาย", event_type: "individual", gender_rule: "ผสม", level_rule: "ม.ปลาย", competition_format: "knockout", max_athletes_per_entry: 2, status: "registration" },
+];
+
+const DEMO_ENTRIES: Entry[] = [
+  { id: "demo-entry-a", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-a", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน A", status: "approved", athlete_count: 18 },
+  { id: "demo-entry-b", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-b", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน B", status: "approved", athlete_count: 18 },
+  { id: "demo-entry-c", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-c", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน C", status: "submitted", athlete_count: 16 },
+  { id: "demo-entry-d", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-volleyball", school_id: "demo-school-a", entry_type: "team", entry_name: "ทีมวอลเลย์บอลหญิง", status: "approved", athlete_count: 10 },
+  { id: "demo-entry-e", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-volleyball", school_id: "demo-school-d", entry_type: "team", entry_name: "ทีมวอลเลย์บอลหญิง", status: "approved", athlete_count: 11 },
+  { id: "demo-entry-run-a", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-a", entry_type: "individual", entry_name: "นักกีฬาตัวอย่าง A", status: "approved", athlete_count: 1 },
+  { id: "demo-entry-run-b", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-b", entry_type: "individual", entry_name: "นักกีฬาตัวอย่าง B", status: "approved", athlete_count: 1 },
+];
+
+const DEMO_MATCHES: Match[] = [
+  { id: "demo-match-1", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", match_number: "FB-001", group_name: "สาย A", round_name: "รอบแบ่งกลุ่ม", school_a_id: "demo-school-a", school_b_id: "demo-school-b", status: "completed", venue_name: "สนามฟุตบอล" },
+  { id: "demo-match-2", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", match_number: "FB-002", group_name: "สาย A", round_name: "รอบแบ่งกลุ่ม", school_a_id: "demo-school-a", school_b_id: "demo-school-c", status: "scheduled", venue_name: "สนามฟุตบอล" },
+  { id: "demo-match-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-volleyball", match_number: "VB-001", group_name: "สาย B", round_name: "รอบรองชนะเลิศ", school_a_id: "demo-school-a", school_b_id: "demo-school-d", status: "scheduled", venue_name: "โรงยิม" },
+];
+
+const DEMO_RESULTS: MatchResult[] = [
+  { match_id: "demo-match-1", score_a: 2, score_b: 1, winner_school_id: "demo-school-a" },
+];
+
+const DEMO_EVENT_RESULTS: EventResult[] = [
+  { id: "demo-event-result-a", event_id: "demo-event-run", entry_id: "demo-entry-run-a", school_id: "demo-school-a", entry_name: "นักกีฬาตัวอย่าง A", rank: 1, performance_value: 12.45, performance_unit: "วินาที" },
+  { id: "demo-event-result-b", event_id: "demo-event-run", entry_id: "demo-entry-run-b", school_id: "demo-school-b", entry_name: "นักกีฬาตัวอย่าง B", rank: 2, performance_value: 12.78, performance_unit: "วินาที" },
+];
+
+const DEMO_MEDALS: Medal[] = [
+  { id: "demo-medal-1", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-a", medal_type: "gold" },
+  { id: "demo-medal-2", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-b", medal_type: "silver" },
+  { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
+];
+
+const tabs: { key: TabKey; label: string; icon: string }[] = [
+  { key: "overview", label: "ภาพรวม", icon: "▦" },
+  { key: "schools", label: "โรงเรียน", icon: "⌂" },
+  { key: "events", label: "รายการแข่งขัน", icon: "🏅" },
+  { key: "entries", label: "ลงทะเบียน", icon: "👥" },
+  { key: "matches", label: "โปรแกรม / ผล", icon: "⚑" },
+  { key: "standings", label: "ตารางคะแนน", icon: "▤" },
+  { key: "medals", label: "เหรียญรางวัล", icon: "🥇" },
+];
+
+function makeId(prefix: string) {
+  return `${prefix}-${typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : Date.now()}`;
+}
+
+function formatThaiDate(value?: string | null) {
+  if (!value) return "ยังไม่กำหนด";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(date);
+}
+
+function eventTypeLabel(value: string) {
+  if (value === "athletics") return "กรีฑา";
+  if (value === "individual") return "กีฬาเดี่ยว / คู่";
+  return "กีฬาทีม";
+}
+
+function statusLabel(value: string) {
+  const labels: Record<string, string> = {
+    draft: "ฉบับร่าง",
+    registration: "เปิดรับสมัคร",
+    submitted: "ส่งข้อมูลแล้ว",
+    approved: "อนุมัติแล้ว",
+    rejected: "ไม่อนุมัติ",
+    withdrawn: "ถอนรายการ",
+    scheduled: "รอแข่งขัน",
+    live: "กำลังแข่งขัน",
+    completed: "เสร็จสิ้น",
+    postponed: "เลื่อนการแข่งขัน",
+    cancelled: "ยกเลิก",
+    closed: "ปิดรับสมัคร",
+    in_progress: "กำลังดำเนินการ",
+  };
+  return labels[value] || value || "-";
+}
+
+function parseAthleteLines(value: string): AthleteInput[] {
+  return value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const [studentCode, fullName, gradeLevel, gender] = line.split("|").map((part) => part.trim());
+      return {
+        student_code: fullName ? studentCode || null : null,
+        full_name: fullName || studentCode || "",
+        grade_level: gradeLevel || null,
+        gender: gender || null,
+      };
+    })
+    .filter((athlete) => athlete.full_name.length > 0);
+}
+
+function validateAthletes(event: SportEvent, athletes: AthleteInput[]) {
+  if (!athletes.length) return "กรุณากรอกรายชื่อนักกีฬาอย่างน้อย 1 คน";
+  if (event.max_athletes_per_entry && athletes.length > event.max_athletes_per_entry) {
+    return `รายการนี้รับนักกีฬาได้ไม่เกิน ${event.max_athletes_per_entry} คนต่อทีม`;
+  }
+  const duplicateCodes = athletes
+    .map((athlete) => athlete.student_code)
+    .filter((code): code is string => Boolean(code))
+    .filter((code, index, all) => all.indexOf(code) !== index);
+  if (duplicateCodes.length) return "พบรหัสนักเรียนซ้ำในรายชื่อชุดนี้";
+
+  const genderRule = (event.gender_rule || "รวม").trim();
+  if (genderRule !== "รวม" && genderRule !== "ผสม") {
+    const wrongGender = athletes.find((athlete) => athlete.gender && athlete.gender !== genderRule);
+    if (wrongGender) return `เพศของ ${wrongGender.full_name} ไม่ตรงกับเงื่อนไขรายการ (${genderRule})`;
+  }
+  if (genderRule === "ผสม") {
+    const genders = new Set(athletes.map((athlete) => athlete.gender).filter(Boolean));
+    if (genders.size > 0 && !(genders.has("ชาย") && genders.has("หญิง"))) return "รายการประเภทผสมต้องมีนักกีฬาชายและหญิงตามเกณฑ์การแข่งขัน";
+  }
+
+  const levelRule = (event.level_rule || "ไม่จำกัด").trim();
+  if (levelRule !== "ไม่จำกัด" && levelRule !== "รวม") {
+    const wrongLevel = athletes.find((athlete) => {
+      if (!athlete.grade_level) return false;
+      const normalizedLevel = athlete.grade_level.replace(/\s/g, "");
+      const levelNumber = Number(normalizedLevel.match(/\d+/)?.[0] || 0);
+      if (levelRule === "ม.ต้น") return !(normalizedLevel.includes("ม.ต้น") || (levelNumber >= 1 && levelNumber <= 3));
+      if (levelRule === "ม.ปลาย") return !(normalizedLevel.includes("ม.ปลาย") || (levelNumber >= 4 && levelNumber <= 6));
+      return normalizedLevel !== levelRule && !normalizedLevel.includes(levelRule) && `ม.${levelNumber}` !== levelRule;
+    });
+    if (wrongLevel) return `ระดับชั้นของ ${wrongLevel.full_name} ไม่ตรงกับรุ่นแข่งขัน (${levelRule})`;
+  }
+  return "";
+}
+
+export default function GroupSportsDashboard() {
+  const [tab, setTab] = useState<TabKey>("overview");
+  const [competition, setCompetition] = useState<Competition | null>(null);
+  const [schools, setSchools] = useState<School[]>([]);
+  const [events, setEvents] = useState<SportEvent[]>([]);
+  const [entries, setEntries] = useState<Entry[]>([]);
+  const [matches, setMatches] = useState<Match[]>([]);
+  const [results, setResults] = useState<MatchResult[]>([]);
+  const [eventResults, setEventResults] = useState<EventResult[]>([]);
+  const [medals, setMedals] = useState<Medal[]>([]);
+  const [roles, setRoles] = useState<UserRole[]>([]);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [isDemo, setIsDemo] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState("");
+  const [error, setError] = useState("");
+  const [formOpen, setFormOpen] = useState(false);
+  const [selectedEventId, setSelectedEventId] = useState("all");
+  const [resultMatchId, setResultMatchId] = useState("");
+  const [resultScoreA, setResultScoreA] = useState("0");
+  const [resultScoreB, setResultScoreB] = useState("0");
+
+  const canManageCompetition = isDemo || isAdmin || roles.some((role) => role.role === "competition_admin" && (!role.competition_id || role.competition_id === competition?.id));
+  const canManageSchool = isDemo || canManageCompetition || roles.some((role) => role.role === "school_manager" && (!role.competition_id || role.competition_id === competition?.id));
+  const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
+  const entrySchools = isDemo || isAdmin || roles.some((role) => role.role === "competition_admin")
+    ? schools
+    : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id));
+
+  const loadData = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const { data: authData } = await supabase.auth.getUser();
+      const user = authData.user;
+      let profileRole = "";
+      let roleRows: UserRole[] = [];
+      if (user) {
+        setUserEmail(user.email || "");
+        const [profileResult, roleResult] = await Promise.all([
+          supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+          supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
+        ]);
+        profileRole = String(profileResult.data?.role || "").toLowerCase();
+        roleRows = (roleResult.data || []) as UserRole[];
+      } else {
+        setUserEmail("");
+      }
+      setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
+      setRoles(roleRows);
+
+      const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
+        supabase.from("sports_competitions").select("*").order("created_at", { ascending: false }),
+        supabase.from("sports_schools").select("*").order("name"),
+        supabase.from("sports_events").select("*").order("sport_name"),
+        supabase.from("sports_matches").select("*").order("scheduled_at", { ascending: true }),
+        supabase.from("sports_medals").select("*"),
+        supabase.from("sports_event_results").select("*"),
+      ]);
+
+      const publicErrors = [competitionResult.error, schoolResult.error, eventResult.error, matchResult.error, medalResult.error, eventResultsResult.error].filter(Boolean);
+      const missingTable = publicErrors.some((item) => item?.code === "42P01" || item?.code === "PGRST205");
+      if (missingTable) {
+        setIsDemo(true);
+        setCompetition(DEMO_COMPETITION);
+        setSchools(DEMO_SCHOOLS);
+        setEvents(DEMO_EVENTS);
+        setEntries(DEMO_ENTRIES);
+        setMatches(DEMO_MATCHES);
+        setResults(DEMO_RESULTS);
+        setEventResults(DEMO_EVENT_RESULTS);
+        setMedals(DEMO_MEDALS);
+        setNotice("กำลังแสดงข้อมูลตัวอย่าง เนื่องจากยังไม่ได้ติดตั้งฐานข้อมูลระบบกีฬากลุ่ม");
+        return;
+      }
+      if (publicErrors.length) {
+        throw new Error(publicErrors[0]?.message || "ไม่สามารถอ่านข้อมูลระบบกีฬากลุ่มได้");
+      }
+
+      setIsDemo(false);
+      const competitions = (competitionResult.data || []) as Competition[];
+      const activeCompetition = competitions.find((item) => item.status !== "archived") || null;
+      setCompetition(activeCompetition);
+      const allSchools = (schoolResult.data || []) as School[];
+      setSchools(allSchools.filter((school) => school.status !== "inactive"));
+      const allEvents = (eventResult.data || []) as SportEvent[];
+      setEvents(activeCompetition ? allEvents.filter((item) => item.competition_id === activeCompetition.id) : allEvents);
+      const allMatches = (matchResult.data || []) as Match[];
+      setMatches(activeCompetition ? allMatches.filter((item) => item.competition_id === activeCompetition.id) : allMatches);
+      const allMedals = (medalResult.data || []) as Medal[];
+      setMedals(activeCompetition ? allMedals.filter((item) => item.competition_id === activeCompetition.id) : allMedals);
+      const allEventResults = (eventResultsResult.data || []) as EventResult[];
+      const activeEventIds = new Set(allEvents.filter((item) => !activeCompetition || item.competition_id === activeCompetition.id).map((item) => item.id));
+      setEventResults(allEventResults.filter((item) => activeEventIds.has(item.event_id)));
+
+      const matchIds = allMatches.map((item) => item.id);
+      if (matchIds.length) {
+        const resultQuery = await supabase.from("sports_match_results").select("*").in("match_id", matchIds);
+        if (resultQuery.error && resultQuery.error.code !== "PGRST205") throw resultQuery.error;
+        setResults((resultQuery.data || []) as MatchResult[]);
+      } else {
+        setResults([]);
+      }
+
+      if (user && (profileRole === "admin" || roleRows.length > 0)) {
+        const entryQuery = await supabase.from("sports_entries").select("*").order("created_at", { ascending: false });
+        if (!entryQuery.error) {
+          const entryRows = (entryQuery.data || []) as Entry[];
+          const athleteQuery = await supabase.from("sports_athletes").select("entry_id");
+          const athleteCounts = new Map<string, number>();
+          (athleteQuery.data || []).forEach((row: { entry_id: string }) => athleteCounts.set(row.entry_id, (athleteCounts.get(row.entry_id) || 0) + 1));
+          const enrichedEntries = entryRows.map((item) => ({ ...item, athlete_count: athleteCounts.get(item.id) || 0 }));
+          setEntries(activeCompetition ? enrichedEntries.filter((item) => item.competition_id === activeCompetition.id) : enrichedEntries);
+        } else {
+          setEntries([]);
+        }
+      } else {
+        setEntries([]);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadData();
+  }, [loadData]);
+
+  const completedMatches = useMemo(() => matches.filter((match) => match.status === "completed"), [matches]);
+  const totalMedals = medals.length;
+  const approvedEntries = entries.filter((entry) => entry.status === "approved").length;
+
+  const schoolById = useMemo(() => new Map(schools.map((school) => [school.id, school])), [schools]);
+  const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
+  const resultByMatch = useMemo(() => new Map(results.map((result) => [result.match_id, result])), [results]);
+
+  const medalTable = useMemo(() => {
+    const rows = schools.map((school) => {
+      const schoolMedals = medals.filter((medal) => medal.school_id === school.id);
+      return {
+        school,
+        gold: schoolMedals.filter((medal) => medal.medal_type === "gold").length,
+        silver: schoolMedals.filter((medal) => medal.medal_type === "silver").length,
+        bronze: schoolMedals.filter((medal) => medal.medal_type === "bronze").length,
+        total: schoolMedals.length,
+      };
+    }).filter((row) => row.total > 0);
+    return rows.sort((a, b) => b.gold - a.gold || b.silver - a.silver || b.bronze - a.bronze);
+  }, [medals, schools]);
+
+  const standings = useMemo(() => {
+    const filteredEvents = selectedEventId === "all" ? events : events.filter((event) => event.id === selectedEventId);
+    return filteredEvents.flatMap((event) => {
+      const eventMatches = matches.filter((match) => match.event_id === event.id && match.status === "completed");
+      const matchesByGroup = new Map<string, Match[]>();
+      eventMatches.forEach((match) => {
+        const groupName = match.group_name || "ไม่แบ่งสาย";
+        matchesByGroup.set(groupName, [...(matchesByGroup.get(groupName) || []), match]);
+      });
+      return [...matchesByGroup.entries()].map(([groupName, groupMatches]) => {
+        const table = new Map<string, { school: School; played: number; win: number; draw: number; loss: number; scored: number; conceded: number; points: number }>();
+        groupMatches.forEach((match) => {
+          const result = resultByMatch.get(match.id);
+          if (!result || !match.school_a_id || !match.school_b_id) return;
+          const schoolA = schoolById.get(match.school_a_id);
+          const schoolB = schoolById.get(match.school_b_id);
+          if (!schoolA || !schoolB) return;
+          const rowA = table.get(schoolA.id) || { school: schoolA, played: 0, win: 0, draw: 0, loss: 0, scored: 0, conceded: 0, points: 0 };
+          const rowB = table.get(schoolB.id) || { school: schoolB, played: 0, win: 0, draw: 0, loss: 0, scored: 0, conceded: 0, points: 0 };
+          rowA.played += 1; rowB.played += 1;
+          rowA.scored += Number(result.score_a); rowA.conceded += Number(result.score_b);
+          rowB.scored += Number(result.score_b); rowB.conceded += Number(result.score_a);
+          if (Number(result.score_a) > Number(result.score_b)) {
+            rowA.win += 1; rowB.loss += 1; rowA.points += event.points_win ?? 3; rowB.points += event.points_loss ?? 0;
+          } else if (Number(result.score_b) > Number(result.score_a)) {
+            rowB.win += 1; rowA.loss += 1; rowB.points += event.points_win ?? 3; rowA.points += event.points_loss ?? 0;
+          } else {
+            rowA.draw += 1; rowB.draw += 1; rowA.points += event.points_draw ?? 1; rowB.points += event.points_draw ?? 1;
+          }
+          table.set(schoolA.id, rowA); table.set(schoolB.id, rowB);
+        });
+        const rows = [...table.values()].sort((a, b) => b.points - a.points || (b.scored - b.conceded) - (a.scored - a.conceded) || b.scored - a.scored);
+        return { event, groupName, rows };
+      }).filter((group) => group.rows.length > 0);
+    });
+  }, [events, matches, resultByMatch, schoolById, selectedEventId]);
+
+  async function addSchool(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!(isDemo || isAdmin)) return;
+    const form = new FormData(event.currentTarget);
+    const name = String(form.get("name") || "").trim();
+    const schoolCode = String(form.get("school_code") || "").trim();
+    const district = String(form.get("district") || "").trim();
+    if (!name) return setError("กรุณากรอกชื่อโรงเรียน");
+    setBusy(true); setError("");
+    try {
+      let joinWarning = "";
+      const payload = { name, school_code: schoolCode || null, district: district || null, province: "พะเยา", status: "active" };
+      if (isDemo) {
+        const newSchool: School = { id: makeId("demo-school"), ...payload };
+        setSchools((current) => [...current, newSchool]);
+      } else {
+        const { data, error: insertError } = await supabase.from("sports_schools").insert(payload).select("*").single();
+        if (insertError) throw insertError;
+        const newSchool = data as School;
+        setSchools((current) => [...current, newSchool]);
+        if (competition) {
+          const { error: joinError } = await supabase.from("sports_competition_schools").upsert(
+            { competition_id: competition.id, school_id: newSchool.id, status: "registered" },
+            { onConflict: "competition_id,school_id" },
+          );
+          if (joinError) joinWarning = "เพิ่มโรงเรียนแล้ว แต่ยังผูกโรงเรียนเข้ารายการแข่งขันไม่สำเร็จ: " + joinError.message;
+        }
+      }
+      setNotice(joinWarning || (isDemo ? "เพิ่มโรงเรียนในโหมดสาธิตแล้ว (ข้อมูลจะไม่ถูกบันทึกลงฐานข้อมูล)" : "เพิ่มโรงเรียนเรียบร้อยแล้ว"));
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เพิ่มโรงเรียนไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function addEvent(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageCompetition || !competition) return;
+    const form = new FormData(event.currentTarget);
+    const sportName = String(form.get("sport_name") || "").trim();
+    if (!sportName) return setError("กรุณากรอกชื่อรายการแข่งขัน");
+    const payload = {
+      competition_id: competition.id,
+      event_code: String(form.get("event_code") || "").trim() || null,
+      sport_name: sportName,
+      event_type: String(form.get("event_type") || "team"),
+      gender_rule: String(form.get("gender_rule") || "รวม"),
+      level_rule: String(form.get("level_rule") || "ไม่จำกัด"),
+      competition_format: String(form.get("competition_format") || "league"),
+      max_athletes_per_entry: Number(form.get("max_athletes_per_entry") || 0) || null,
+      points_win: Number(form.get("points_win") || 3),
+      points_draw: Number(form.get("points_draw") || 1),
+      points_loss: Number(form.get("points_loss") || 0),
+      venue_name: String(form.get("venue_name") || "").trim() || null,
+      status: "registration",
+    };
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setEvents((current) => [...current, { id: makeId("demo-event"), ...payload } as SportEvent]);
+      } else {
+        const { data, error: insertError } = await supabase.from("sports_events").insert(payload).select("*").single();
+        if (insertError) throw insertError;
+        setEvents((current) => [...current, data as SportEvent]);
+      }
+      setNotice(isDemo ? "เพิ่มรายการแข่งขันในโหมดสาธิตแล้ว" : "เพิ่มรายการแข่งขันเรียบร้อยแล้ว");
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เพิ่มรายการแข่งขันไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function addEntry(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageSchool || !competition) return;
+    const form = new FormData(event.currentTarget);
+    const eventId = String(form.get("event_id") || "");
+    const schoolId = String(form.get("school_id") || "");
+    const entryName = String(form.get("entry_name") || "").trim();
+    const sportEvent = events.find((item) => item.id === eventId);
+    if (!sportEvent || !schoolId || !entryName) return setError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกชื่อทีม/นักกีฬา");
+    const athletes = parseAthleteLines(String(form.get("athletes") || ""));
+    const validationMessage = validateAthletes(sportEvent, athletes);
+    if (validationMessage) return setError(validationMessage);
+    const payload = {
+      competition_id: competition.id,
+      event_id: eventId,
+      school_id: schoolId,
+      entry_type: sportEvent.event_type === "team" ? "team" : "individual",
+      entry_name: entryName,
+      coach_name: String(form.get("coach_name") || "").trim() || null,
+      status: "submitted",
+    };
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setEntries((current) => [...current, { id: makeId("demo-entry"), ...payload, athlete_count: athletes.length } as Entry]);
+      } else {
+        const { data, error: insertError } = await supabase.from("sports_entries").insert(payload).select("*").single();
+        if (insertError) throw insertError;
+        const entry = data as Entry;
+        const athleteRows = athletes.map((athlete) => ({ ...athlete, entry_id: entry.id }));
+        const { error: athleteError } = await supabase.from("sports_athletes").insert(athleteRows);
+        if (athleteError) {
+          await supabase.from("sports_entries").delete().eq("id", entry.id);
+          throw athleteError;
+        }
+        setEntries((current) => [{ ...entry, athlete_count: athletes.length }, ...current]);
+      }
+      setNotice(isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "ส่งข้อมูลลงทะเบียนเรียบร้อยแล้ว");
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ลงทะเบียนไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function updateEntryStatus(entryId: string, status: "approved" | "rejected") {
+    if (!canManageCompetition) return;
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setEntries((current) => current.map((entry) => entry.id === entryId ? { ...entry, status } : entry));
+      } else {
+        const { data: authData } = await supabase.auth.getUser();
+        const { error: updateError } = await supabase
+          .from("sports_entries")
+          .update({ status, approved_by: authData.user?.id || null, updated_at: new Date().toISOString() })
+          .eq("id", entryId);
+        if (updateError) throw updateError;
+        setEntries((current) => current.map((entry) => entry.id === entryId ? { ...entry, status } : entry));
+      }
+      setNotice(isDemo ? "ปรับสถานะการลงทะเบียนในโหมดสาธิตแล้ว" : "ปรับสถานะการลงทะเบียนเรียบร้อยแล้ว");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "ปรับสถานะไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function addMatch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageCompetition || !competition) return;
+    const form = new FormData(event.currentTarget);
+    const eventId = String(form.get("event_id") || "");
+    const schoolAId = String(form.get("school_a_id") || "");
+    const schoolBId = String(form.get("school_b_id") || "");
+    if (!eventId || !schoolAId || !schoolBId) return setError("กรุณาเลือกรายการแข่งขันและโรงเรียนทั้งสองฝ่าย");
+    if (schoolAId === schoolBId) return setError("โรงเรียนทั้งสองฝ่ายต้องไม่ซ้ำกัน");
+    const dateTime = String(form.get("scheduled_at") || "");
+    const payload = {
+      competition_id: competition.id,
+      event_id: eventId,
+      match_number: String(form.get("match_number") || "").trim() || null,
+      group_name: String(form.get("group_name") || "").trim() || null,
+      round_name: String(form.get("round_name") || "รอบแบ่งกลุ่ม"),
+      school_a_id: schoolAId,
+      school_b_id: schoolBId,
+      scheduled_at: dateTime ? new Date(dateTime).toISOString() : null,
+      venue_name: String(form.get("venue_name") || "").trim() || null,
+      status: "scheduled",
+    };
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setMatches((current) => [...current, { id: makeId("demo-match"), ...payload } as Match]);
+      } else {
+        const { data, error: insertError } = await supabase.from("sports_matches").insert(payload).select("*").single();
+        if (insertError) throw insertError;
+        setMatches((current) => [...current, data as Match]);
+      }
+      setNotice(isDemo ? "เพิ่มโปรแกรมแข่งขันในโหมดสาธิตแล้ว" : "เพิ่มโปรแกรมแข่งขันเรียบร้อยแล้ว");
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "เพิ่มโปรแกรมแข่งขันไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function saveMatchResult(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canRecordResults) return;
+    const match = matches.find((item) => item.id === resultMatchId);
+    if (!match) return setError("ไม่พบรายการแข่งขันที่เลือก");
+    const scoreA = Number(resultScoreA);
+    const scoreB = Number(resultScoreB);
+    if (!Number.isFinite(scoreA) || !Number.isFinite(scoreB) || scoreA < 0 || scoreB < 0) return setError("กรุณากรอกคะแนนเป็นตัวเลขตั้งแต่ 0 ขึ้นไป");
+    const winnerSchoolId = scoreA === scoreB ? null : scoreA > scoreB ? match.school_a_id || null : match.school_b_id || null;
+    setBusy(true); setError("");
+    try {
+      const resultPayload = { match_id: match.id, score_a: scoreA, score_b: scoreB, winner_school_id: winnerSchoolId, recorded_at: new Date().toISOString() };
+      if (isDemo) {
+        setResults((current) => [...current.filter((item) => item.match_id !== match.id), resultPayload]);
+        setMatches((current) => current.map((item) => item.id === match.id ? { ...item, status: "completed" } : item));
+      } else {
+        const { error: resultError } = await supabase.from("sports_match_results").upsert(resultPayload, { onConflict: "match_id" });
+        if (resultError) throw resultError;
+        const { error: matchError } = await supabase.from("sports_matches").update({ status: "completed" }).eq("id", match.id);
+        if (matchError) throw matchError;
+        setResults((current) => [...current.filter((item) => item.match_id !== match.id), resultPayload]);
+        setMatches((current) => current.map((item) => item.id === match.id ? { ...item, status: "completed" } : item));
+      }
+      setNotice(isDemo ? "บันทึกผลการแข่งขันในโหมดสาธิตแล้ว" : "บันทึกผลการแข่งขันและอัปเดตสถานะแล้ว");
+      setResultMatchId(""); setResultScoreA("0"); setResultScoreB("0");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "บันทึกผลการแข่งขันไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function saveEventResult(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canRecordResults) return;
+    const form = new FormData(event.currentTarget);
+    const eventId = String(form.get("event_id") || "");
+    const entryId = String(form.get("entry_id") || "");
+    const entry = entries.find((item) => item.id === entryId);
+    if (!eventId || !entry || entry.event_id !== eventId || entry.status !== "approved") return setError("กรุณาเลือกรายการแข่งขันและผู้เข้าแข่งขันที่ได้รับอนุมัติแล้วให้ตรงกัน");
+    const rankValue = String(form.get("rank") || "").trim();
+    const performanceValue = String(form.get("performance_value") || "").trim();
+    const payload = {
+      event_id: eventId,
+      entry_id: entryId,
+      school_id: entry.school_id,
+      entry_name: entry.entry_name,
+      rank: rankValue ? Number(rankValue) : null,
+      performance_value: performanceValue ? Number(performanceValue) : null,
+      performance_unit: String(form.get("performance_unit") || "").trim() || null,
+      result_text: String(form.get("result_text") || "").trim() || null,
+      recorded_at: new Date().toISOString(),
+    };
+    if ((payload.rank !== null && (!Number.isInteger(payload.rank) || payload.rank < 1)) || (payload.performance_value !== null && !Number.isFinite(payload.performance_value))) {
+      return setError("อันดับต้องเป็นจำนวนเต็มบวก และสถิติต้องเป็นตัวเลข");
+    }
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setEventResults((current) => [...current.filter((item) => !(item.event_id === eventId && item.entry_id === entryId)), { id: makeId("demo-event-result"), ...payload } as EventResult]);
+      } else {
+        const { data, error: resultError } = await supabase.from("sports_event_results").upsert(payload, { onConflict: "event_id,entry_id" }).select("*").single();
+        if (resultError) throw resultError;
+        setEventResults((current) => [...current.filter((item) => !(item.event_id === eventId && item.entry_id === entryId)), data as EventResult]);
+      }
+      setNotice(isDemo ? "บันทึกผลรายบุคคลในโหมดสาธิตแล้ว" : "บันทึกผลรายบุคคลเรียบร้อยแล้ว");
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "บันทึกผลรายบุคคลไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  async function addMedal(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!canManageCompetition || !competition) return;
+    const form = new FormData(event.currentTarget);
+    const eventId = String(form.get("event_id") || "");
+    const schoolId = String(form.get("school_id") || "");
+    const medalType = String(form.get("medal_type") || "gold") as Medal["medal_type"];
+    if (!eventId || !schoolId) return setError("กรุณาเลือกรายการแข่งขันและโรงเรียน");
+    setBusy(true); setError("");
+    try {
+      if (isDemo) {
+        setMedals((current) => [...current, { id: makeId("demo-medal"), competition_id: competition.id, event_id: eventId, school_id: schoolId, medal_type: medalType }]);
+      } else {
+        const { data, error: insertError } = await supabase.from("sports_medals").insert({ competition_id: competition.id, event_id: eventId, school_id: schoolId, medal_type: medalType }).select("*").single();
+        if (insertError) throw insertError;
+        setMedals((current) => [...current, data as Medal]);
+      }
+      setNotice(isDemo ? "เพิ่มเหรียญรางวัลในโหมดสาธิตแล้ว" : "บันทึกเหรียญรางวัลเรียบร้อยแล้ว");
+      setFormOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "บันทึกเหรียญรางวัลไม่สำเร็จ");
+    } finally { setBusy(false); }
+  }
+
+  const renderForm = () => {
+    if (!formOpen) return null;
+    const formShell = "rounded-2xl border border-blue-100 bg-blue-50/60 p-4 md:p-5";
+    const labelClass = "mb-1 block text-xs font-bold text-slate-600";
+    const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+    const close = () => setFormOpen(false);
+
+    if (tab === "schools" && (isDemo || isAdmin)) return (
+      <form className={formShell} onSubmit={addSchool}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">เพิ่มโรงเรียนเข้าร่วมการแข่งขัน</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label><span className={labelClass}>ชื่อโรงเรียน *</span><input name="name" required className={inputClass} placeholder="ชื่อโรงเรียน" /></label>
+          <label><span className={labelClass}>รหัสโรงเรียน</span><input name="school_code" className={inputClass} placeholder="เช่น PY001" /></label>
+          <label><span className={labelClass}>อำเภอ</span><input name="district" className={inputClass} placeholder="อำเภอ" /></label>
+        </div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโรงเรียน"}</button></div>
+      </form>
+    );
+
+    if (tab === "events" && canManageCompetition) return (
+      <form className={formShell} onSubmit={addEvent}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">เพิ่มรายการแข่งขัน</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label><span className={labelClass}>ชื่อรายการแข่งขัน *</span><input name="sport_name" required className={inputClass} placeholder="เช่น ฟุตบอลชาย ม.ต้น" /></label>
+          <label><span className={labelClass}>รหัสรายการ</span><input name="event_code" className={inputClass} placeholder="เช่น FB-MJ" /></label>
+          <label><span className={labelClass}>ประเภท</span><select name="event_type" className={inputClass}><option value="team">กีฬาทีม</option><option value="individual">กีฬาเดี่ยว / คู่</option><option value="athletics">กรีฑา</option></select></label>
+          <label><span className={labelClass}>เพศ</span><select name="gender_rule" className={inputClass}><option>รวม</option><option>ชาย</option><option>หญิง</option><option>ผสม</option></select></label>
+          <label><span className={labelClass}>รุ่น / ระดับชั้น</span><select name="level_rule" className={inputClass}><option>ไม่จำกัด</option><option>ม.ต้น</option><option>ม.ปลาย</option><option>ม.1</option><option>ม.2</option><option>ม.3</option><option>ม.4</option><option>ม.5</option><option>ม.6</option></select></label>
+          <label><span className={labelClass}>รูปแบบแข่งขัน</span><select name="competition_format" className={inputClass}><option value="league">แบ่งสาย / พบกันหมด</option><option value="knockout">แพ้คัดออก</option><option value="time">จับเวลา</option><option value="distance">วัดระยะ</option><option value="points">สะสมคะแนน</option><option value="manual">กำหนดผลโดยกรรมการ</option></select></label>
+          <label><span className={labelClass}>จำนวนนักกีฬาสูงสุดต่อทีม</span><input name="max_athletes_per_entry" type="number" min="1" className={inputClass} placeholder="ไม่จำกัด" /></label>
+          <label><span className={labelClass}>คะแนนชนะ</span><input name="points_win" type="number" min="0" defaultValue="3" className={inputClass} /></label>
+          <label><span className={labelClass}>คะแนนเสมอ / แพ้</span><div className="flex gap-2"><input name="points_draw" type="number" min="0" defaultValue="1" className={inputClass} /><input name="points_loss" type="number" min="0" defaultValue="0" className={inputClass} /></div></label>
+          <label className="md:col-span-3"><span className={labelClass}>สนามแข่งขัน (ถ้ากำหนดแล้ว)</span><input name="venue_name" className={inputClass} placeholder="ชื่อสนาม" /></label>
+        </div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกรายการแข่งขัน"}</button></div>
+      </form>
+    );
+
+    if (tab === "entries" && canManageSchool) return (
+      <form className={formShell} onSubmit={addEntry}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">ลงทะเบียนทีม / นักกีฬา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-2">
+          <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการแข่งขัน</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
+          <label><span className={labelClass}>โรงเรียน *</span><select name="school_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{entrySchools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label><span className={labelClass}>ชื่อทีม / ชื่อนักกีฬา *</span><input name="entry_name" required className={inputClass} placeholder="ชื่อทีม หรือชื่อนักกีฬา" /></label>
+          <label><span className={labelClass}>ครูผู้ควบคุมทีม</span><input name="coach_name" className={inputClass} placeholder="ชื่อครูผู้ควบคุม" /></label>
+          <label className="md:col-span-2"><span className={labelClass}>รายชื่อนักกีฬา (หนึ่งคนต่อหนึ่งบรรทัด)</span><textarea name="athletes" rows={4} required className={inputClass} placeholder={"รหัสนักเรียน | ชื่อ-สกุล | ชั้น | เพศ\n12345 | นายตัวอย่าง ใจดี | ม.2 | ชาย\n12346 | นายตัวอย่าง ตั้งใจ | ม.2 | ชาย"} /></label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">ระบบตรวจสอบเพศ รุ่น และจำนวนผู้เล่นตามเงื่อนไขที่กำหนดในรายการแข่งขัน</p>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "ส่งข้อมูลลงทะเบียน"}</button></div>
+      </form>
+    );
+
+    if (tab === "matches" && canManageCompetition) return (
+      <form className={formShell} onSubmit={addMatch}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">เพิ่มโปรแกรมการแข่งขัน</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label className="md:col-span-2"><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการแข่งขัน</option>{events.filter((item) => item.event_type === "team").map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
+          <label><span className={labelClass}>รหัสแมตช์</span><input name="match_number" className={inputClass} placeholder="เช่น FB-001" /></label>
+          <label><span className={labelClass}>โรงเรียน A *</span><select name="school_a_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label><span className={labelClass}>โรงเรียน B *</span><select name="school_b_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label><span className={labelClass}>สาย</span><input name="group_name" className={inputClass} placeholder="สาย A" /></label>
+          <label><span className={labelClass}>รอบการแข่งขัน</span><select name="round_name" className={inputClass}><option>รอบแบ่งกลุ่ม</option><option>รอบก่อนรองชนะเลิศ</option><option>รอบรองชนะเลิศ</option><option>รอบชิงชนะเลิศ</option></select></label>
+          <label><span className={labelClass}>วันและเวลา</span><input name="scheduled_at" type="datetime-local" className={inputClass} /></label>
+          <label><span className={labelClass}>สนามแข่งขัน</span><input name="venue_name" className={inputClass} placeholder="สนาม" /></label>
+        </div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโปรแกรม"}</button></div>
+      </form>
+    );
+
+    if (tab === "standings" && canRecordResults) return (
+      <form className={formShell} onSubmit={saveEventResult}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">บันทึกผลกีฬาเดี่ยว / กรีฑา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-4">
+          <label className="md:col-span-2"><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการเดี่ยว / กรีฑา</option>{events.filter((item) => item.event_type !== "team").map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
+          <label className="md:col-span-2"><span className={labelClass}>ผู้เข้าแข่งขัน *</span><select name="entry_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกทีม / นักกีฬา</option>{entries.filter((entry) => entry.status === "approved" && eventById.get(entry.event_id)?.event_type !== "team").map((entry) => <option key={entry.id} value={entry.id}>{eventById.get(entry.event_id)?.sport_name} · {schoolById.get(entry.school_id)?.name} · {entry.entry_name}</option>)}</select></label>
+          <label><span className={labelClass}>อันดับ</span><input name="rank" type="number" min="1" step="1" className={inputClass} placeholder="เช่น 1" /></label>
+          <label><span className={labelClass}>สถิติ</span><input name="performance_value" type="number" min="0" step="0.001" className={inputClass} placeholder="เช่น 12.45" /></label>
+          <label><span className={labelClass}>หน่วย</span><input name="performance_unit" className={inputClass} placeholder="วินาที / เมตร / คะแนน" /></label>
+          <label><span className={labelClass}>หมายเหตุผล</span><input name="result_text" className={inputClass} placeholder="เช่น ผ่านเข้ารอบ" /></label>
+        </div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกผลรายบุคคล"}</button></div>
+      </form>
+    );
+
+    if (tab === "medals" && canManageCompetition) return (
+      <form className={formShell} onSubmit={addMedal}>
+        <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">บันทึกเหรียญรางวัล</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการ</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
+          <label><span className={labelClass}>โรงเรียนที่ได้รับรางวัล *</span><select name="school_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label><span className={labelClass}>ประเภทเหรียญ</span><select name="medal_type" className={inputClass}><option value="gold">เหรียญทอง</option><option value="silver">เหรียญเงิน</option><option value="bronze">เหรียญทองแดง</option></select></label>
+        </div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกเหรียญ"}</button></div>
+      </form>
+    );
+
+    return null;
+  };
+
+  const headerAction = () => {
+    if (tab === "schools" && (isDemo || isAdmin)) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโรงเรียน</button>;
+    if (tab === "events" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มรายการ</button>;
+    if (tab === "entries" && canManageSchool) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ ลงทะเบียนทีม</button>;
+    if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโปรแกรม</button>;
+    if (tab === "standings" && canRecordResults) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกผลเดี่ยว / กรีฑา</button>;
+    if (tab === "medals" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกเหรียญ</button>;
+    return null;
+  };
+
+  return (
+    <main className="min-h-screen bg-[#f3f6fb] text-slate-800">
+      <header className="relative overflow-hidden bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white">
+        <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
+        <div className="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-4 py-5 md:px-8 md:py-7">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <Link href="/" className="text-sm font-semibold text-blue-100 transition hover:text-white">← กลับสู่ระบบกิจกรรม</Link>
+            <div className="flex items-center gap-2 text-xs">
+              {isDemo ? <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-bold text-amber-200">โหมดสาธิต · ข้อมูลตัวอย่าง</span> : <span className="rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1.5 font-bold text-emerald-200">เชื่อมต่อฐานข้อมูล</span>}
+              {userEmail && <span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-blue-100 sm:inline">{userEmail}</span>}
+            </div>
+          </div>
+          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
+            <div className="max-w-3xl">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-amber-300">Provincial School Sports Management</p>
+              <h1 className="text-2xl font-black leading-tight md:text-4xl">ระบบบริหารจัดการแข่งขันกีฬากลุ่ม</h1>
+              <p className="mt-2 text-sm text-blue-100 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
+              <p className="mt-4 text-sm font-semibold text-white">{competition?.name || "ยังไม่ได้สร้างรายการแข่งขัน"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => void loadData()} disabled={loading} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/20 disabled:opacity-50">↻ รีเฟรชข้อมูล</button>
+              {headerAction()}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-7xl px-4 pb-12 md:px-8">
+        <nav className="-mt-4 mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-900/5">
+          <Link href="/group-sports/school-submissions" className="flex shrink-0 items-center gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100">📄 ส่งข้อมูลโรงเรียน</Link>
+          {tabs.map((item) => (
+            <button key={item.key} onClick={() => { setTab(item.key); setFormOpen(false); setError(""); }} className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${tab === item.key ? "bg-blue-700 text-white shadow" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}>
+              <span>{item.icon}</span>{item.label}
+            </button>
+          ))}
+        </nav>
+
+        {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
+        {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
+        {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
+        {renderForm()}
+
+        {loading ? (
+          <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
+        ) : (
+          <>
+            {tab === "overview" && (
+              <>
+                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+                  {[
+                    { label: "โรงเรียนในระบบ", value: schools.length, icon: "🏫", color: "text-blue-700", bg: "bg-blue-50" },
+                    { label: "รายการแข่งขัน", value: events.length, icon: "🏅", color: "text-violet-700", bg: "bg-violet-50" },
+                    { label: "ทีม / รายการที่ลงทะเบียน", value: entries.length, icon: "👥", color: "text-emerald-700", bg: "bg-emerald-50" },
+                    { label: "แข่งขันเสร็จแล้ว", value: completedMatches.length, icon: "⚑", color: "text-amber-700", bg: "bg-amber-50" },
+                    { label: "เหรียญรางวัล", value: totalMedals, icon: "🥇", color: "text-orange-700", bg: "bg-orange-50" },
+                  ].map((item) => (
+                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between"><span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${item.bg}`}>{item.icon}</span><span className={`text-2xl font-black tabular-nums ${item.color}`}>{item.value.toLocaleString("th-TH")}</span></div>
+                      <p className="mt-3 text-xs font-semibold text-slate-500">{item.label}</p>
+                    </div>
+                  ))}
+                </section>
+                <section className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">รายการแข่งขัน</h2><p className="text-xs text-slate-500">ภาพรวมประเภทกีฬาและรุ่นการแข่งขัน</p></div><button onClick={() => setTab("events")} className="text-xs font-bold text-blue-700">ดูทั้งหมด →</button></div>
+                    <div className="space-y-3">
+                      {events.slice(0, 5).map((item) => (
+                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
+                          <div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{item.sport_name}</p><p className="mt-1 text-xs text-slate-500">{eventTypeLabel(item.event_type)} · {item.gender_rule} · {item.level_rule}</p></div>
+                          <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">{statusLabel(item.status)}</span>
+                        </div>
+                      ))}
+                      {!events.length && <EmptyState title="ยังไม่มีรายการแข่งขัน" description="เพิ่มประเภทกีฬาและรุ่นการแข่งขันเพื่อเริ่มต้น" />}
+                    </div>
+                  </div>
+                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">ตารางเหรียญ</h2><p className="text-xs text-slate-500">สรุปผลตามโรงเรียน</p></div><button onClick={() => setTab("medals")} className="text-xs font-bold text-blue-700">ดูทั้งหมด →</button></div>
+                    <MedalTable rows={medalTable.slice(0, 5)} />
+                    {!medalTable.length && <EmptyState title="ยังไม่มีเหรียญรางวัล" description="เมื่อบันทึกผลและมอบรางวัลแล้วจะแสดงที่นี่" />}
+                  </div>
+                </section>
+                <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => setTab("matches")} className="text-xs font-bold text-blue-700">ดูโปรแกรมทั้งหมด →</button></div>
+                  <MatchTable matches={matches.slice(0, 5)} schools={schoolById} events={eventById} results={resultByMatch} />
+                </section>
+              </>
+            )}
+
+            {tab === "schools" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โรงเรียนที่เข้าร่วม</h2><p className="mt-1 text-sm text-slate-500">ทะเบียนโรงเรียนกลางสำหรับการแข่งขันระดับจังหวัด</p></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">{schools.length} โรงเรียน</span></div>
+                <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                  {schools.map((school) => (
+                    <div key={school.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-200 hover:shadow-sm">
+                      <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl">🏫</span><div className="min-w-0"><h3 className="font-bold text-slate-900">{school.name}</h3><p className="mt-1 text-xs text-slate-500">{school.district || "ไม่ระบุอำเภอ"} · {school.province || "พะเยา"}</p><p className="mt-2 text-[11px] text-slate-400">รหัส {school.school_code || "ยังไม่กำหนด"}</p></div></div>
+                    </div>
+                  ))}
+                </div>
+                {!schools.length && <EmptyState title="ยังไม่มีโรงเรียนในทะเบียน" description="ผู้ดูแลการแข่งขันสามารถเพิ่มโรงเรียนที่เข้าร่วมได้" />}
+              </section>
+            )}
+
+            {tab === "events" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">รายการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">กำหนดประเภทกีฬา เพศ รุ่น และรูปแบบการแข่งขัน</p></div><span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">{events.length} รายการ</span></div>
+                <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รหัส</th><th className="pb-3 pr-3">รายการแข่งขัน</th><th className="pb-3 pr-3">ประเภท</th><th className="pb-3 pr-3">เพศ / รุ่น</th><th className="pb-3 pr-3">รูปแบบ</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{events.map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3 text-xs font-semibold text-slate-500">{item.event_code || "-"}</td><td className="py-3 pr-3 font-bold text-slate-800">{item.sport_name}</td><td className="py-3 pr-3">{eventTypeLabel(item.event_type)}</td><td className="py-3 pr-3">{item.gender_rule} · {item.level_rule}</td><td className="py-3 pr-3 text-xs text-slate-500">{item.competition_format || "-"}</td><td className="py-3"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">{statusLabel(item.status)}</span></td></tr>)}</tbody></table></div>
+                {!events.length && <EmptyState title="ยังไม่มีรายการแข่งขัน" description="เพิ่มรายการกีฬาและกำหนดรุ่นการแข่งขันก่อนเปิดรับสมัคร" />}
+              </section>
+            )}
+
+            {tab === "entries" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">ตรวจสอบรายชื่อที่แต่ละโรงเรียนส่งเข้าร่วมการแข่งขัน</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">อนุมัติแล้ว {approvedEntries} / {entries.length}</span></div>
+                {entries.length ? <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">โรงเรียน</th><th className="pb-3 pr-3">รายการแข่งขัน</th><th className="pb-3 pr-3">ทีม / นักกีฬา</th><th className="pb-3 pr-3">ครูผู้ควบคุม</th><th className="pb-3 pr-3">จำนวนคน</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{entries.map((entry) => <tr key={entry.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3 font-semibold">{schoolById.get(entry.school_id)?.name || "-"}</td><td className="py-3 pr-3">{eventById.get(entry.event_id)?.sport_name || "-"}</td><td className="py-3 pr-3 font-bold">{entry.entry_name}</td><td className="py-3 pr-3 text-slate-500">{entry.coach_name || "-"}</td><td className="py-3 pr-3">{entry.athlete_count ?? "-"}</td><td className="py-3"><div className="flex flex-wrap items-center gap-2"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${entry.status === "approved" ? "bg-emerald-50 text-emerald-700" : entry.status === "rejected" ? "bg-rose-50 text-rose-700" : "bg-amber-50 text-amber-700"}`}>{statusLabel(entry.status)}</span>{canManageCompetition && entry.status === "submitted" && <><button type="button" disabled={busy} onClick={() => void updateEntryStatus(entry.id, "approved")} className="rounded-lg bg-emerald-600 px-2 py-1 text-[10px] font-bold text-white disabled:opacity-50">อนุมัติ</button><button type="button" disabled={busy} onClick={() => void updateEntryStatus(entry.id, "rejected")} className="rounded-lg bg-rose-100 px-2 py-1 text-[10px] font-bold text-rose-700 disabled:opacity-50">ไม่อนุมัติ</button></>}</div></td></tr>)}</tbody></table></div> : <EmptyState title="ยังไม่มีข้อมูลลงทะเบียน" description={isDemo ? "ตัวอย่างนี้จะปรากฏเมื่อเชื่อมฐานข้อมูลจริงและมีผู้ส่งรายชื่อ" : "โรงเรียนที่ได้รับสิทธิ์สามารถส่งทีมและรายชื่อนักกีฬาได้"} />}
+              </section>
+            )}
+
+            {tab === "matches" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โปรแกรมและผลการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">จัดสาย รอบ วันเวลา สนาม และบันทึกคะแนน</p></div><span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">เสร็จสิ้น {completedMatches.length} / {matches.length} แมตช์</span></div>
+                <MatchTable matches={matches} schools={schoolById} events={eventById} results={resultByMatch} />
+                {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{matches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
+                {!matches.length && <EmptyState title="ยังไม่มีโปรแกรมการแข่งขัน" description="เพิ่มรายการแข่งขันและโรงเรียนก่อนจัดโปรแกรม" />}
+              </section>
+            )}
+
+            {tab === "standings" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">ตารางคะแนน</h2><p className="mt-1 text-sm text-slate-500">คำนวณจากผลการแข่งขันที่บันทึกแล้ว โดยใช้เกณฑ์คะแนนของแต่ละรายการ</p></div><select value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><option value="all">ทุกรายการ</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></div>
+                {eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).length > 0 && <div className="mb-5 overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><p className="text-xs text-slate-500">อันดับและสถิติที่กรรมการบันทึก</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">รายการ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">ผู้เข้าแข่งขัน</th><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">สถิติ</th><th className="px-4 py-2">หมายเหตุ</th></tr></thead><tbody>{eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).sort((a, b) => (a.rank || 999) - (b.rank || 999)).map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-semibold">{eventById.get(item.event_id)?.sport_name || "-"}</td><td className="px-4 py-3">{schoolById.get(item.school_id)?.name || "-"}</td><td className="px-4 py-3 font-bold">{item.entry_name}</td><td className="px-4 py-3 font-black text-blue-700">{item.rank || "-"}</td><td className="px-4 py-3">{item.performance_value ?? "-"} {item.performance_unit || ""}</td><td className="px-4 py-3 text-slate-500">{item.result_text || "-"}</td></tr>)}</tbody></table></div></div>}
+                <div className="space-y-5">{standings.map(({ event: sportEvent, groupName, rows }) => <div key={`${sportEvent.id}-${groupName}`} className="overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">{sportEvent.sport_name} · {groupName}</h3><p className="text-xs text-slate-500">คะแนนชนะ {sportEvent.points_win ?? 3} · เสมอ {sportEvent.points_draw ?? 1} · แพ้ {sportEvent.points_loss ?? 0}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">แข่ง</th><th className="px-4 py-2">ชนะ</th><th className="px-4 py-2">เสมอ</th><th className="px-4 py-2">แพ้</th><th className="px-4 py-2">ได้ / เสีย</th><th className="px-4 py-2">คะแนน</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.school.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-black">{index + 1}</td><td className="px-4 py-3 font-bold">{row.school.name}</td><td className="px-4 py-3">{row.played}</td><td className="px-4 py-3">{row.win}</td><td className="px-4 py-3">{row.draw}</td><td className="px-4 py-3">{row.loss}</td><td className="px-4 py-3">{row.scored} / {row.conceded}</td><td className="px-4 py-3 font-black text-blue-700">{row.points}</td></tr>)}</tbody></table></div></div>)}{!standings.length && <EmptyState title="ยังไม่มีตารางคะแนน" description="เมื่อบันทึกผลการแข่งขันประเภททีมแล้ว ระบบจะคำนวณตารางคะแนนให้" />}</div>
+              </section>
+            )}
+
+            {tab === "medals" && (
+              <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"><div className="mb-5"><h2 className="text-xl font-black text-slate-900">สรุปเหรียญรางวัล</h2><p className="mt-1 text-sm text-slate-500">จัดอันดับโรงเรียนตามจำนวนเหรียญทอง เงิน และทองแดง</p></div><MedalTable rows={medalTable} showEmpty /><div className="mt-6 border-t border-slate-100 pt-5"><h3 className="mb-3 font-bold text-slate-900">รายการเหรียญที่บันทึกแล้ว</h3>{medals.length ? <div className="space-y-2">{medals.map((medal) => <div key={medal.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3"><div className="min-w-0"><p className="truncate text-sm font-bold">{eventById.get(medal.event_id)?.sport_name || "รายการแข่งขัน"}</p><p className="text-xs text-slate-500">{schoolById.get(medal.school_id)?.name || "-"}</p></div><MedalBadge type={medal.medal_type} /></div>)}</div> : <p className="text-sm text-slate-500">ยังไม่มีการบันทึกเหรียญรางวัล</p>}</div></section>
+            )}
+          </>
+        )}
+
+        <footer className="mt-8 flex flex-col justify-between gap-2 border-t border-slate-200 py-5 text-xs text-slate-500 md:flex-row"><span>ระบบกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา</span><span>พัฒนาแยกจากระบบกิจกรรมพัฒนาผู้เรียน · CKW Student Activity App</span></footer>
+      </div>
+    </main>
+  );
+}
+
+function EmptyState({ title, description }: { title: string; description: string }) {
+  return <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center"><p className="font-bold text-slate-700">{title}</p><p className="mt-1 text-xs text-slate-500">{description}</p></div>;
+}
+
+function MedalBadge({ type }: { type: string }) {
+  const config: Record<string, { label: string; className: string; icon: string }> = {
+    gold: { label: "เหรียญทอง", className: "bg-amber-100 text-amber-800", icon: "🥇" },
+    silver: { label: "เหรียญเงิน", className: "bg-slate-100 text-slate-700", icon: "🥈" },
+    bronze: { label: "เหรียญทองแดง", className: "bg-orange-100 text-orange-800", icon: "🥉" },
+  };
+  const item = config[type] || config.gold;
+  return <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${item.className}`}>{item.icon} {item.label}</span>;
+}
+
+function MedalTable({ rows, showEmpty = false }: { rows: { school: School; gold: number; silver: number; bronze: number; total: number }[]; showEmpty?: boolean }) {
+  if (!rows.length) return showEmpty ? <EmptyState title="ยังไม่มีผลการมอบเหรียญ" description="เมื่อบันทึกเหรียญรางวัลแล้ว ตารางอันดับจะแสดงโดยอัตโนมัติ" /> : null;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[420px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-2">อันดับ</th><th className="pb-3 pr-2">โรงเรียน</th><th className="pb-3 px-2 text-center">🥇</th><th className="pb-3 px-2 text-center">🥈</th><th className="pb-3 px-2 text-center">🥉</th><th className="pb-3 pl-2 text-right">รวม</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.school.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-2 font-black text-slate-500">{index + 1}</td><td className="py-3 pr-2 font-bold text-slate-800">{row.school.name}</td><td className="px-2 py-3 text-center font-bold text-amber-700">{row.gold}</td><td className="px-2 py-3 text-center font-bold text-slate-600">{row.silver}</td><td className="px-2 py-3 text-center font-bold text-orange-700">{row.bronze}</td><td className="py-3 pl-2 text-right font-black">{row.total}</td></tr>)}</tbody></table></div>;
+}
+
+function MatchTable({ matches, schools, events, results }: { matches: Match[]; schools: Map<string, School>; events: Map<string, SportEvent>; results: Map<string, MatchResult> }) {
+  if (!matches.length) return null;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รายการ / รอบ</th><th className="pb-3 pr-3">คู่แข่งขัน</th><th className="pb-3 pr-3">วันเวลา / สนาม</th><th className="pb-3 pr-3">ผล</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{matches.map((match) => { const result = results.get(match.id); return <tr key={match.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3"><p className="font-bold text-slate-800">{events.get(match.event_id)?.sport_name || "รายการแข่งขัน"}</p><p className="mt-1 text-xs text-slate-500">{match.match_number || "-"} · {match.group_name || "ไม่แบ่งสาย"} · {match.round_name}</p></td><td className="py-3 pr-3"><p className="font-semibold">{schools.get(match.school_a_id || "")?.name || "รอระบุ"}</p><p className="my-1 text-[10px] font-bold text-slate-400">พบ</p><p className="font-semibold">{schools.get(match.school_b_id || "")?.name || "รอระบุ"}</p></td><td className="py-3 pr-3 text-xs text-slate-500">{formatThaiDate(match.scheduled_at)}<p className="mt-1">{match.venue_name || "ยังไม่กำหนดสนาม"}</p></td><td className="py-3 pr-3 font-black text-blue-800">{result ? `${result.score_a} : ${result.score_b}` : "-"}</td><td className="py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${match.status === "completed" ? "bg-emerald-50 text-emerald-700" : match.status === "live" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-600"}`}>{statusLabel(match.status)}</span></td></tr>; })}</tbody></table></div>;
+}

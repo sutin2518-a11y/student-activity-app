@@ -12,6 +12,7 @@ export default function Navbar() {
     { name: "กิจกรรมในเครื่องแบบ", href: "/student/uniform", icon: "👔" },
     { name: "กิจกรรมเพื่อสังคมฯ", href: "/student/volunteer", icon: "🤝" },
     { name: "กิจกรรมแนะแนว", href: "/student/guidance", icon: "💡" },
+    { name: "กีฬากลุ่มจังหวัดพะเยา", href: "/group-sports", icon: "🏆" },
     { name: "ระบบเช็คชื่อ", href: "/teacher/attendance", icon: "✅" },
   ];
 

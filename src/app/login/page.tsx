@@ -49,7 +49,8 @@ export default function LoginPage() {
         options: {
           redirectTo: `${window.location.origin}/auth/complete`,
           queryParams: {
-            hd: "chiangkham.ac.th", // UX hint only; not an access-control check.
+            // ไม่ล็อกโดเมนที่หน้าล็อกอิน: ระบบกิจกรรมตรวจ @chiangkham.ac.th
+            // ส่วนระบบกีฬากลุ่มอนุญาตเฉพาะบัญชีโรงเรียนที่ผู้ดูแลกำหนดสิทธิ์ไว้
             prompt: "select_account",
           },
         },
@@ -75,7 +76,7 @@ export default function LoginPage() {
           <p className="mt-1 text-xs text-red-100">โรงเรียนเชียงคำวิทยาคม</p>
         </header>
         <div className="space-y-4 p-6">
-          <p className="text-center text-sm text-slate-700">ใช้บัญชี Google Workspace ของโรงเรียน<br /><span className="font-semibold">@chiangkham.ac.th</span></p>
+          <p className="text-center text-sm text-slate-700">ใช้บัญชี Google Workspace ของโรงเรียน<br /><span className="font-semibold">ระบบกิจกรรม: @chiangkham.ac.th · ระบบกีฬากลุ่ม: บัญชีที่ได้รับสิทธิ์</span></p>
           {errorMessage && <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{errorMessage}</p>}
           <button type="button" onClick={loginWithGoogle} disabled={loading || checking}
             className="w-full rounded-xl bg-red-700 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-red-800 disabled:opacity-50">

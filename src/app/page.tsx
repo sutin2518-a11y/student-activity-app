@@ -71,6 +71,7 @@ export default function HomePage() {
           <Link href="/student/uniform" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">👮</span> กิจกรรมในเครื่องแบบ</Link>
           <Link href="/student/volunteer" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
           <Link href="/student/guidance" className="flex items-center gap-3 p-3 hover:bg-slate-50 text-slate-700 rounded-xl transition"><span className="text-xl">🧭</span> กิจกรรมแนะแนว</Link>
+          <Link href="/group-sports" className="flex items-center gap-3 p-3 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl transition border border-amber-100"><span className="text-xl">🏆</span> ระบบกีฬากลุ่มจังหวัดพะเยา</Link>
           
           {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Sidebar */}
           <Link href="/teacher/attendance" className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-xl transition border border-blue-100">
@@ -141,6 +142,7 @@ export default function HomePage() {
           <Link href="/student/uniform" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-blue-600 text-lg">👮</span> กิจกรรมในเครื่องแบบ</Link>
           <Link href="/student/volunteer" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-emerald-500 text-lg">🤝</span> กิจกรรมเพื่อสังคมฯ</Link>
           <Link href="/student/guidance" className="flex items-center gap-2 px-3 py-2 hover:bg-slate-100 rounded-lg transition"><span className="text-orange-500 text-lg">🧭</span> กิจกรรมแนะแนว</Link>
+          <Link href="/group-sports" className="flex items-center gap-2 px-3 py-2 bg-amber-50 text-amber-800 border border-amber-200 rounded-lg hover:bg-amber-100 transition"><span className="text-lg">🏆</span> กีฬากลุ่มจังหวัดพะเยา</Link>
           
           {/* ✅ เพิ่มปุ่มระบบเช็คชื่อใน Navbar */}
           <Link href="/teacher/attendance" className="flex items-center gap-2 px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition">
