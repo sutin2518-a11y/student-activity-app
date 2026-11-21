@@ -1,0 +1,92 @@
+diff --git a/src/app/group-sports/esports/page.tsx b/src/app/group-sports/esports/page.tsx
+index 5e4bc60..0000000 100644
+--- a/src/app/group-sports/esports/page.tsx
++++ b/src/app/group-sports/esports/page.tsx
+@@ -29,7 +29,8 @@
+ };
+ type Standing = {
+   team: TeamRow; played: number; wins: number; losses: number; points: number;
+-  gamesFor: number; gamesAgainst: number; time: number; kills: number;
++  gamesFor: number; gamesAgainst: number; time: number; timeRecordedMatches: number;
++  kills: number; killRecordedMatches: number;
+ };
+ 
+ const statusLabel: Record<MatchStatus, string> = {
+@@ -55,7 +56,8 @@
+ function buildStandings(group: GroupRow, teams: TeamRow[], matches: MatchRow[]): Standing[] {
+   const stats = new Map<string, Standing>();
+   teams.filter(team => team.group_id === group.id).forEach(team => stats.set(team.id, {
+-    team, played: 0, wins: 0, losses: 0, points: 0, gamesFor: 0, gamesAgainst: 0, time: 0, kills: 0
++    team, played: 0, wins: 0, losses: 0, points: 0, gamesFor: 0, gamesAgainst: 0,
++    time: 0, timeRecordedMatches: 0, kills: 0, killRecordedMatches: 0
+   }));
+   matches.filter(match => match.group_id === group.id && match.match_status === "completed" && match.score1 != null && match.score2 != null).forEach(match => {
+     const a = stats.get(match.team1_id); const b = stats.get(match.team2_id);
+@@ -63,20 +65,46 @@
+     a.played += 1; b.played += 1;
+     a.gamesFor += match.score1 as number; a.gamesAgainst += match.score2 as number;
+     b.gamesFor += match.score2 as number; b.gamesAgainst += match.score1 as number;
+-    a.time += Number(match.duration_minutes || 0); b.time += Number(match.duration_minutes || 0);
+-    a.kills += Number(match.team1_kills || 0); b.kills += Number(match.team2_kills || 0);
++    if (match.duration_minutes != null) {
++      a.time += Number(match.duration_minutes); b.time += Number(match.duration_minutes);
++      a.timeRecordedMatches += 1; b.timeRecordedMatches += 1;
++    }
++    if (match.team1_kills != null && match.team2_kills != null) {
++      a.kills += Number(match.team1_kills); b.kills += Number(match.team2_kills);
++      a.killRecordedMatches += 1; b.killRecordedMatches += 1;
++    }
+     if ((match.score1 as number) > (match.score2 as number)) {
+       a.wins += 1; b.losses += 1; a.points += match.score2 === 0 ? 3 : 2; b.points += match.score2 === 0 ? 0 : 1;
+     } else {
+       b.wins += 1; a.losses += 1; b.points += match.score1 === 0 ? 3 : 2; a.points += match.score1 === 0 ? 0 : 1;
+     }
+   });
+-  return Array.from(stats.values()).sort((a, b) => {
+-    if (b.points !== a.points) return b.points - a.points;
+-    // The regulation mentions time and Kill as tie-break information, but does not
+-    // define a sufficiently precise aggregation formula. Keep tied rows provisional.
+-    return a.team.seed_order - b.team.seed_order;
+-  });
++
++  const seedOrder = (a: Standing, b: Standing) => a.team.seed_order - b.team.seed_order;
++  const all = Array.from(stats.values());
++  const pointGroups = [...new Set(all.map(row => row.points))].sort((a, b) => b - a);
++  const ranked: Standing[] = [];
++
++  for (const points of pointGroups) {
++    const samePoints = all.filter(row => row.points === points);
++    const hasCompleteTime = samePoints.every(row => row.played > 0 && row.timeRecordedMatches === row.played);
++    if (!hasCompleteTime) {
++      ranked.push(...samePoints.sort(seedOrder));
++      continue;
++    }
++
++    // Equal points: lower cumulative match time ranks first. If time is equal,
++    // compare total Kill (higher ranks first). Missing records keep the tie provisional.
++    const timeKeys = [...new Set(samePoints.map(row => Math.round(row.time * 100)))].sort((a, b) => a - b);
++    for (const timeKey of timeKeys) {
++      const sameTime = samePoints.filter(row => Math.round(row.time * 100) === timeKey);
++      const hasCompleteKills = sameTime.every(row => row.played > 0 && row.killRecordedMatches === row.played);
++      if (hasCompleteKills) sameTime.sort((a, b) => b.kills - a.kills || seedOrder(a, b));
++      else sameTime.sort(seedOrder);
++      ranked.push(...sameTime);
++    }
++  }
++  return ranked;
+ }
+ 
+ function MatchCard({
+@@ -258,10 +286,10 @@
+           const rows = buildStandings(group,currentTeams,currentMatches);
+           return <div className={`${panel} space-y-3`} key={group.id}>
+             <h2 className="text-lg font-black">ตารางคะแนน · กลุ่ม {group.group_code}</h2>
+-            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-xs text-slate-600">{["อันดับ","โรงเรียน","แข่ง","ชนะ","แพ้","ได้–เสียเกม","คะแนน","เวลา (นาที)","Kill"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr className="border-b border-slate-100" key={row.team.id}><td className="p-2 font-bold">{index+1}</td><td className="p-2 font-semibold">{row.team.school_name}</td><td className="p-2">{row.played}</td><td className="p-2">{row.wins}</td><td className="p-2">{row.losses}</td><td className="p-2">{row.gamesFor}–{row.gamesAgainst}</td><td className="p-2 font-black text-blue-800">{row.points}</td><td className="p-2">{row.time ? row.time.toFixed(2) : "—"}</td><td className="p-2">{row.kills || "—"}</td></tr>)}</tbody></table></div>
++            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-xs text-slate-600">{["อันดับ","โรงเรียน","แข่ง","ชนะ","แพ้","ได้–เสียเกม","คะแนน","เวลา (นาที)","Kill"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr className="border-b border-slate-100" key={row.team.id}><td className="p-2 font-bold">{index+1}</td><td className="p-2 font-semibold">{row.team.school_name}</td><td className="p-2">{row.played}</td><td className="p-2">{row.wins}</td><td className="p-2">{row.losses}</td><td className="p-2">{row.gamesFor}–{row.gamesAgainst}</td><td className="p-2 font-black text-blue-800">{row.points}</td><td className="p-2">{row.played > 0 && row.timeRecordedMatches === row.played ? row.time.toFixed(2) : "—"}</td><td className="p-2">{row.played > 0 && row.killRecordedMatches === row.played ? row.kills : "—"}</td></tr>)}</tbody></table></div>
+           </div>;
+         })}
+-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-bold">หลักเกณฑ์คะแนน</p><p className="mt-1">ชนะ 2–0 ได้ 3 คะแนน, ชนะ 2–1 ได้ 2 คะแนน และทีมแพ้ 1 คะแนน ตามระเบียบการแข่งขัน ระบบแสดงเวลาแข่งขันรวมและ Kill เป็นข้อมูลประกอบเมื่อคะแนนเท่ากัน</p><p className="mt-1 text-xs">เมื่อคะแนนเท่ากัน ระบบจะแสดงลำดับชั่วคราวตามลำดับรายชื่อ และให้กรรมการยืนยันการตัดสินจากเวลาและ Kill ตามกติกา เนื่องจากเอกสารไม่ได้ระบุสูตรรวมค่าไว้อย่างชัดเจน</p></div>
++        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-bold">หลักเกณฑ์คะแนนและจัดอันดับทีมชาย</p><p className="mt-1">แข่งขันแบบ BO3: ชนะ 2–0 ได้ 3 คะแนน, ชนะ 2–1 ได้ 2 คะแนน และทีมแพ้ได้ 1 คะแนน</p><p className="mt-1">เมื่อคะแนนเท่ากัน ใช้เวลาแข่งขันรวมสะสมน้อยกว่าเป็นเกณฑ์ก่อน และหากเวลาเท่ากันจึงพิจารณา Kill รวมมากกว่า</p><p className="mt-1 text-xs">ระบบจะใช้เวลาและ Kill จัดอันดับเมื่อบันทึกข้อมูลครบทุกแมตช์ที่ทีมลงแข่งขัน หากข้อมูลยังไม่ครบ จะแสดงลำดับชั่วคราวตามลำดับทีมในสาย</p></div>
+       </section>}
+       <p className="text-xs text-slate-500">สนามแข่งขัน: หอประชุมโรงเรียนเชียงคำวิทยาคม · ข้อมูลกลุ่มและโปรแกรมอ้างอิงระเบียบ E-Sport ภูลังกาเกมส์ 2569</p>
+     </main>

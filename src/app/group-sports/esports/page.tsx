@@ -1,0 +1,866 @@
+"use client";
+
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { supabase } from "@/lib/supabase";
+
+const SLUG = "phayao-secondary-group-sports-2569";
+const EVENT_CODES = ["GS3-ES-SM", "GS3-ES-SF"] as const;
+const panel = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
+const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600";
+const primary = "rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50";
+const secondary = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
+const danger = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
+
+type Gender = "ชาย" | "หญิง";
+type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history";
+
+// แยกสีเมนูแต่ละส่วนให้เห็นชัดทั้งสถานะที่เลือกและยังไม่เลือก
+const tabPalette: Record<Tab, { active: string; idle: string }> = {
+  groups: {
+    active: "border-blue-800 bg-blue-700 text-white shadow-md ring-2 ring-blue-100",
+    idle: "border-blue-200 bg-blue-50 text-blue-900 hover:border-blue-400 hover:bg-blue-100"
+  },
+  matches: {
+    active: "border-orange-700 bg-orange-600 text-white shadow-md ring-2 ring-orange-100",
+    idle: "border-orange-200 bg-orange-50 text-orange-900 hover:border-orange-400 hover:bg-orange-100"
+  },
+  schedule: {
+    active: "border-indigo-800 bg-indigo-700 text-white shadow-md ring-2 ring-indigo-100",
+    idle: "border-indigo-200 bg-indigo-50 text-indigo-900 hover:border-indigo-400 hover:bg-indigo-100"
+  },
+  standings: {
+    active: "border-emerald-800 bg-emerald-700 text-white shadow-md ring-2 ring-emerald-100",
+    idle: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-400 hover:bg-emerald-100"
+  },
+  knockout: {
+    active: "border-violet-800 bg-violet-700 text-white shadow-md ring-2 ring-violet-100",
+    idle: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-400 hover:bg-violet-100"
+  },
+  history: {
+    active: "border-rose-800 bg-rose-700 text-white shadow-md ring-2 ring-rose-100",
+    idle: "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-400 hover:bg-rose-100"
+  }
+};
+
+function tabButtonClass(key: Tab, current: Tab) {
+  const stateClass = key === current ? tabPalette[key].active : tabPalette[key].idle;
+  return `inline-flex min-h-11 items-center justify-center rounded-xl border px-4 py-2.5 text-sm font-extrabold tracking-wide transition-all duration-150 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-offset-2 ${stateClass}`;
+}
+
+type EventRow = { id: string; event_code: string; sport_name: string; gender_rule: Gender; status: string };
+type GroupRow = { id: string; event_id: string; group_code: string; sort_order: number };
+type TeamRow = { id: string; event_id: string; group_id: string; school_name: string; seed_order: number };
+type MatchStatus = "draft" | "scheduled" | "completed" | "cancelled";
+type MatchRow = {
+  id: string; event_id: string; group_id: string | null; match_no: string; stage: string; play_order: number | null;
+  team1_id: string | null; team2_id: string | null; scheduled_date: string | null; start_time: string | null;
+  venue_name: string; match_status: MatchStatus; score1: number | null; score2: number | null;
+  duration_minutes: number | null; team1_kills: number | null; team2_kills: number | null; notes: string;
+  winner_next_match_id: string | null; winner_next_slot: number | null;
+  loser_next_match_id: string | null; loser_next_slot: number | null;
+};
+type MatchForm = {
+  scheduled_date: string; start_time: string; venue_name: string; match_status: MatchStatus;
+  score1: string; score2: string; duration_minutes: string; team1_kills: string; team2_kills: string;
+};
+type Standing = {
+  team: TeamRow; played: number; wins: number; losses: number; points: number;
+  gamesFor: number; gamesAgainst: number; time: number; timeRecordedMatches: number;
+  kills: number; killRecordedMatches: number;
+};
+type HistoryRow = {
+  id: number; event_id: string; match_id: string | null; match_no: string; action: "INSERT" | "UPDATE" | "DELETE";
+  reason: string; changed_at: string; changed_by: string | null; old_data: Record<string, unknown> | null; new_data: Record<string, unknown> | null;
+};
+type PendingBracketEdit = { matchId: string; team1Id: string; team2Id: string; reason: string };
+type PendingResultSave = { matchId: string; form: MatchForm; reason: string };
+
+const statusLabel: Record<MatchStatus, string> = {
+  draft: "ฉบับร่าง", scheduled: "กำหนดการแข่งขันแล้ว", completed: "แข่งขันเสร็จสิ้น", cancelled: "ยกเลิก"
+};
+const stageLabel: Record<string, string> = {
+  knockout: "รอบ 8 ทีมสุดท้าย", semifinal: "รอบรองชนะเลิศ", final: "รอบชิงชนะเลิศ", third_place: "ชิงอันดับ 3"
+};
+
+function errorText(error: unknown) {
+  return typeof error === "object" && error !== null && "message" in error ? String(error.message) : "ไม่สามารถดำเนินการได้";
+}
+function thaiDate(value: string | null) {
+  return value ? new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeZone: "Asia/Bangkok" }).format(new Date(`${value}T00:00:00+07:00`)) : "รอกำหนดวัน";
+}
+function thaiDateTime(value: string) {
+  return new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short", timeZone: "Asia/Bangkok" }).format(new Date(value));
+}
+function shortTime(value: string | null) { return value ? value.slice(0, 5) : "รอกำหนดเวลา"; }
+function formFromMatch(match: MatchRow): MatchForm {
+  return {
+    scheduled_date: match.scheduled_date || "", start_time: match.start_time?.slice(0, 5) || "",
+    venue_name: match.venue_name || "หอประชุมโรงเรียนเชียงคำวิทยาคม", match_status: match.match_status,
+    score1: match.score1 == null ? "" : String(match.score1), score2: match.score2 == null ? "" : String(match.score2),
+    duration_minutes: match.duration_minutes == null ? "" : String(match.duration_minutes),
+    team1_kills: match.team1_kills == null ? "" : String(match.team1_kills),
+    team2_kills: match.team2_kills == null ? "" : String(match.team2_kills)
+  };
+}
+function getDownstreamMatches(sourceId: string, matches: MatchRow[]) {
+  const byId = new Map(matches.map(match => [match.id, match]));
+  const found = new Set<string>();
+  const queue = [sourceId];
+  while (queue.length) {
+    const current = byId.get(queue.shift()!);
+    if (!current) continue;
+    for (const nextId of [current.winner_next_match_id, current.loser_next_match_id]) {
+      if (nextId && !found.has(nextId)) {
+        found.add(nextId);
+        queue.push(nextId);
+      }
+    }
+  }
+  return [...found].map(id => byId.get(id)).filter((match): match is MatchRow => Boolean(match));
+}
+function teamLabel(team: TeamRow, groups: Map<string, GroupRow>) {
+  const group = groups.get(team.group_id)?.group_code || "?";
+  return `${team.school_name} (กลุ่ม ${group})`;
+}
+function snapshotLine(data: Record<string, unknown> | null, teams: Map<string, TeamRow>) {
+  if (!data) return "—";
+  const name = (id: unknown) => typeof id === "string" ? teams.get(id)?.school_name || "ทีมที่ไม่อยู่ในรายการปัจจุบัน" : "ยังไม่กำหนดทีม";
+  const pair = `${name(data.team1_id)} พบ ${name(data.team2_id)}`;
+  const score = data.score1 != null && data.score2 != null ? `ผล ${String(data.score1)}–${String(data.score2)}` : "ยังไม่มีผล";
+  const status = typeof data.match_status === "string" && data.match_status in statusLabel ? statusLabel[data.match_status as MatchStatus] : "ไม่ระบุสถานะ";
+  const schedule = `${typeof data.scheduled_date === "string" ? data.scheduled_date : "ไม่กำหนดวัน"} ${typeof data.start_time === "string" ? data.start_time.slice(0,5) : ""}`.trim();
+  const duration = data.duration_minutes != null ? `เวลา ${String(data.duration_minutes)} นาที` : "ไม่บันทึกเวลา";
+  const kills = data.team1_kills != null || data.team2_kills != null ? `Kill ${String(data.team1_kills ?? "—")}–${String(data.team2_kills ?? "—")}` : "ไม่บันทึก Kill";
+  return `${pair} · ${score} · ${status} · ${schedule} · ${duration} · ${kills}`;
+}
+
+function buildStandings(group: GroupRow, teams: TeamRow[], matches: MatchRow[]): Standing[] {
+  const stats = new Map<string, Standing>();
+  teams.filter(team => team.group_id === group.id).forEach(team => stats.set(team.id, {
+    team, played: 0, wins: 0, losses: 0, points: 0, gamesFor: 0, gamesAgainst: 0,
+    time: 0, timeRecordedMatches: 0, kills: 0, killRecordedMatches: 0
+  }));
+  matches.filter(match => match.group_id === group.id && match.match_status === "completed" && match.score1 != null && match.score2 != null).forEach(match => {
+    if (!match.team1_id || !match.team2_id) return;
+    const a = stats.get(match.team1_id); const b = stats.get(match.team2_id);
+    if (!a || !b) return;
+    a.played += 1; b.played += 1;
+    a.gamesFor += match.score1 as number; a.gamesAgainst += match.score2 as number;
+    b.gamesFor += match.score2 as number; b.gamesAgainst += match.score1 as number;
+    if (match.duration_minutes != null) {
+      a.time += Number(match.duration_minutes); b.time += Number(match.duration_minutes);
+      a.timeRecordedMatches += 1; b.timeRecordedMatches += 1;
+    }
+    if (match.team1_kills != null && match.team2_kills != null) {
+      a.kills += Number(match.team1_kills); b.kills += Number(match.team2_kills);
+      a.killRecordedMatches += 1; b.killRecordedMatches += 1;
+    }
+    if ((match.score1 as number) > (match.score2 as number)) {
+      a.wins += 1; b.losses += 1; a.points += match.score2 === 0 ? 3 : 2; b.points += match.score2 === 0 ? 0 : 1;
+    } else {
+      b.wins += 1; a.losses += 1; b.points += match.score1 === 0 ? 3 : 2; a.points += match.score1 === 0 ? 0 : 1;
+    }
+  });
+
+  const seedOrder = (a: Standing, b: Standing) => a.team.seed_order - b.team.seed_order;
+  const all = Array.from(stats.values());
+  const pointGroups = [...new Set(all.map(row => row.points))].sort((a, b) => b - a);
+  const ranked: Standing[] = [];
+
+  for (const points of pointGroups) {
+    const samePoints = all.filter(row => row.points === points);
+    const hasCompleteTime = samePoints.every(row => row.played > 0 && row.timeRecordedMatches === row.played);
+    if (!hasCompleteTime) {
+      ranked.push(...samePoints.sort(seedOrder));
+      continue;
+    }
+    const timeKeys = [...new Set(samePoints.map(row => Math.round(row.time * 100)))].sort((a, b) => a - b);
+    for (const timeKey of timeKeys) {
+      const sameTime = samePoints.filter(row => Math.round(row.time * 100) === timeKey);
+      const hasCompleteKills = sameTime.every(row => row.played > 0 && row.killRecordedMatches === row.played);
+      if (hasCompleteKills) sameTime.sort((a, b) => b.kills - a.kills || seedOrder(a, b));
+      else sameTime.sort(seedOrder);
+      ranked.push(...sameTime);
+    }
+  }
+  return ranked;
+}
+
+
+// โปรแกรมรอบแบ่งกลุ่ม: แยก "รหัสคู่" ออกจาก "ลำดับลงสนาม" เพื่อไม่กระทบผลเดิม
+function scheduleCompare(a: MatchRow, b: MatchRow) {
+  const aOrder = a.play_order;
+  const bOrder = b.play_order;
+  if (aOrder != null && bOrder != null) return aOrder - bOrder || a.match_no.localeCompare(b.match_no);
+  if (aOrder != null) return -1;
+  if (bOrder != null) return 1;
+  // ถ้ายังไม่มีลำดับลงสนาม ให้ใช้เวลาจริงก่อน และคงรหัสคู่เดิมเป็น fallback
+  if (a.scheduled_date && b.scheduled_date && a.start_time && b.start_time) {
+    const diff = `${a.scheduled_date}T${a.start_time}`.localeCompare(`${b.scheduled_date}T${b.start_time}`);
+    if (diff !== 0) return diff;
+  }
+  return a.match_no.localeCompare(b.match_no, "en", { numeric: true });
+}
+function groupSchedule(matches: MatchRow[], groupId: string) {
+  return matches.filter(match => match.stage === "group" && match.group_id === groupId).sort(scheduleCompare);
+}
+function hasSharedTeam(a: MatchRow, b: MatchRow) {
+  const left = [a.team1_id, a.team2_id].filter(Boolean);
+  const right = [b.team1_id, b.team2_id].filter(Boolean);
+  return left.some(id => right.includes(id));
+}
+function restConflicts(rows: MatchRow[]) {
+  const conflicts: { previous: MatchRow; current: MatchRow }[] = [];
+  for (let i = 1; i < rows.length; i++) {
+    if (hasSharedTeam(rows[i - 1], rows[i])) conflicts.push({ previous: rows[i - 1], current: rows[i] });
+  }
+  return conflicts;
+}
+
+// สร้างลำดับรวมจากหลายกลุ่มสลับกัน (A, B, C, D ...) ให้ไม่มีทีมเดิมลงสนามติดกัน
+// 4 ทีมในหนึ่งกลุ่มมี 6 คู่: ไม่สามารถรับประกันเวลาพักภายในกลุ่มล้วน ๆ ได้
+function recommendEventOrder(grouped: { group: GroupRow; actual: MatchRow[] }[], teams: Map<string, TeamRow>) {
+  const pending = grouped.map(({ group, actual }) => ({
+    group, rows: actual.filter(m => m.match_status === "draft" && !m.scheduled_date && !m.start_time)
+      .sort((a,b) => a.match_no.localeCompare(b.match_no, "en", {numeric:true}))
+  }));
+  const result: MatchRow[] = [];
+  let lastGroupId = "";
+  const lastUsed = new Map<string, number>();
+  let turn = 0;
+  function sameSchool(a: MatchRow, b: MatchRow) {
+    if (hasSharedTeam(a,b)) return true;
+    const schoolNames = [a.team1_id, a.team2_id].map(id => id ? teams.get(id)?.school_name : null).filter(Boolean);
+    return [b.team1_id, b.team2_id].some(id => id && schoolNames.includes(teams.get(id)?.school_name));
+  }
+  while (pending.some(row => row.rows.length)) {
+    // Round-robin preference: A → B → C → D, then alternate the groups that still have matches.
+    const choices = pending.filter(row => row.rows.length).sort((a,b) =>
+      (lastUsed.get(a.group.id) ?? -1) - (lastUsed.get(b.group.id) ?? -1) || a.group.sort_order-b.group.sort_order
+    );
+    let chosen = choices.find(row => row.group.id !== lastGroupId && (!result.length || !sameSchool(result[result.length-1], row.rows[0])));
+    if (!chosen) chosen = choices.find(row => !result.length || !sameSchool(result[result.length-1],row.rows[0]));
+    if (!chosen) chosen = choices[0];
+    result.push(chosen.rows.shift()!);
+    lastGroupId = chosen.group.id;
+    lastUsed.set(chosen.group.id, turn++);
+  }
+  return result;
+}
+function chronologicalCompare(a: MatchRow, b: MatchRow) {
+  const aAt = a.scheduled_date && a.start_time ? `${a.scheduled_date}T${a.start_time}` : null;
+  const bAt = b.scheduled_date && b.start_time ? `${b.scheduled_date}T${b.start_time}` : null;
+  if (aAt && bAt) return aAt.localeCompare(bAt) || scheduleCompare(a,b);
+  if (aAt) return -1;
+  if (bAt) return 1;
+  return scheduleCompare(a,b);
+}
+function asCsv(rows: (string | number)[][]) {
+  return "\uFEFF" + rows.map(row => row.map(value => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
+}
+
+function MatchCard({
+  match, groupCode, team1Name, team2Name, admin, saving, onSave
+}: {
+  match: MatchRow; groupCode: string; team1Name: string; team2Name: string;
+  admin: boolean; saving: boolean; onSave: (id: string, form: MatchForm) => void;
+}) {
+  const [form, setForm] = useState<MatchForm>(() => formFromMatch(match));
+  useEffect(() => { setForm(formFromMatch(match)); }, [match]);
+  const change = (key: keyof MatchForm, value: string) => setForm(old => ({ ...old, [key]: value }));
+  const completed = match.match_status === "completed";
+  return <article className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div><p className="text-xs font-bold text-slate-500">{groupCode} · คู่ {match.match_no}</p><p className="mt-1 text-sm font-bold text-slate-900">{team1Name} <span className="px-1 text-slate-400">พบ</span> {team2Name}</p></div>
+      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${completed ? "bg-emerald-100 text-emerald-800" : match.match_status === "scheduled" ? "bg-blue-100 text-blue-800" : match.match_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{statusLabel[match.match_status]}</span>
+    </div>
+    <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+      <span>{thaiDate(match.scheduled_date)}</span><span>{shortTime(match.start_time)}</span><span>{match.venue_name || "รอยืนยันสนาม"}</span>
+      {completed && <strong className="text-base text-slate-900">ผล {match.score1}–{match.score2}</strong>}
+    </div>
+    {admin && <form className="mt-3 grid gap-2 border-t border-slate-100 pt-3 sm:grid-cols-4" onSubmit={(event: FormEvent<HTMLFormElement>) => { event.preventDefault(); onSave(match.id, form); }}>
+      <label className="text-xs font-semibold text-slate-600">วันที่แข่งขัน<input className={input} type="date" value={form.scheduled_date} onChange={e => change("scheduled_date", e.target.value)} /></label>
+      <label className="text-xs font-semibold text-slate-600">เวลาเริ่ม<input className={input} type="time" value={form.start_time} onChange={e => change("start_time", e.target.value)} /></label>
+      <label className="text-xs font-semibold text-slate-600 sm:col-span-2">สนาม<input className={input} value={form.venue_name} onChange={e => change("venue_name", e.target.value)} /></label>
+      <label className="text-xs font-semibold text-slate-600">ผลทีมแรก<input className={input} type="number" min="0" max="2" step="1" value={form.score1} onChange={e => change("score1", e.target.value)} placeholder="0–2" /></label>
+      <label className="text-xs font-semibold text-slate-600">ผลทีมที่สอง<input className={input} type="number" min="0" max="2" step="1" value={form.score2} onChange={e => change("score2", e.target.value)} placeholder="0–2" /></label>
+      <label className="text-xs font-semibold text-slate-600">เวลาแข่งขันรวม (นาที)<input className={input} type="number" min="0" step="0.01" value={form.duration_minutes} onChange={e => change("duration_minutes", e.target.value)} /></label>
+      <label className="text-xs font-semibold text-slate-600">Kill ทีมแรก / ทีมสอง<div className="grid grid-cols-2 gap-1"><input className={input} type="number" min="0" step="1" value={form.team1_kills} onChange={e => change("team1_kills", e.target.value)} placeholder="ทีมแรก"/><input className={input} type="number" min="0" step="1" value={form.team2_kills} onChange={e => change("team2_kills", e.target.value)} placeholder="ทีมสอง"/></div></label>
+      <label className="text-xs font-semibold text-slate-600">สถานะ<select className={input} value={form.match_status} onChange={e => change("match_status", e.target.value as MatchStatus)}><option value="draft">ฉบับร่าง</option><option value="scheduled">กำหนดการแข่งขันแล้ว</option><option value="completed">แข่งขันเสร็จสิ้น</option><option value="cancelled">ยกเลิก</option></select></label>
+      <div className="flex items-end"><button className={`${primary} w-full`} disabled={saving}>{saving ? "กำลังบันทึก…" : "บันทึกโปรแกรม / ผล"}</button></div>
+    </form>}
+  </article>;
+}
+
+function KnockoutPairingEditor({
+  match, teams, groups, team1Name, team2Name, admin, saving, onRequestEdit, onSave
+}: {
+  match: MatchRow; teams: TeamRow[]; groups: Map<string, GroupRow>; team1Name: string; team2Name: string;
+  admin: boolean; saving: boolean;
+  onRequestEdit: (matchId: string, team1Id: string, team2Id: string) => void;
+  onSave: (id: string, form: MatchForm) => void;
+}) {
+  const [team1Id, setTeam1Id] = useState(match.team1_id || "");
+  const [team2Id, setTeam2Id] = useState(match.team2_id || "");
+  useEffect(() => {
+    setTeam1Id(match.team1_id || "");
+    setTeam2Id(match.team2_id || "");
+  }, [match.id, match.team1_id, match.team2_id]);
+
+  return <div className="space-y-2">
+    {admin && <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
+      <div className="grid gap-2 sm:grid-cols-2">
+        <label className="text-xs font-semibold text-slate-600">ทีมช่องที่ 1
+          <select className={input} value={team1Id} onChange={e => setTeam1Id(e.target.value)}>
+            <option value="">— เลือกทีม —</option>
+            {teams.map(team => <option key={team.id} value={team.id} disabled={team.id === team2Id}>{teamLabel(team, groups)}</option>)}
+          </select>
+        </label>
+        <label className="text-xs font-semibold text-slate-600">ทีมช่องที่ 2
+          <select className={input} value={team2Id} onChange={e => setTeam2Id(e.target.value)}>
+            <option value="">— เลือกทีม —</option>
+            {teams.map(team => <option key={team.id} value={team.id} disabled={team.id === team1Id}>{teamLabel(team, groups)}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-slate-500">การเปลี่ยนทีมจะเปิดขั้นตอนยืนยันและตรวจสอบผลรอบถัดไปก่อนบันทึก</p>
+        <button type="button" className={secondary} disabled={saving || !team1Id || !team2Id || (team1Id === match.team1_id && team2Id === match.team2_id)} onClick={() => onRequestEdit(match.id, team1Id, team2Id)}>ตรวจสอบและแก้ไขสาย</button>
+      </div>
+    </div>}
+    <MatchCard
+      match={match}
+      groupCode={stageLabel[match.stage] || "Knockout"}
+      team1Name={team1Name}
+      team2Name={team2Name}
+      admin={admin}
+      saving={saving}
+      onSave={onSave}
+    />
+  </div>;
+}
+
+export default function EsportsPage() {
+  const [competitionId, setCompetitionId] = useState("");
+  const [email, setEmail] = useState("");
+  const [admin, setAdmin] = useState(false);
+  const [events, setEvents] = useState<EventRow[]>([]);
+  const [groups, setGroups] = useState<GroupRow[]>([]);
+  const [teams, setTeams] = useState<TeamRow[]>([]);
+  const [matches, setMatches] = useState<MatchRow[]>([]);
+  const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
+  const [gender, setGender] = useState<Gender>("ชาย");
+  const [tab, setTab] = useState<Tab>("groups");
+  const [scheduleGroupFilter, setScheduleGroupFilter] = useState("all");
+  const [scheduleDateFilter, setScheduleDateFilter] = useState("all");
+  const [scheduleMode, setScheduleMode] = useState<"actual" | "suggested">("actual");
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState("");
+  const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const [pendingEdit, setPendingEdit] = useState<PendingBracketEdit | null>(null);
+  const [pendingResult, setPendingResult] = useState<PendingResultSave | null>(null);
+
+  const load = useCallback(async () => {
+    setLoading(true); setError("");
+    try {
+      const auth = await supabase.auth.getUser();
+      const user = auth.data.user; setEmail(user?.email || "");
+      const comp = await supabase.from("sports_competitions").select("id").eq("slug", SLUG).single();
+      if (comp.error) throw comp.error;
+      const id = comp.data.id as string; setCompetitionId(id);
+      let allowed = false;
+      if (user) {
+        const role = await supabase.rpc("sports_stage3_admin", { p_comp: id });
+        if (role.error) throw role.error;
+        allowed = role.data === true;
+      }
+      const eventResult = await supabase.from("sports_events").select("id,event_code,sport_name,gender_rule,status")
+        .eq("competition_id", id).in("event_code", [...EVENT_CODES]).order("event_code");
+      if (eventResult.error) throw eventResult.error;
+      const eventRows = (eventResult.data || []) as EventRow[];
+      const ids = eventRows.map(row => row.id);
+      let groupRows: GroupRow[] = []; let teamRows: TeamRow[] = []; let matchRows: MatchRow[] = []; let history: HistoryRow[] = [];
+      if (ids.length) {
+        const [g, t, m] = await Promise.all([
+          supabase.from("sports_esports_groups").select("id,event_id,group_code,sort_order").eq("competition_id", id).in("event_id", ids).order("sort_order"),
+          supabase.from("sports_esports_group_teams").select("id,event_id,group_id,school_name,seed_order").eq("competition_id", id).in("event_id", ids).order("seed_order"),
+          supabase.from("sports_esports_matches").select("id,event_id,group_id,match_no,stage,play_order,team1_id,team2_id,scheduled_date,start_time,venue_name,match_status,score1,score2,duration_minutes,team1_kills,team2_kills,notes,winner_next_match_id,winner_next_slot,loser_next_match_id,loser_next_slot").eq("competition_id", id).in("event_id", ids).order("match_no")
+        ]);
+        if (g.error) throw g.error; if (t.error) throw t.error; if (m.error) throw m.error;
+        groupRows = (g.data || []) as GroupRow[]; teamRows = (t.data || []) as TeamRow[]; matchRows = (m.data || []) as MatchRow[];
+        if (allowed) {
+          const h = await supabase.from("sports_esports_match_history")
+            .select("id,event_id,match_id,match_no,action,reason,changed_at,changed_by,old_data,new_data")
+            .eq("competition_id", id).in("event_id", ids).order("changed_at", { ascending: false }).limit(150);
+          if (h.error) throw h.error;
+          history = (h.data || []) as HistoryRow[];
+        }
+      }
+      setAdmin(allowed); setEvents(eventRows); setGroups(groupRows); setTeams(teamRows); setMatches(matchRows); setHistoryRows(history);
+    } catch (e) { setError(errorText(e)); }
+    finally { setLoading(false); }
+  }, []);
+
+  useEffect(() => {
+    void load();
+    const { data } = supabase.auth.onAuthStateChange(event => {
+      if (["INITIAL_SESSION", "SIGNED_IN", "SIGNED_OUT"].includes(event)) window.setTimeout(() => void load(), 0);
+    });
+    return () => data.subscription.unsubscribe();
+  }, [load]);
+
+  const currentEvent = useMemo(() => events.find(event => event.gender_rule === gender), [events, gender]);
+  const currentGroups = useMemo(() => groups.filter(group => group.event_id === currentEvent?.id).sort((a,b) => a.sort_order-b.sort_order), [groups, currentEvent]);
+  const currentTeams = useMemo(() => teams.filter(team => team.event_id === currentEvent?.id), [teams, currentEvent]);
+  const currentMatches = useMemo(() => matches.filter(match => match.event_id === currentEvent?.id), [matches, currentEvent]);
+  const currentKnockoutMatches = useMemo(() => currentMatches.filter(match => match.stage !== "group").sort((a,b) => {
+    const order: Record<string, number> = { knockout: 1, semifinal: 2, third_place: 3, final: 4 };
+    return (order[a.stage] || 9) - (order[b.stage] || 9) || a.match_no.localeCompare(b.match_no);
+  }), [currentMatches]);
+  const currentHistory = useMemo(() => historyRows.filter(row => row.event_id === currentEvent?.id), [historyRows, currentEvent]);
+  const teamById = useMemo(() => new Map(teams.map(team => [team.id, team])), [teams]);
+  const groupById = useMemo(() => new Map(groups.map(group => [group.id, group])), [groups]);
+  const completedCount = currentMatches.filter(match => match.match_status === "completed").length;
+
+  const groupedFixtures = useMemo(() => currentGroups.map(group => ({
+    group,
+    actual: groupSchedule(currentMatches, group.id)
+  })), [currentGroups, currentMatches]);
+
+  const scheduledGroups = useMemo(() => groupedFixtures.map(item => ({
+    ...item,
+    fixed: item.actual.filter(m => !(m.match_status === "draft" && !m.scheduled_date && !m.start_time))
+  })), [groupedFixtures]);
+  const pendingSuggestedOrder = useMemo(() => recommendEventOrder(groupedFixtures, teamById), [groupedFixtures, teamById]);
+  const suggestedRestIssues = restConflicts(pendingSuggestedOrder);
+  const allGroupMatches = groupedFixtures.flatMap(item => item.actual);
+  const fixedGroupMatches = scheduledGroups.flatMap(item => item.fixed).sort(chronologicalCompare);
+  const pendingGroupMatches = allGroupMatches.filter(m => m.match_status === "draft" && !m.scheduled_date && !m.start_time);
+
+  const allScheduledDates = useMemo(() => [...new Set(
+    groupedFixtures.flatMap(item => item.actual).map(match => match.scheduled_date).filter((date): date is string => !!date)
+  )].sort(), [groupedFixtures]);
+
+  const scheduleRows = useMemo(() => {
+    const pending = scheduleMode === "suggested" ? pendingSuggestedOrder :
+      [...pendingGroupMatches].sort((a,b) => {
+        if (a.play_order != null && b.play_order != null) return a.play_order - b.play_order;
+        if (a.play_order != null) return -1;
+        if (b.play_order != null) return 1;
+        return pendingSuggestedOrder.findIndex(m=>m.id===a.id) - pendingSuggestedOrder.findIndex(m=>m.id===b.id);
+      });
+    const rows = [...fixedGroupMatches, ...pending];
+    return rows.filter(m => (scheduleGroupFilter === "all" || m.group_id === scheduleGroupFilter) &&
+      (scheduleDateFilter === "all" || m.scheduled_date === scheduleDateFilter));
+  }, [pendingSuggestedOrder, pendingGroupMatches, fixedGroupMatches, scheduleMode, scheduleGroupFilter, scheduleDateFilter]);
+
+  // ตรวจโปรแกรมที่ "กำหนดวันเวลาจริง" เท่านั้น (ไม่ใช้ลำดับรหัสคู่เป็นเวลา)
+  const chronologicalIssues = restConflicts(
+    allGroupMatches.filter(m => m.scheduled_date && m.start_time).sort(chronologicalCompare)
+  );
+
+  async function saveRecommendedOrder() {
+    if (!admin || !currentEvent || !!busyId) return;
+    if (!pendingSuggestedOrder.length || suggestedRestIssues.length) {
+      setError("ไม่มีลำดับแนะนำที่เว้นทีมเดิมได้ครบ โปรดทบทวนโปรแกรมก่อน"); return;
+    }
+    if (!window.confirm(`บันทึกลำดับลงสนามสำหรับคู่ฉบับร่างที่ยังไม่กำหนดเวลา ${pendingSuggestedOrder.length} คู่หรือไม่?\n\nผลเดิม วันเวลา และรหัสคู่จะไม่เปลี่ยน ระบบจะจัดลำดับเฉพาะคู่ที่ยังไม่ได้กำหนดการแข่งขัน`)) return;
+    setError(""); setNotice(""); setBusyId("rest-event");
+    try {
+      const result = await supabase.rpc("sports_esports_assign_pending_play_order", {
+        p_event_id: currentEvent.id,
+        p_match_ids: pendingSuggestedOrder.map(row => row.id),
+        p_reason: "ผู้ดูแลจัดลำดับการแข่งขันรวมทุกสายเพื่อเว้นอย่างน้อย 1 แมตช์ระหว่างการลงแข่งของโรงเรียนเดิม"
+      });
+      if (result.error) throw result.error;
+      setNotice(`บันทึกลำดับเว้นพักสำหรับคู่ที่ยังไม่กำหนด ${pendingSuggestedOrder.length} คู่แล้ว โปรดกำหนดวันและเวลาจริงในเมนู โปรแกรม / ผล`);
+      setScheduleMode("actual");
+      await load();
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusyId(""); }
+  }
+
+  function downloadScheduleCsv() {
+    const rows: (string | number)[][] = [["ลำดับ", "วันที่", "เวลา", "สาย", "รหัสคู่", "ทีมแรก", "ทีมที่สอง", "สนาม", "สถานะ", "ผล", "หมายเหตุ"]];
+    scheduleRows.forEach((match, index) => rows.push([
+      index + 1, match.scheduled_date || "รอกำหนดวัน", match.start_time?.slice(0, 5) || "รอกำหนดเวลา",
+      groupById.get(match.group_id || "")?.group_code || "—", match.match_no,
+      teamById.get(match.team1_id || "")?.school_name || "รอทีม", teamById.get(match.team2_id || "")?.school_name || "รอทีม",
+      match.venue_name || "รอยืนยันสนาม", statusLabel[match.match_status],
+      match.match_status === "completed" ? `${match.score1}–${match.score2}` : "", scheduleMode === "suggested" ? "ลำดับแนะนำ ไม่ใช่โปรแกรมที่ประกาศ" : ""
+    ]));
+    const blob = new Blob([asCsv(rows)], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `esport-${gender === "ชาย" ? "male" : "female"}-schedule-${scheduleMode}.csv`;
+    document.body.append(anchor);
+    anchor.click(); anchor.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  async function generateKnockout() {
+    if (!admin || !currentEvent || currentEvent.event_code !== "GS3-ES-SM" || busyId) return;
+    setError(""); setNotice(""); setBusyId("generate-knockout");
+    try {
+      const result = await supabase.rpc("sports_esports_generate_knockout", { p_event_id: currentEvent.id });
+      if (result.error) throw result.error;
+      setNotice("สร้างโครงสาย Knockout ทีมชายแล้ว โปรดเลือกทีมเข้าคู่ตามผลรอบแบ่งกลุ่มและผังที่คณะกรรมการยืนยัน");
+      await load();
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusyId(""); }
+  }
+
+  function requestBracketEdit(matchId: string, team1Id: string, team2Id: string) {
+    if (!team1Id || !team2Id || team1Id === team2Id) {
+      setError("โปรดเลือกทีมให้ครบทั้งสองช่อง และห้ามเลือกทีมซ้ำกัน");
+      return;
+    }
+    setError(""); setNotice("");
+    setPendingEdit({ matchId, team1Id, team2Id, reason: "" });
+  }
+
+  async function confirmBracketEdit() {
+    if (!pendingEdit || !admin || busyId) return;
+    if (!pendingEdit.reason.trim()) { setError("โปรดระบุเหตุผลในการแก้ไขสายก่อนยืนยัน"); return; }
+    setBusyId(pendingEdit.matchId); setError(""); setNotice("");
+    try {
+      const result = await supabase.rpc("sports_esports_update_knockout_teams", {
+        p_match_id: pendingEdit.matchId,
+        p_team1_id: pendingEdit.team1Id,
+        p_team2_id: pendingEdit.team2Id,
+        p_reason: pendingEdit.reason.trim()
+      });
+      if (result.error) throw result.error;
+      setPendingEdit(null);
+      setNotice("แก้ไขสาย Knockout แล้ว ระบบเก็บประวัติเดิมและจัดการผลรอบถัดไปที่ได้รับผลกระทบเรียบร้อย");
+      await load();
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusyId(""); }
+  }
+
+  async function persistMatch(id: string, form: MatchForm, reason = "บันทึกหรือแก้ไขโปรแกรมและผลการแข่งขัน") {
+    if (!admin || !competitionId || busyId) return false;
+    setError(""); setNotice("");
+    const score1 = form.score1.trim() === "" ? null : Number(form.score1);
+    const score2 = form.score2.trim() === "" ? null : Number(form.score2);
+    if (form.match_status === "scheduled" && (!form.scheduled_date || !form.start_time)) {
+      setError("โปรดระบุวันที่และเวลา ก่อนกำหนดสถานะแข่งขัน"); return false;
+    }
+    if (form.match_status === "completed" && !((score1 === 2 && (score2 === 0 || score2 === 1)) || (score2 === 2 && (score1 === 0 || score1 === 1)))) {
+      setError("ผลการแข่งขันต้องเป็น 2–0, 2–1, 0–2 หรือ 1–2 ตามกติกา Best of Three"); return false;
+    }
+    setBusyId(id);
+    try {
+      const match = matches.find(row => row.id === id);
+      const payload = {
+        scheduled_date: form.scheduled_date || null,
+        start_time: form.start_time || null,
+        venue_name: form.venue_name.trim(),
+        match_status: form.match_status,
+        score1: form.match_status === "completed" ? score1 : null,
+        score2: form.match_status === "completed" ? score2 : null,
+        duration_minutes: form.duration_minutes.trim() === "" ? null : Number(form.duration_minutes),
+        team1_kills: form.team1_kills.trim() === "" ? null : Number(form.team1_kills),
+        team2_kills: form.team2_kills.trim() === "" ? null : Number(form.team2_kills)
+      };
+
+      if (match && match.stage !== "group") {
+        const result = await supabase.rpc("sports_esports_save_knockout_match", {
+          p_match_id: id,
+          p_scheduled_date: payload.scheduled_date,
+          p_start_time: payload.start_time,
+          p_venue_name: payload.venue_name,
+          p_match_status: payload.match_status,
+          p_score1: payload.score1,
+          p_score2: payload.score2,
+          p_duration_minutes: payload.duration_minutes,
+          p_team1_kills: payload.team1_kills,
+          p_team2_kills: payload.team2_kills,
+          p_reason: reason
+        });
+        if (result.error) throw result.error;
+        setNotice("บันทึกผล Knockout แล้ว ระบบส่งผู้ชนะ/ผู้แพ้ไปยังรอบถัดไปและตรวจสอบผลกระทบแล้ว");
+      } else {
+        const result = await supabase.from("sports_esports_matches").update({ ...payload, updated_at: new Date().toISOString() })
+          .eq("id", id).eq("competition_id", competitionId).select("id").single();
+        if (result.error) throw result.error;
+        setNotice("บันทึกโปรแกรมและผลการแข่งขันแล้ว");
+      }
+      await load();
+      return true;
+    } catch (e) {
+      setError(errorText(e));
+      return false;
+    } finally {
+      setBusyId("");
+    }
+  }
+
+  function saveMatch(id: string, form: MatchForm) {
+    const score1Check = form.score1.trim() === "" ? null : Number(form.score1);
+    const score2Check = form.score2.trim() === "" ? null : Number(form.score2);
+    if (form.match_status === "scheduled" && (!form.scheduled_date || !form.start_time)) {
+      setError("โปรดระบุวันที่และเวลา ก่อนกำหนดสถานะแข่งขัน"); return;
+    }
+    if (form.match_status === "completed" && !((score1Check === 2 && (score2Check === 0 || score2Check === 1)) || (score2Check === 2 && (score1Check === 0 || score1Check === 1)))) {
+      setError("ผลการแข่งขันต้องเป็น 2–0, 2–1, 0–2 หรือ 1–2 ตามกติกา Best of Three"); return;
+    }
+    const match = matches.find(row => row.id === id);
+    if (match && match.stage !== "group") {
+      const score1 = form.score1.trim() === "" ? null : Number(form.score1);
+      const score2 = form.score2.trim() === "" ? null : Number(form.score2);
+      const oldWinner = match.match_status === "completed" && match.score1 != null && match.score2 != null
+        ? (match.score1 > match.score2 ? match.team1_id : match.team2_id) : null;
+      const oldLoser = match.match_status === "completed" && match.score1 != null && match.score2 != null
+        ? (match.score1 > match.score2 ? match.team2_id : match.team1_id) : null;
+      const newWinner = form.match_status === "completed" && score1 != null && score2 != null
+        ? (score1 > score2 ? match.team1_id : match.team2_id) : null;
+      const newLoser = form.match_status === "completed" && score1 != null && score2 != null
+        ? (score1 > score2 ? match.team2_id : match.team1_id) : null;
+      const outcomeChanged = oldWinner !== newWinner || oldLoser !== newLoser;
+      const downstream = getDownstreamMatches(id, matches);
+      const downstreamHasData = downstream.some(row => row.match_status === "completed" || row.match_status === "scheduled" || row.team1_id || row.team2_id);
+      if (downstream.length > 0 && outcomeChanged && (match.match_status === "completed" || downstreamHasData)) {
+        setError(""); setNotice("");
+        setPendingResult({ matchId: id, form, reason: "" });
+        return;
+      }
+    }
+    void persistMatch(id, form);
+  }
+
+  async function confirmResultEdit() {
+    if (!pendingResult || !pendingResult.reason.trim() || busyId) return;
+    const saved = await persistMatch(pendingResult.matchId, pendingResult.form, pendingResult.reason.trim());
+    if (saved) setPendingResult(null);
+  }
+
+  const groupSummary = gender === "ชาย" ? "18 ทีม · 4 กลุ่ม (4 / 4 / 5 / 5 ทีม)" : "10 ทีม · 2 กลุ่ม (กลุ่มละ 5 ทีม)";
+  const pendingMatch = pendingEdit ? currentMatches.find(match => match.id === pendingEdit.matchId) : null;
+  const pendingDownstream = pendingEdit ? getDownstreamMatches(pendingEdit.matchId, currentMatches) : [];
+  const pendingAffected = pendingMatch ? [pendingMatch, ...pendingDownstream].filter(match => match.match_status === "completed") : [];
+  const pendingResultDownstream = pendingResult ? getDownstreamMatches(pendingResult.matchId, currentMatches) : [];
+
+  return <div className="min-h-screen bg-slate-100 text-slate-900">
+    <header className="no-print bg-gradient-to-r from-slate-950 via-[#17264b] to-slate-900 text-white">
+      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports" className="text-sm font-bold text-blue-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-blue-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
+          <div className="text-xs text-blue-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
+        </div>
+        <p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
+        <h1 className="mt-2 text-2xl font-black sm:text-3xl">ระบบจัดการแข่งขัน E-Sport</h1>
+        <p className="mt-2 text-sm text-slate-300">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 · 5–7 ธันวาคม 2569</p>
+      </div>
+    </header>
+
+    <style>{`@media print {
+      .no-print { display: none !important; }
+      #esport-print-schedule { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+      #esport-print-schedule table { font-size: 11px !important; }
+      #esport-print-schedule thead { display: table-header-group; }
+      #esport-print-schedule tr { break-inside: avoid; }
+      @page { size: A4 landscape; margin: 10mm; }
+    }`}</style>
+    <main className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
+      {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</div>}
+      {notice && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800" role="status">{notice}</div>}
+      {admin && currentEvent?.status === "draft" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">ข้อมูล E-Sport ยังเป็นฉบับร่าง ผู้ดูแลสามารถจัดโปรแกรมและบันทึกผลได้ แต่ผู้ชมทั่วไปจะเห็นเมื่อเผยแพร่รายการจากหน้าโปรแกรมการแข่งขันแล้ว</div>}
+
+      <section className={`${panel} no-print flex flex-wrap items-center justify-between gap-3`}>
+        <div><p className="text-sm font-black">ประเภทการแข่งขัน</p><p className="mt-1 text-xs text-slate-500">{groupSummary}</p></div>
+        <div className="flex gap-2"><button className={gender === "ชาย" ? primary : secondary} onClick={() => { setGender("ชาย"); setScheduleGroupFilter("all"); setScheduleDateFilter("all"); }}>ทีมชาย</button><button className={gender === "หญิง" ? primary : secondary} onClick={() => { setGender("หญิง"); setScheduleGroupFilter("all"); setScheduleDateFilter("all"); }}>ทีมหญิง</button></div>
+      </section>
+
+      <section className="no-print grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {[["โรงเรียน / ทีม", currentTeams.length], ["กลุ่ม", currentGroups.length], ["คู่แข่งขัน", currentMatches.length], ["บันทึกผลแล้ว", completedCount]].map(([label,value]) => <div className={panel} key={label as string}><p className="text-xs text-slate-500">{label}</p><p className="mt-1 text-2xl font-black tabular-nums">{value}</p></div>)}
+      </section>
+
+      <div className="no-print flex flex-wrap items-center gap-2.5" aria-label="เมนูจัดการการแข่งขัน">
+        <button type="button" className={tabButtonClass("groups", tab)} aria-pressed={tab === "groups"} onClick={() => setTab("groups")}>แบ่งกลุ่ม</button>
+        <button type="button" className={tabButtonClass("matches", tab)} aria-pressed={tab === "matches"} onClick={() => setTab("matches")}>โปรแกรม / ผล</button>
+        <button type="button" className={tabButtonClass("schedule", tab)} aria-pressed={tab === "schedule"} onClick={() => setTab("schedule")}>ตารางโปรแกรม</button>
+        <button type="button" className={tabButtonClass("standings", tab)} aria-pressed={tab === "standings"} onClick={() => setTab("standings")}>ตารางคะแนน</button>
+        <button type="button" className={tabButtonClass("knockout", tab)} aria-pressed={tab === "knockout"} onClick={() => setTab("knockout")}>สาย Knockout</button>
+        {admin && <button type="button" className={tabButtonClass("history", tab)} aria-pressed={tab === "history"} onClick={() => setTab("history")}>ประวัติการแก้ไข</button>}
+        <div className="flex-1" />
+        <button type="button" className={secondary} disabled={loading || !!busyId} onClick={() => void load()}>รีเฟรชข้อมูล</button>
+      </div>
+
+      {!loading && !currentEvent && <div className={`${panel} text-center text-sm text-slate-600`}>ยังไม่มีรายการ E-Sport ที่เผยแพร่ หรือไม่พบข้อมูลรายการแข่งขันในฐานข้อมูล {admin ? "โปรดตรวจสอบ event_code GS3-ES-SM / GS3-ES-SF" : "โปรดกลับมาตรวจสอบเมื่อผู้จัดเผยแพร่ข้อมูล"}</div>}
+
+      {currentEvent && tab === "groups" && <section className="grid gap-4 md:grid-cols-2">
+        {currentGroups.map(group => <div className={`${panel} space-y-3`} key={group.id}>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-black">กลุ่ม {group.group_code}</h2><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">{currentTeams.filter(team => team.group_id === group.id).length} ทีม</span></div>
+          <ol className="space-y-2">{currentTeams.filter(team => team.group_id === group.id).sort((a,b)=>a.seed_order-b.seed_order).map((team,index) => <li className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={team.id}><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-slate-500">{index+1}</span><span className="font-semibold">{team.school_name}</span></li>)}</ol>
+        </div>)}
+        <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-bold">ข้อกำหนดก่อนจัดรอบ Knockout</p>
+          <p className="mt-1">ประเภททีมชาย: ระเบียบระบุอันดับ 1–2 ของกลุ่ม A–D รวม 8 ทีมเข้าสู่รอบถัดไป ผู้ดูแลจะเลือกทีมลงคู่ตามผัง/ผลการจับสลากที่คณะกรรมการยืนยัน ส่วนประเภททีมหญิงยังไม่เปิดสร้างสายจนกว่าจะยืนยันจำนวนทีมที่ผ่านเข้ารอบ</p>
+        </div>
+      </section>}
+
+      {currentEvent && tab === "matches" && <section className={`${panel} space-y-3`}>
+        <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-black">โปรแกรมและผลรอบแบ่งกลุ่ม · {gender === "ชาย" ? "ทีมชาย" : "ทีมหญิง"}</h2><p className="text-xs text-slate-500">ระบบสร้างคู่พบกันหมดตามรายชื่อในแต่ละกลุ่ม เวลาแข่งขันกำหนดภายหลังได้</p></div><span className="text-xs text-slate-500">{currentMatches.filter(match => match.stage === "group").length} คู่</span></div>
+        <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
+          <strong>ลำดับแข่งขันจริงให้ดูที่เมนู “ตารางโปรแกรม”</strong> ซึ่งสลับแมตช์ข้ามสาย A–D เพื่อเว้นพักทีมเดิม · รหัสคู่ A-01 ฯลฯ ยังคงเดิม และไม่จำเป็นต้องลงสนามเรียงตามรหัสคู่
+          <button type="button" className={`${secondary} ml-3 mt-2`} onClick={() => { setTab("schedule"); setScheduleGroupFilter("all"); }}>ดูตารางโปรแกรมรวมทุกสาย</button>
+        </div>
+        {groupedFixtures.map(item => <div className="space-y-2" key={item.group.id}>
+          <h3 className="rounded-xl bg-orange-50 p-3 font-black text-orange-900">กลุ่ม {item.group.group_code} · {item.actual.length} คู่</h3>
+          {item.actual.map(match => <MatchCard key={match.id} match={match} groupCode={item.group.group_code} team1Name={teamById.get(match.team1_id || "")?.school_name || "ไม่พบทีม"} team2Name={teamById.get(match.team2_id || "")?.school_name || "ไม่พบทีม"} admin={admin} saving={busyId === match.id} onSave={saveMatch}/>)}
+        </div>)}
+        {currentMatches.filter(match => match.stage === "group").length === 0 && <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 p-8 text-center text-sm text-slate-500">ยังไม่มีคู่แข่งขันในฐานข้อมูล</div>}
+      </section>}
+
+
+      {currentEvent && tab === "schedule" && <section className={`${panel} space-y-4`} id="esport-print-schedule">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-xs font-extrabold uppercase tracking-widest text-indigo-700">PHULANGKA GAMES 2026</p>
+            <h2 className="mt-1 text-xl font-black text-slate-950">ตารางโปรแกรมการแข่งขัน E-Sport · ทีม{gender}</h2>
+            <p className="mt-1 text-sm text-slate-600">รูปแบบตารางรวมตามวัน–เวลาและสายแข่งขัน สำหรับกรรมการและโรงเรียน · วันที่ 5–7 ธันวาคม 2569</p>
+          </div>
+          <div className="no-print flex flex-wrap gap-2">
+            <button type="button" className={secondary} onClick={downloadScheduleCsv}>ส่งออก CSV</button>
+            <button type="button" className={primary} onClick={() => window.print()}>พิมพ์ตาราง</button>
+          </div>
+        </div>
+        <div className="no-print grid gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 sm:grid-cols-4">
+          <label className="text-xs font-bold text-indigo-950">สายแข่งขัน
+            <select className={`${input} mt-1`} value={scheduleGroupFilter} onChange={event => setScheduleGroupFilter(event.target.value)}>
+              <option value="all">ทุกสาย (แนะนำให้ดูภาพรวม)</option>{currentGroups.map(group => <option value={group.id} key={group.id}>กลุ่ม {group.group_code}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-indigo-950">วันที่
+            <select className={`${input} mt-1`} value={scheduleDateFilter} onChange={event => setScheduleDateFilter(event.target.value)}>
+              <option value="all">ทุกวัน</option>{allScheduledDates.map(date => <option value={date} key={date}>{thaiDate(date)}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-bold text-indigo-950 sm:col-span-2">รูปแบบการแสดง
+            <div className="mt-1 flex gap-2">
+              <button type="button" className={scheduleMode === "actual" ? primary : secondary} onClick={() => setScheduleMode("actual")}>โปรแกรมที่บันทึกจริง</button>
+              <button type="button" className={scheduleMode === "suggested" ? primary : secondary} onClick={() => setScheduleMode("suggested")}>แผนลำดับเว้นพัก</button>
+            </div>
+          </label>
+        </div>
+        {scheduleMode === "suggested" && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
+          <strong>แผนแนะนำเว้นพัก:</strong> สลับการแข่งขันข้ามสาย A–D เพื่อให้โรงเรียนไม่ลงสนาม 2 คู่ติดกัน (คู่ที่มีผลหรือกำหนดเวลาจริงแล้วจะคงเดิม) · วันและเวลาไม่ถูกแก้อัตโนมัติ
+        </div>}
+        {chronologicalIssues.length > 0 && <div className="no-print rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
+          <strong>ตรวจพบคู่ลงสนามติดกันตามวัน–เวลาที่บันทึก:</strong> {chronologicalIssues.length} จุด · โปรดตรวจเวลาแข่งขันจริง (ระบบไม่เปลี่ยนผลหรือเวลาเดิมอัตโนมัติ)
+        </div>}
+        {admin && <div className="no-print rounded-xl border border-indigo-200 bg-indigo-50 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="font-black text-indigo-950">จัดลำดับเว้นพักรวมทุกสาย</h3>
+              <p className="mt-1 text-xs text-indigo-900">คู่ฉบับร่างและไม่มีวันเวลา {pendingGroupMatches.length} คู่ · สลับสายเพื่อไม่ให้โรงเรียนเดิมแข่งติดกัน {suggestedRestIssues.length ? `· แผนยังมีจุดติดกัน ${suggestedRestIssues.length} จุด` : "· แผนไม่มีคู่ติดทีมเดิม"}</p>
+              <p className="mt-1 text-xs text-indigo-900">คู่ที่เสร็จแล้วหรือกำหนดวันเวลาไว้จะถูกคงเดิมเสมอ</p>
+            </div>
+            <button type="button" className={primary} disabled={!pendingSuggestedOrder.length || suggestedRestIssues.length > 0 || !!busyId} onClick={() => void saveRecommendedOrder()}>{busyId === "rest-event" ? "กำลังบันทึก…" : "บันทึกลำดับเว้นพักสำหรับคู่ที่ยังไม่กำหนด"}</button>
+          </div>
+          {suggestedRestIssues.length > 0 && <p className="mt-2 text-xs font-bold text-red-700">ขณะนี้ยังมีคู่ติดกันในแผนแนะนำ จึงปิดปุ่มบันทึกเพื่อป้องกันผิดกติกา</p>}
+        </div>}
+        <div className="overflow-x-auto rounded-xl border border-slate-300">
+          <table className="w-full min-w-[820px] border-collapse text-left text-sm">
+            <thead className="bg-slate-900 text-white"><tr>{["คู่ที่", "วัน/เดือน/ปี", "เวลา", "สาย", "รหัสคู่", "คู่แข่งขัน", "สนาม", "สถานะ / ผล"].map(label => <th key={label} className="whitespace-nowrap border-r border-slate-700 px-3 py-3 text-center font-extrabold last:border-r-0">{label}</th>)}</tr></thead>
+            <tbody>
+              {scheduleRows.map((match, index) => {
+                const groupLabel = groupById.get(match.group_id || "")?.group_code || "—";
+                const first = teamById.get(match.team1_id || "")?.school_name || "รอทีม";
+                const second = teamById.get(match.team2_id || "")?.school_name || "รอทีม";
+                const confirmed = !!match.scheduled_date && !!match.start_time;
+                return <tr key={match.id} className="border-b border-slate-200 even:bg-slate-50 hover:bg-indigo-50/60">
+                  <td className="px-3 py-2 text-center font-black text-indigo-900">{index + 1}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-center">{thaiDate(match.scheduled_date)}</td>
+                  <td className={`whitespace-nowrap px-3 py-2 text-center font-bold ${confirmed ? "text-slate-900" : "text-amber-700"}`}>{shortTime(match.start_time)}</td>
+                  <td className="px-3 py-2 text-center"><span className="rounded-md bg-indigo-100 px-2 py-1 font-black text-indigo-950">{groupLabel}</span></td>
+                  <td className="px-3 py-2 text-center text-xs font-semibold text-slate-500">{match.match_no}</td>
+                  <td className="min-w-64 px-3 py-2 font-semibold">{first} <span className="mx-1 font-normal text-slate-400">พบ</span> {second}</td>
+                  <td className="px-3 py-2 text-xs text-slate-700">{match.venue_name || "รอยืนยันสนาม"}</td>
+                  <td className="px-3 py-2 text-center text-xs">{match.match_status === "completed" ? <span className="font-black text-emerald-800">เสร็จสิ้น {match.score1}–{match.score2}</span> : statusLabel[match.match_status]}</td>
+                </tr>;
+              })}
+              {scheduleRows.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">ไม่มีโปรแกรมแข่งขันตามตัวกรองนี้</td></tr>}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-xs text-slate-500">หมายเหตุ: เลข "คู่ที่" เป็นลำดับในตารางที่กำลังแสดง ไม่ใช่รหัสคู่เดิม · วันเวลาแสดงเฉพาะที่บันทึกจริง · โปรแกรมจริงเรียงตามวันที่และเวลาที่บันทึก ส่วนคู่ที่ยังไม่มีวันเวลาใช้ลำดับแนะนำ / ลำดับที่ผู้ดูแลรับรอง</p>
+      </section>}
+
+      {currentEvent && tab === "standings" && <section className="space-y-4">
+        {currentGroups.map(group => {
+          const rows = buildStandings(group,currentTeams,currentMatches);
+          return <div className={`${panel} space-y-3`} key={group.id}>
+            <h2 className="text-lg font-black">ตารางคะแนน · กลุ่ม {group.group_code}</h2>
+            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-xs text-slate-600">{["อันดับ","โรงเรียน","แข่ง","ชนะ","แพ้","ได้–เสียเกม","คะแนน","เวลา (นาที)","Kill"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr className="border-b border-slate-100" key={row.team.id}><td className="p-2 font-bold">{index+1}</td><td className="p-2 font-semibold">{row.team.school_name}</td><td className="p-2">{row.played}</td><td className="p-2">{row.wins}</td><td className="p-2">{row.losses}</td><td className="p-2">{row.gamesFor}–{row.gamesAgainst}</td><td className="p-2 font-black text-blue-800">{row.points}</td><td className="p-2">{row.played > 0 && row.timeRecordedMatches === row.played ? row.time.toFixed(2) : "—"}</td><td className="p-2">{row.played > 0 && row.killRecordedMatches === row.played ? row.kills : "—"}</td></tr>)}</tbody></table></div>
+          </div>;
+        })}
+        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-bold">หลักเกณฑ์คะแนนและจัดอันดับทีมชาย</p><p className="mt-1">แข่งขันแบบ BO3: ชนะ 2–0 ได้ 3 คะแนน, ชนะ 2–1 ได้ 2 คะแนน และทีมแพ้ได้ 1 คะแนน</p><p className="mt-1">เมื่อคะแนนเท่ากัน ใช้เวลาแข่งขันรวมสะสมน้อยกว่าเป็นเกณฑ์ก่อน และหากเวลาเท่ากันจึงพิจารณา Kill รวมมากกว่า</p><p className="mt-1 text-xs">ระบบจะใช้เวลาและ Kill จัดอันดับเมื่อบันทึกข้อมูลครบทุกแมตช์ที่ทีมลงแข่งขัน หากข้อมูลยังไม่ครบ จะแสดงลำดับชั่วคราวตามลำดับทีมในสาย</p></div>
+      </section>}
+
+      {currentEvent && tab === "knockout" && <section className={`${panel} space-y-4`}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div><h2 className="text-lg font-black">ผังการแข่งขันรอบ Knockout · {gender === "ชาย" ? "ทีมชาย" : "ทีมหญิง"}</h2><p className="mt-1 text-xs text-slate-500">แก้ไขทีมได้ตลอดเวลา แม้มีผลแล้ว โดยระบบจะเก็บประวัติและรีเซ็ตเฉพาะผลที่ได้รับผลกระทบ</p></div>
+          {admin && gender === "ชาย" && <button className={primary} onClick={() => void generateKnockout()} disabled={!!busyId || loading}>{busyId === "generate-knockout" ? "กำลังสร้างสาย…" : currentKnockoutMatches.length ? "ตรวจสอบ / โหลดสาย Knockout" : "สร้างสาย Knockout 8 ทีม"}</button>}
+        </div>
+        {gender === "หญิง" ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">ยังไม่เปิดสร้างสาย Knockout สำหรับทีมหญิง เนื่องจากต้องยืนยันจำนวนทีมที่ผ่านเข้ารอบจาก 2 กลุ่มก่อน เพื่อไม่ให้ระบบสร้างผังผิดจากระเบียบการแข่งขัน</div> : <>
+          {currentKnockoutMatches.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">{admin ? "ยังไม่มีผัง Knockout กดปุ่มสร้างสายเพื่อเตรียมคู่แข่งขัน 8 ทีม" : "ยังไม่มีการเผยแพร่ผัง Knockout"}</div>}
+          {currentKnockoutMatches.length > 0 && <>
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">ระบบเตรียมคู่รอบ 8 ทีม 4 คู่ รอบรองชนะเลิศ 2 คู่ รอบชิงชนะเลิศ และชิงอันดับ 3 ให้แล้ว การจับคู่เริ่มต้นยังเว้นว่างเพื่อให้ผู้ดูแลใส่ทีมตามผังที่คณะกรรมการยืนยัน</div>
+            <div className="grid gap-4 xl:grid-cols-2">
+              <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-2.5 text-base font-black text-amber-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden="true" />รอบ 8 ทีมสุดท้าย</h3>{currentKnockoutMatches.filter(match => match.stage === "knockout").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอทีมเข้ารอบ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอทีมเข้ารอบ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+              <div className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-100 px-4 py-2.5 text-base font-black text-violet-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-violet-500" aria-hidden="true" />รอบรองชนะเลิศ</h3>{currentKnockoutMatches.filter(match => match.stage === "semifinal").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+              <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-100 px-4 py-2.5 text-base font-black text-emerald-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />รอบชิงชนะเลิศ</h3>{currentKnockoutMatches.filter(match => match.stage === "final").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้ชนะรอบรองฯ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้ชนะรอบรองฯ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+              <div className="space-y-3 rounded-2xl border border-sky-200 bg-sky-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-base font-black text-sky-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-sky-500" aria-hidden="true" />ชิงอันดับ 3</h3>{currentKnockoutMatches.filter(match => match.stage === "third_place").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+            </div>
+          </>}
+        </>}
+      </section>}
+
+      {admin && currentEvent && tab === "history" && <section className={`${panel} space-y-3`}>
+        <div><h2 className="text-lg font-black">ประวัติการแก้ไขผลและสายการแข่งขัน</h2><p className="mt-1 text-xs text-slate-500">แสดงประวัติ 150 รายการล่าสุดของประเภทการแข่งขันที่เลือก พร้อมข้อมูลก่อนและหลังแก้ไข</p></div>
+        {currentHistory.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-500">ยังไม่มีประวัติการแก้ไข</div>}
+        <div className="space-y-3">{currentHistory.map(row => <article key={row.id} className="rounded-xl border border-slate-200 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-bold">คู่ {row.match_no} · {row.action === "INSERT" ? "สร้างรายการ" : row.action === "DELETE" ? "ลบรายการ" : "แก้ไขรายการ"}</p><time className="text-xs text-slate-500">{thaiDateTime(row.changed_at)}</time></div>
+          <p className="mt-1 text-sm text-slate-700">เหตุผล: {row.reason}</p><p className="text-xs text-slate-500">ผู้แก้ไข (User ID): {row.changed_by || "ข้อมูลตั้งต้น"}</p>
+          {row.action === "UPDATE" && <div className="mt-2 grid gap-2 text-xs sm:grid-cols-2"><div className="rounded-lg bg-red-50 p-2"><p className="font-bold text-red-800">ข้อมูลเดิม</p><p className="mt-1 text-slate-700">{snapshotLine(row.old_data, teamById)}</p></div><div className="rounded-lg bg-emerald-50 p-2"><p className="font-bold text-emerald-800">ข้อมูลใหม่</p><p className="mt-1 text-slate-700">{snapshotLine(row.new_data, teamById)}</p></div></div>}
+          {row.action === "INSERT" && <p className="mt-2 text-xs text-slate-600">{snapshotLine(row.new_data, teamById)}</p>}
+        </article>)}</div>
+      </section>}
+
+      <p className="text-xs text-slate-500">สนามแข่งขัน: หอประชุมโรงเรียนเชียงคำวิทยาคม · ข้อมูลกลุ่มและโปรแกรมอ้างอิงระเบียบ E-Sport ภูลังกาเกมส์ 2569</p>
+    </main>
+
+    {pendingEdit && pendingMatch && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="knockout-edit-title">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-red-700">ยืนยันการเปลี่ยนสาย</p><h2 id="knockout-edit-title" className="mt-1 text-xl font-black">ตรวจสอบผลการแข่งขันที่ได้รับผลกระทบ</h2></div><button type="button" className={secondary} onClick={() => setPendingEdit(null)}>ปิด</button></div>
+        {error && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
+        <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm"><p className="font-bold">คู่ที่แก้ไข: {pendingMatch.match_no} · {stageLabel[pendingMatch.stage]}</p><p className="mt-1">ทีมใหม่: {teamById.get(pendingEdit.team1Id)?.school_name || "—"} พบ {teamById.get(pendingEdit.team2Id)?.school_name || "—"}</p><p className="mt-1 text-xs text-slate-500">ผลเดิมของคู่นี้: {pendingMatch.match_status === "completed" ? `${pendingMatch.score1}–${pendingMatch.score2}` : "ยังไม่มีผลที่บันทึก"}</p></div>
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+          <p className="font-bold">ระบบจะดำเนินการเมื่อยืนยัน</p>
+          <ul className="mt-1 list-disc space-y-1 pl-5"><li>เก็บข้อมูลเดิมของคู่ที่แก้ไขและคู่รอบถัดไปไว้ในประวัติ</li><li>ล้างผลของคู่ที่แก้ไข หากมีการบันทึกผลไว้แล้ว</li><li>ล้างเฉพาะช่องทีมและผลของคู่ถัดไปที่รับผลจากสายนี้ ส่วนอีกช่องที่ไม่เกี่ยวข้องจะคงเดิม</li><li>ให้กรรมการบันทึกผลใหม่ตามสายที่แก้ไข</li></ul>
+        </div>
+        <div className="mt-3 space-y-2"><p className="text-sm font-bold">คู่รอบถัดไปที่เชื่อมโยง ({pendingDownstream.length} คู่)</p>{pendingDownstream.length === 0 ? <p className="text-xs text-slate-500">ไม่มีคู่รอบถัดไปที่เชื่อมโยง</p> : <ul className="space-y-1 text-sm">{pendingDownstream.map(match => <li key={match.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{match.match_no} · {stageLabel[match.stage]}</span><span className={match.match_status === "completed" ? "font-bold text-red-700" : "text-slate-500"}>{match.match_status === "completed" ? `มีผลแล้ว ${match.score1}–${match.score2}` : statusLabel[match.match_status]}</span></li>)}</ul>}</div>
+        {pendingAffected.length > 0 && <p className="mt-2 text-xs font-bold text-red-700">มีผลการแข่งขันที่บันทึกแล้ว {pendingAffected.length} คู่ ซึ่งจะถูกยกเลิกผลในสายปัจจุบันและเก็บสำเนาไว้ในประวัติ</p>}
+        <label className="mt-4 block text-sm font-bold text-slate-700">เหตุผลในการแก้ไขสาย <span className="text-red-600">*</span><textarea className={`${input} mt-1 min-h-20`} value={pendingEdit.reason} onChange={e => setPendingEdit(old => old ? { ...old, reason: e.target.value } : old)} placeholder="เช่น คณะกรรมการปรับผลการจับสลาก / แก้ไขรายชื่อทีมที่ผ่านเข้ารอบ" /></label>
+        <div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" className={secondary} onClick={() => setPendingEdit(null)} disabled={!!busyId}>ยกเลิก</button><button type="button" className={danger} onClick={() => void confirmBracketEdit()} disabled={!!busyId || !pendingEdit.reason.trim()}>{busyId === pendingEdit.matchId ? "กำลังบันทึก…" : "ยืนยันและปรับสาย Knockout"}</button></div>
+      </div>
+    </div>}
+
+    {pendingResult && <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/60 p-3 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="knockout-result-title">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white p-5 shadow-2xl">
+        <div className="flex items-start justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-red-700">ยืนยันการแก้ไขผล</p><h2 id="knockout-result-title" className="mt-1 text-xl font-black">ผลรอบถัดไปอาจได้รับผลกระทบ</h2></div><button type="button" className={secondary} onClick={() => setPendingResult(null)}>ปิด</button></div>
+        {error && <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{error}</div>}
+        <div className="mt-4 rounded-xl bg-slate-50 p-3 text-sm"><p className="font-bold">คู่ที่กำลังแก้ไข: {matches.find(match => match.id === pendingResult.matchId)?.match_no}</p><p className="mt-1">ผลเดิม: {matches.find(match => match.id === pendingResult.matchId)?.score1 ?? "—"}–{matches.find(match => match.id === pendingResult.matchId)?.score2 ?? "—"}</p><p className="mt-1">ผลใหม่: {pendingResult.form.match_status === "completed" ? `${pendingResult.form.score1}–${pendingResult.form.score2}` : `เปลี่ยนสถานะเป็น ${statusLabel[pendingResult.form.match_status]}`}</p></div>
+        <div className="mt-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><p className="font-bold">เมื่อยืนยัน ระบบจะ</p><ul className="mt-1 list-disc space-y-1 pl-5"><li>เก็บผลเดิมและข้อมูลคู่ที่ได้รับผลกระทบไว้ในประวัติ</li><li>คำนวณผู้ชนะ/ผู้แพ้จากผลใหม่ แล้วส่งทีมไปยังช่องรอบถัดไป</li><li>หากผู้ชนะหรือผู้แพ้เปลี่ยน จะรีเซ็ตผลของคู่ที่ได้รับผลกระทบเพื่อให้กรรมการบันทึกใหม่</li><li>คงช่องทีมที่มาจากสายอื่นและไม่ได้รับผลกระทบไว้</li></ul></div>
+        <div className="mt-3 space-y-2"><p className="text-sm font-bold">คู่รอบถัดไปที่เชื่อมโยง ({pendingResultDownstream.length} คู่)</p>{pendingResultDownstream.length === 0 ? <p className="text-xs text-slate-500">ไม่มีคู่รอบถัดไปที่เชื่อมโยง</p> : <ul className="space-y-1 text-sm">{pendingResultDownstream.map(match => <li key={match.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-3 py-2"><span>{match.match_no} · {stageLabel[match.stage]}</span><span className={match.match_status === "completed" ? "font-bold text-red-700" : "text-slate-500"}>{match.match_status === "completed" ? `มีผลแล้ว ${match.score1}–${match.score2}` : statusLabel[match.match_status]}</span></li>)}</ul>}</div>
+        <label className="mt-4 block text-sm font-bold text-slate-700">เหตุผลในการแก้ไขผล <span className="text-red-600">*</span><textarea className={`${input} mt-1 min-h-20`} value={pendingResult.reason} onChange={e => setPendingResult(old => old ? { ...old, reason: e.target.value } : old)} placeholder="เช่น กรรมการตรวจสอบผลการแข่งขันและแก้ไขคะแนนให้ถูกต้อง" /></label>
+        <div className="mt-4 flex flex-wrap justify-end gap-2"><button type="button" className={secondary} onClick={() => setPendingResult(null)} disabled={!!busyId}>ยกเลิก</button><button type="button" className={danger} onClick={() => void confirmResultEdit()} disabled={!!busyId || !pendingResult.reason.trim()}>{busyId === pendingResult.matchId ? "กำลังบันทึก…" : "ยืนยันและปรับผลรอบถัดไป"}</button></div>
+      </div>
+    </div>}
+  </div>;
+}

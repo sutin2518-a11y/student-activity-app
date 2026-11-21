@@ -26,6 +26,7 @@ type SportEvent = {
   id: string;
   competition_id: string;
   event_code?: string | null;
+  stage3_source?: string | null;
   sport_name: string;
   event_type: "team" | "individual" | "athletics";
   gender_rule: string;
@@ -526,6 +527,7 @@ export default function GroupSportsDashboard() {
     const entryName = String(form.get("entry_name") || "").trim();
     const sportEvent = events.find((item) => item.id === eventId);
     if (!sportEvent || !schoolId || !entryName) return setError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกชื่อทีม/นักกีฬา");
+    if (sportEvent.stage3_source != null && sportEvent.status !== "registration") return setError("รายการนี้ยังไม่เปิดรับสมัคร");
     const athletes = parseAthleteLines(String(form.get("athletes") || ""));
     const validationMessage = validateAthletes(sportEvent, athletes);
     if (validationMessage) return setError(validationMessage);
@@ -756,7 +758,7 @@ export default function GroupSportsDashboard() {
       <form className={formShell} onSubmit={addEntry}>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">ลงทะเบียนทีม / นักกีฬา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
         <div className="grid gap-3 md:grid-cols-2">
-          <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการแข่งขัน</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
+          <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกรายการแข่งขัน</option>{events.filter((item) => item.stage3_source == null || item.status === "registration").map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></label>
           <label><span className={labelClass}>โรงเรียน *</span><select name="school_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{entrySchools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label><span className={labelClass}>ชื่อทีม / ชื่อนักกีฬา *</span><input name="entry_name" required className={inputClass} placeholder="ชื่อทีม หรือชื่อนักกีฬา" /></label>
           <label><span className={labelClass}>ครูผู้ควบคุมทีม</span><input name="coach_name" className={inputClass} placeholder="ชื่อครูผู้ควบคุม" /></label>
@@ -855,6 +857,7 @@ export default function GroupSportsDashboard() {
       <div className="mx-auto max-w-7xl px-4 pb-12 md:px-8">
         <nav className="-mt-4 mb-5 flex gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2 shadow-lg shadow-slate-900/5">
           <Link href="/group-sports/school-submissions" className="flex shrink-0 items-center gap-2 rounded-xl bg-red-50 px-3.5 py-2.5 text-sm font-bold text-red-800 hover:bg-red-100">📄 ส่งข้อมูลโรงเรียน</Link>
+          <Link href="/group-sports/schedule" className="flex shrink-0 items-center gap-2 rounded-xl bg-blue-50 px-3.5 py-2.5 text-sm font-bold text-blue-800 hover:bg-blue-100">📅 จัดการ / ดูโปรแกรม</Link>
           {tabs.map((item) => (
             <button key={item.key} onClick={() => { setTab(item.key); setFormOpen(false); setError(""); }} className={`flex shrink-0 items-center gap-2 rounded-xl px-3.5 py-2.5 text-sm font-bold transition ${tab === item.key ? "bg-blue-700 text-white shadow" : "text-slate-600 hover:bg-slate-100 hover:text-slate-900"}`}>
               <span>{item.icon}</span>{item.label}
