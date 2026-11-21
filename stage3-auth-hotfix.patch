@@ -1,0 +1,96 @@
+--- a/src/app/group-sports/schedule/page.tsx
++++ b/src/app/group-sports/schedule/page.tsx
+@@ -27,23 +27,70 @@
+ function Status({status}:{status:string}){return <span className={`inline-flex rounded-full px-2.5 py-1 text-xs font-bold ${status==="draft"?"bg-amber-50 text-amber-800":status==="cancelled"?"bg-red-50 text-red-800":status==="postponed"?"bg-orange-50 text-orange-800":"bg-emerald-50 text-emerald-800"}`}>{statusNames[status]||status}</span>}
+ 
+ export default function SportsSchedulePage(){
+- const [comp,setComp]=useState("");const [email,setEmail]=useState("");const [admin,setAdmin]=useState(false);
++ const [comp,setComp]=useState("");const [email,setEmail]=useState("");const [admin,setAdmin]=useState(false);const [authStatus,setAuthStatus]=useState<"checking"|"guest"|"admin"|"no_role">("checking");
+  const [events,setEvents]=useState<EventRow[]>([]);const [sessions,setSessions]=useState<SessionRow[]>([]);
+  const [loading,setLoading]=useState(true);const [busy,setBusy]=useState(false);const [error,setError]=useState("");const [notice,setNotice]=useState("");
+  const [tab,setTab]=useState<"schedule"|"events">("schedule");const [query,setQuery]=useState("");const [sport,setSport]=useState("");const [day,setDay]=useState("");const [status,setStatus]=useState("");const [page,setPage]=useState(1);const [selected,setSelected]=useState<string[]>([]);
+  const [editingEvent,setEditingEvent]=useState<string|null>(null);const [ef,setEf]=useState<EForm>(blankEvent);const [editingSession,setEditingSession]=useState<string|null>(null);const [sf,setSf]=useState<SForm>(blankSession);
+  const load=useCallback(async()=>{
+-  setLoading(true);setError("");setAdmin(false);setEvents([]);setSessions([]);setSelected([]);
++  setLoading(true);setError("");setAuthStatus("checking");
++  setAdmin(false);setEvents([]);setSessions([]);setSelected([]);
+   try{
+-   const auth=await supabase.auth.getUser();const user=auth.data.user;setEmail(user?.email||"");
+-   const c=await supabase.from("sports_competitions").select("id").eq("slug",SLUG).single();if(c.error)throw c.error;const id=c.data.id as string;setComp(id);
+-   let allowed=false;if(user){const p=await supabase.rpc("sports_stage3_admin",{p_comp:id});if(p.error)throw p.error;allowed=p.data===true;}
+-   const e=await supabase.from("sports_events").select("id,event_code,sport_name,sport_group,event_type,gender_rule,level_rule,competition_format,venue_name,status,stage3_source,notes").eq("competition_id",id).order("sport_name");if(e.error)throw e.error;
+-   const all:SessionRow[]=[];for(let offset=0;;offset+=500){const s=await supabase.from("sports_schedule_sessions").select("id,event_id,session_number,session_date,report_time,start_time,end_time,round_name,participants,venue_name,source_ref,review_note,status").eq("competition_id",id).order("session_date",{nullsFirst:false}).order("start_time",{nullsFirst:false}).order("id").range(offset,offset+499);if(s.error)throw s.error;all.push(...((s.data||[]) as SessionRow[]));if((s.data||[]).length<500)break;}
+-   setAdmin(allowed);setEvents((e.data||[]) as EventRow[]);setSessions(all);
++   // Always verify the user with Supabase Auth; a profile or UI label alone is not authorization.
++   const { data: authData, error: authError } = await supabase.auth.getUser();
++   const user = authData.user;
++   if (authError && authError.name !== "AuthSessionMissingError") {
++     throw new Error("ตรวจสอบ Google Workspace Session ไม่สำเร็จ: " + authError.message);
++   }
++   setEmail(user?.email || "");
++   const c = await supabase.from("sports_competitions").select("id").eq("slug",SLUG).single();
++   if(c.error) throw c.error;
++   const id=c.data.id as string;setComp(id);
++   let allowed=false;
++   if(user){
++     const p=await supabase.rpc("sports_stage3_admin",{p_comp:id});
++     if(p.error)throw new Error("ตรวจสอบสิทธิ์กีฬากลุ่มไม่สำเร็จ: "+p.error.message);
++     allowed=p.data===true;
++   }
++   const e=await supabase.from("sports_events")
++      .select("id,event_code,sport_name,sport_group,event_type,gender_rule,level_rule,competition_format,venue_name,status,stage3_source,notes")
++      .eq("competition_id",id).order("sport_name");
++   if(e.error)throw e.error;
++   const all:SessionRow[]=[];
++   for(let offset=0;;offset+=500){
++     const s=await supabase.from("sports_schedule_sessions")
++       .select("id,event_id,session_number,session_date,report_time,start_time,end_time,round_name,participants,venue_name,source_ref,review_note,status")
++       .eq("competition_id",id).order("session_date",{nullsFirst:false})
++       .order("start_time",{nullsFirst:false}).order("id").range(offset,offset+499);
++     if(s.error)throw s.error;
++     all.push(...((s.data||[]) as SessionRow[]));
++     if((s.data||[]).length<500)break;
++   }
++   setAdmin(allowed);setAuthStatus(!user?"guest":allowed?"admin":"no_role");
++   setEvents((e.data||[]) as EventRow[]);setSessions(all);
+   }catch(e){setError(errorText(e));}finally{setLoading(false);}
+  },[]);
+- useEffect(()=>{void load();const {data}=supabase.auth.onAuthStateChange((event)=>{if(event==="SIGNED_OUT"){setAdmin(false);setEmail("");setEvents([]);setSessions([]);setSelected([]);setEditingEvent(null);setEditingSession(null);setTimeout(()=>void load(),0);}});return()=>data.subscription.unsubscribe();},[load]);
++ useEffect(()=>{
++   let mounted=true;
++   let refreshTimer:ReturnType<typeof setTimeout>|undefined;
++   const scheduleRefresh=()=>{
++     if(refreshTimer)clearTimeout(refreshTimer);
++     // Supabase auth events must not perform awaited API calls synchronously.
++     refreshTimer=setTimeout(()=>{if(mounted)void load();},0);
++   };
++   const {data}=supabase.auth.onAuthStateChange((event)=>{
++     if(event==="SIGNED_OUT"){
++       setAdmin(false);setEmail("");setAuthStatus("guest");
++       setEvents([]);setSessions([]);setSelected([]);
++       setEditingEvent(null);setEditingSession(null);
++     }
++     if(["INITIAL_SESSION","SIGNED_IN","SIGNED_OUT","USER_UPDATED"].includes(event)){
++       scheduleRefresh();
++     }
++   });
++   // INITIAL_SESSION is emitted as the session is restored from storage.
++   return()=>{mounted=false;if(refreshTimer)clearTimeout(refreshTimer);data.subscription.unsubscribe();};
++ },[load]);
+  const byId=useMemo(()=>new Map(events.map(e=>[e.id,e])),[events]);
+  const group=(e:EventRow|undefined)=>e?.sport_group||e?.sport_name||"ไม่ระบุ";
+  const groups=useMemo(()=>Array.from(new Set(events.map(e=>e.sport_group||e.sport_name))).sort((a,b)=>a.localeCompare(b,"th")),[events]);
+@@ -63,9 +110,11 @@
+  const efield=(key:keyof EForm,label:string,required=false)=><Field label={label}><input className={input} value={ef[key]} onChange={e=>setEf(o=>({...o,[key]:e.target.value}))} required={required}/></Field>;
+  const sfield=(key:keyof SForm,label:string,type="text",required=false)=><Field label={label}><input className={input} type={type} value={sf[key]} onChange={e=>setSf(o=>({...o,[key]:e.target.value}))} required={required}/></Field>;
+  return <div className="min-h-screen bg-slate-100 text-slate-900">
+-  <header className="bg-gradient-to-r from-slate-950 via-[#15244a] to-slate-900 text-white"><div className="mx-auto max-w-7xl px-4 py-7 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><Link href="/group-sports" className="text-sm font-bold text-blue-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><div className="flex flex-wrap items-center gap-2 text-xs">{email?<span>{email} · {admin?"ผู้ดูแลการแข่งขัน":"ผู้เข้าชม"}</span>:<Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div></div><p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026</p><h1 className="mt-2 text-2xl font-black sm:text-3xl">โปรแกรมการแข่งขัน · ภูลังกาเกมส์ 2026</h1><p className="mt-2 text-sm text-slate-300">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30</p></div></header>
++  <header className="bg-gradient-to-r from-slate-950 via-[#15244a] to-slate-900 text-white"><div className="mx-auto max-w-7xl px-4 py-7 sm:px-6"><div className="flex flex-wrap items-center justify-between gap-3"><Link href="/group-sports" className="text-sm font-bold text-blue-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><div className="flex flex-wrap items-center gap-2 text-xs">{email?<span>{email} · {admin?"ผู้ดูแลการแข่งขัน":"ยังไม่มีสิทธิ์จัดการโปรแกรม"}</span>:<Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div></div><p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026</p><h1 className="mt-2 text-2xl font-black sm:text-3xl">โปรแกรมการแข่งขัน · ภูลังกาเกมส์ 2026</h1><p className="mt-2 text-sm text-slate-300">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30</p></div></header>
+   <main className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
+-   {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</div>}{notice&&<div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800" role="status">{notice}</div>}
++    {error&&<div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</div>}{notice&&<div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800" role="status">{notice}</div>}
++    {!loading && authStatus==="guest" && <div className="rounded-xl border border-slate-200 bg-white p-3 text-sm text-slate-700">หน้านี้ยังไม่พบ Session ที่เข้าสู่ระบบ จึงแสดงเฉพาะโปรแกรมที่เผยแพร่แล้ว (ปัจจุบันยังเป็นฉบับร่าง) กรุณาเข้าสู่ระบบในเบราว์เซอร์และที่อยู่ localhost:3000 เดียวกัน แล้วกลับมารีเฟรชหน้านี้</div>}
++    {!loading && authStatus==="no_role" && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">บัญชี Google Workspace เข้าสู่ระบบแล้ว แต่ยังไม่ได้รับบทบาท competition_admin ของการแข่งขันนี้ ให้ตรวจ sports_user_roles ว่าผูกกับ auth.users.id ของบัญชีนี้ถูกต้อง</div>}
+    {admin&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">ข้อมูลนำเข้าจากเอกสารยังเป็นฉบับร่าง ตรวจเทียบกับต้นฉบับก่อนเผยแพร่ โดยเฉพาะฟุตบอล 15 ปีชาย วอลเลย์บอล เทเบิลเทนนิส และกรีฑารายการ 110/114 · E-Sport ยังไม่ยืนยันวันที่ · รายการกีฬาที่ข้อมูลไม่ครบเพิ่มได้ภายหลัง</div>}
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">{[["รายการแข่งขัน",events.length],["โปรแกรมที่มองเห็น",sessions.length],["กรีฑา",sessions.filter(s=>byId.get(s.event_id)?.event_type==="athletics").length],[admin?"ฉบับร่าง":"เผยแพร่แล้ว",sessions.filter(s=>s.status===(admin?"draft":"published")).length]].map(([label,count])=><div key={label} className={panel}><div className="text-xs text-slate-500">{label}</div><div className="mt-1 text-2xl font-black tabular-nums">{count}</div></div>)}</div>
+    <div className="flex flex-wrap items-center gap-2"><button onClick={()=>{setTab("schedule");setStatus("");resetFilter();}} className={tab==="schedule"?primary:secondary}>โปรแกรมการแข่งขัน</button><button onClick={()=>{setTab("events");setStatus("");resetFilter();}} className={tab==="events"?primary:secondary}>รายการแข่งขัน</button><div className="flex-1"/><button className={secondary} disabled={busy||loading} onClick={()=>void load()}>รีเฟรชข้อมูล</button>{admin&&<button className={primary} disabled={busy||loading} onClick={()=>tab==="events"?openEvent():openSession()}>+ {tab==="events"?"เพิ่มรายการ":"เพิ่มโปรแกรม"}</button>}</div>
