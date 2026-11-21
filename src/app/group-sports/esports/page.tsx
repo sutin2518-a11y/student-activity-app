@@ -1,5 +1,6 @@
 "use client";
 
+import EsportsSessionSchedule from "@/components/group-sports/EsportsSessionSchedule";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -205,61 +206,6 @@ function scheduleCompare(a: MatchRow, b: MatchRow) {
 function groupSchedule(matches: MatchRow[], groupId: string) {
   return matches.filter(match => match.stage === "group" && match.group_id === groupId).sort(scheduleCompare);
 }
-function hasSharedTeam(a: MatchRow, b: MatchRow) {
-  const left = [a.team1_id, a.team2_id].filter(Boolean);
-  const right = [b.team1_id, b.team2_id].filter(Boolean);
-  return left.some(id => right.includes(id));
-}
-function restConflicts(rows: MatchRow[]) {
-  const conflicts: { previous: MatchRow; current: MatchRow }[] = [];
-  for (let i = 1; i < rows.length; i++) {
-    if (hasSharedTeam(rows[i - 1], rows[i])) conflicts.push({ previous: rows[i - 1], current: rows[i] });
-  }
-  return conflicts;
-}
-
-// สร้างลำดับรวมจากหลายกลุ่มสลับกัน (A, B, C, D ...) ให้ไม่มีทีมเดิมลงสนามติดกัน
-// 4 ทีมในหนึ่งกลุ่มมี 6 คู่: ไม่สามารถรับประกันเวลาพักภายในกลุ่มล้วน ๆ ได้
-function recommendEventOrder(grouped: { group: GroupRow; actual: MatchRow[] }[], teams: Map<string, TeamRow>) {
-  const pending = grouped.map(({ group, actual }) => ({
-    group, rows: actual.filter(m => m.match_status === "draft" && !m.scheduled_date && !m.start_time)
-      .sort((a,b) => a.match_no.localeCompare(b.match_no, "en", {numeric:true}))
-  }));
-  const result: MatchRow[] = [];
-  let lastGroupId = "";
-  const lastUsed = new Map<string, number>();
-  let turn = 0;
-  function sameSchool(a: MatchRow, b: MatchRow) {
-    if (hasSharedTeam(a,b)) return true;
-    const schoolNames = [a.team1_id, a.team2_id].map(id => id ? teams.get(id)?.school_name : null).filter(Boolean);
-    return [b.team1_id, b.team2_id].some(id => id && schoolNames.includes(teams.get(id)?.school_name));
-  }
-  while (pending.some(row => row.rows.length)) {
-    // Round-robin preference: A → B → C → D, then alternate the groups that still have matches.
-    const choices = pending.filter(row => row.rows.length).sort((a,b) =>
-      (lastUsed.get(a.group.id) ?? -1) - (lastUsed.get(b.group.id) ?? -1) || a.group.sort_order-b.group.sort_order
-    );
-    let chosen = choices.find(row => row.group.id !== lastGroupId && (!result.length || !sameSchool(result[result.length-1], row.rows[0])));
-    if (!chosen) chosen = choices.find(row => !result.length || !sameSchool(result[result.length-1],row.rows[0]));
-    if (!chosen) chosen = choices[0];
-    result.push(chosen.rows.shift()!);
-    lastGroupId = chosen.group.id;
-    lastUsed.set(chosen.group.id, turn++);
-  }
-  return result;
-}
-function chronologicalCompare(a: MatchRow, b: MatchRow) {
-  const aAt = a.scheduled_date && a.start_time ? `${a.scheduled_date}T${a.start_time}` : null;
-  const bAt = b.scheduled_date && b.start_time ? `${b.scheduled_date}T${b.start_time}` : null;
-  if (aAt && bAt) return aAt.localeCompare(bAt) || scheduleCompare(a,b);
-  if (aAt) return -1;
-  if (bAt) return 1;
-  return scheduleCompare(a,b);
-}
-function asCsv(rows: (string | number)[][]) {
-  return "\uFEFF" + rows.map(row => row.map(value => '"' + String(value ?? "").replace(/"/g, '""') + '"').join(",")).join("\r\n");
-}
-
 function MatchCard({
   match, groupCode, team1Name, team2Name, admin, saving, onSave
 }: {
@@ -352,9 +298,6 @@ export default function EsportsPage() {
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [gender, setGender] = useState<Gender>("ชาย");
   const [tab, setTab] = useState<Tab>("groups");
-  const [scheduleGroupFilter, setScheduleGroupFilter] = useState("all");
-  const [scheduleDateFilter, setScheduleDateFilter] = useState("all");
-  const [scheduleMode, setScheduleMode] = useState<"actual" | "suggested">("actual");
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -428,78 +371,6 @@ export default function EsportsPage() {
     group,
     actual: groupSchedule(currentMatches, group.id)
   })), [currentGroups, currentMatches]);
-
-  const scheduledGroups = useMemo(() => groupedFixtures.map(item => ({
-    ...item,
-    fixed: item.actual.filter(m => !(m.match_status === "draft" && !m.scheduled_date && !m.start_time))
-  })), [groupedFixtures]);
-  const pendingSuggestedOrder = useMemo(() => recommendEventOrder(groupedFixtures, teamById), [groupedFixtures, teamById]);
-  const suggestedRestIssues = restConflicts(pendingSuggestedOrder);
-  const allGroupMatches = groupedFixtures.flatMap(item => item.actual);
-  const fixedGroupMatches = scheduledGroups.flatMap(item => item.fixed).sort(chronologicalCompare);
-  const pendingGroupMatches = allGroupMatches.filter(m => m.match_status === "draft" && !m.scheduled_date && !m.start_time);
-
-  const allScheduledDates = useMemo(() => [...new Set(
-    groupedFixtures.flatMap(item => item.actual).map(match => match.scheduled_date).filter((date): date is string => !!date)
-  )].sort(), [groupedFixtures]);
-
-  const scheduleRows = useMemo(() => {
-    const pending = scheduleMode === "suggested" ? pendingSuggestedOrder :
-      [...pendingGroupMatches].sort((a,b) => {
-        if (a.play_order != null && b.play_order != null) return a.play_order - b.play_order;
-        if (a.play_order != null) return -1;
-        if (b.play_order != null) return 1;
-        return pendingSuggestedOrder.findIndex(m=>m.id===a.id) - pendingSuggestedOrder.findIndex(m=>m.id===b.id);
-      });
-    const rows = [...fixedGroupMatches, ...pending];
-    return rows.filter(m => (scheduleGroupFilter === "all" || m.group_id === scheduleGroupFilter) &&
-      (scheduleDateFilter === "all" || m.scheduled_date === scheduleDateFilter));
-  }, [pendingSuggestedOrder, pendingGroupMatches, fixedGroupMatches, scheduleMode, scheduleGroupFilter, scheduleDateFilter]);
-
-  // ตรวจโปรแกรมที่ "กำหนดวันเวลาจริง" เท่านั้น (ไม่ใช้ลำดับรหัสคู่เป็นเวลา)
-  const chronologicalIssues = restConflicts(
-    allGroupMatches.filter(m => m.scheduled_date && m.start_time).sort(chronologicalCompare)
-  );
-
-  async function saveRecommendedOrder() {
-    if (!admin || !currentEvent || !!busyId) return;
-    if (!pendingSuggestedOrder.length || suggestedRestIssues.length) {
-      setError("ไม่มีลำดับแนะนำที่เว้นทีมเดิมได้ครบ โปรดทบทวนโปรแกรมก่อน"); return;
-    }
-    if (!window.confirm(`บันทึกลำดับลงสนามสำหรับคู่ฉบับร่างที่ยังไม่กำหนดเวลา ${pendingSuggestedOrder.length} คู่หรือไม่?\n\nผลเดิม วันเวลา และรหัสคู่จะไม่เปลี่ยน ระบบจะจัดลำดับเฉพาะคู่ที่ยังไม่ได้กำหนดการแข่งขัน`)) return;
-    setError(""); setNotice(""); setBusyId("rest-event");
-    try {
-      const result = await supabase.rpc("sports_esports_assign_pending_play_order", {
-        p_event_id: currentEvent.id,
-        p_match_ids: pendingSuggestedOrder.map(row => row.id),
-        p_reason: "ผู้ดูแลจัดลำดับการแข่งขันรวมทุกสายเพื่อเว้นอย่างน้อย 1 แมตช์ระหว่างการลงแข่งของโรงเรียนเดิม"
-      });
-      if (result.error) throw result.error;
-      setNotice(`บันทึกลำดับเว้นพักสำหรับคู่ที่ยังไม่กำหนด ${pendingSuggestedOrder.length} คู่แล้ว โปรดกำหนดวันและเวลาจริงในเมนู โปรแกรม / ผล`);
-      setScheduleMode("actual");
-      await load();
-    } catch (e) { setError(errorText(e)); }
-    finally { setBusyId(""); }
-  }
-
-  function downloadScheduleCsv() {
-    const rows: (string | number)[][] = [["ลำดับ", "วันที่", "เวลา", "สาย", "รหัสคู่", "ทีมแรก", "ทีมที่สอง", "สนาม", "สถานะ", "ผล", "หมายเหตุ"]];
-    scheduleRows.forEach((match, index) => rows.push([
-      index + 1, match.scheduled_date || "รอกำหนดวัน", match.start_time?.slice(0, 5) || "รอกำหนดเวลา",
-      groupById.get(match.group_id || "")?.group_code || "—", match.match_no,
-      teamById.get(match.team1_id || "")?.school_name || "รอทีม", teamById.get(match.team2_id || "")?.school_name || "รอทีม",
-      match.venue_name || "รอยืนยันสนาม", statusLabel[match.match_status],
-      match.match_status === "completed" ? `${match.score1}–${match.score2}` : "", scheduleMode === "suggested" ? "ลำดับแนะนำ ไม่ใช่โปรแกรมที่ประกาศ" : ""
-    ]));
-    const blob = new Blob([asCsv(rows)], { type: "text/csv;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = `esport-${gender === "ชาย" ? "male" : "female"}-schedule-${scheduleMode}.csv`;
-    document.body.append(anchor);
-    anchor.click(); anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
-  }
 
   async function generateKnockout() {
     if (!admin || !currentEvent || currentEvent.event_code !== "GS3-ES-SM" || busyId) return;
@@ -638,6 +509,17 @@ export default function EsportsPage() {
     if (saved) setPendingResult(null);
   }
 
+  const [roster,setRoster] = useState<{school:string;coach:string;players:string[]} | null>(null);
+  async function showApprovedRoster(team: TeamRow) {
+    setError("");setRoster(null);setBusyId(team.id);
+    try {
+      const result=await supabase.rpc("sports_roster_details",{p_entry:null,p_team:team.id});
+      if(result.error) throw result.error;
+      if(!result.data){setNotice("ยังไม่มีรายชื่อที่อนุมัติให้บัญชีนี้เปิดดูได้");return;}
+      setRoster({school:team.school_name,coach:(result.data.coaches?.map((c:{name:string})=>c.name) || [result.data.coach,result.data.assistant]).filter(Boolean).join(" · "),players:result.data.players.map((p:{full_name:string;ign?:string;team_role?:string;play_position?:string})=>[p.full_name,p.team_role,p.ign,p.play_position].filter(Boolean).join(" · "))});
+    } catch(err){setError(errorText(err));} finally{setBusyId("");}
+  }
+
   const groupSummary = gender === "ชาย" ? "18 ทีม · 4 กลุ่ม (4 / 4 / 5 / 5 ทีม)" : "10 ทีม · 2 กลุ่ม (กลุ่มละ 5 ทีม)";
   const pendingMatch = pendingEdit ? currentMatches.find(match => match.id === pendingEdit.matchId) : null;
   const pendingDownstream = pendingEdit ? getDownstreamMatches(pendingEdit.matchId, currentMatches) : [];
@@ -672,7 +554,7 @@ export default function EsportsPage() {
 
       <section className={`${panel} no-print flex flex-wrap items-center justify-between gap-3`}>
         <div><p className="text-sm font-black">ประเภทการแข่งขัน</p><p className="mt-1 text-xs text-slate-500">{groupSummary}</p></div>
-        <div className="flex gap-2"><button className={gender === "ชาย" ? primary : secondary} onClick={() => { setGender("ชาย"); setScheduleGroupFilter("all"); setScheduleDateFilter("all"); }}>ทีมชาย</button><button className={gender === "หญิง" ? primary : secondary} onClick={() => { setGender("หญิง"); setScheduleGroupFilter("all"); setScheduleDateFilter("all"); }}>ทีมหญิง</button></div>
+        <div className="flex gap-2"><button className={gender === "ชาย" ? primary : secondary} onClick={() => { setGender("ชาย"); }}>ทีมชาย</button><button className={gender === "หญิง" ? primary : secondary} onClick={() => { setGender("หญิง"); }}>ทีมหญิง</button></div>
       </section>
 
       <section className="no-print grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -693,9 +575,10 @@ export default function EsportsPage() {
       {!loading && !currentEvent && <div className={`${panel} text-center text-sm text-slate-600`}>ยังไม่มีรายการ E-Sport ที่เผยแพร่ หรือไม่พบข้อมูลรายการแข่งขันในฐานข้อมูล {admin ? "โปรดตรวจสอบ event_code GS3-ES-SM / GS3-ES-SF" : "โปรดกลับมาตรวจสอบเมื่อผู้จัดเผยแพร่ข้อมูล"}</div>}
 
       {currentEvent && tab === "groups" && <section className="grid gap-4 md:grid-cols-2">
+        {email && roster && <section className={`${panel} md:col-span-2`}><div className="flex justify-between"><strong>รายชื่อที่อนุมัติ · {roster.school}</strong><button onClick={()=>setRoster(null)}>ปิด</button></div><p>{roster.coach}</p><ol className="list-decimal pl-6">{roster.players.map((name,i)=><li key={i}>{name}</li>)}</ol></section>}
         {currentGroups.map(group => <div className={`${panel} space-y-3`} key={group.id}>
           <div className="flex items-center justify-between"><h2 className="text-lg font-black">กลุ่ม {group.group_code}</h2><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">{currentTeams.filter(team => team.group_id === group.id).length} ทีม</span></div>
-          <ol className="space-y-2">{currentTeams.filter(team => team.group_id === group.id).sort((a,b)=>a.seed_order-b.seed_order).map((team,index) => <li className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={team.id}><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-slate-500">{index+1}</span><span className="font-semibold">{team.school_name}</span></li>)}</ol>
+          <ol className="space-y-2">{currentTeams.filter(team => team.group_id === group.id).sort((a,b)=>a.seed_order-b.seed_order).map((team,index) => <li className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={team.id}><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-slate-500">{index+1}</span><span className="font-semibold">{team.school_name}</span>{email && <button type="button" className="ml-auto text-xs font-bold text-blue-700" disabled={!!busyId} onClick={()=>void showApprovedRoster(team)}>ดูรายชื่อ</button>}</li>)}</ol>
         </div>)}
         <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-bold">ข้อกำหนดก่อนจัดรอบ Knockout</p>
@@ -706,8 +589,8 @@ export default function EsportsPage() {
       {currentEvent && tab === "matches" && <section className={`${panel} space-y-3`}>
         <div className="flex flex-wrap items-center justify-between gap-2"><div><h2 className="text-lg font-black">โปรแกรมและผลรอบแบ่งกลุ่ม · {gender === "ชาย" ? "ทีมชาย" : "ทีมหญิง"}</h2><p className="text-xs text-slate-500">ระบบสร้างคู่พบกันหมดตามรายชื่อในแต่ละกลุ่ม เวลาแข่งขันกำหนดภายหลังได้</p></div><span className="text-xs text-slate-500">{currentMatches.filter(match => match.stage === "group").length} คู่</span></div>
         <div className="rounded-xl border border-orange-200 bg-orange-50 p-3 text-sm text-orange-950">
-          <strong>ลำดับแข่งขันจริงให้ดูที่เมนู “ตารางโปรแกรม”</strong> ซึ่งสลับแมตช์ข้ามสาย A–D เพื่อเว้นพักทีมเดิม · รหัสคู่ A-01 ฯลฯ ยังคงเดิม และไม่จำเป็นต้องลงสนามเรียงตามรหัสคู่
-          <button type="button" className={`${secondary} ml-3 mt-2`} onClick={() => { setTab("schedule"); setScheduleGroupFilter("all"); }}>ดูตารางโปรแกรมรวมทุกสาย</button>
+          <strong>ดูรอบ เวลา และสถานีแข่งขันของทีมชายและทีมหญิงได้ที่เมนู “ตารางโปรแกรม”</strong>
+          <button type="button" className={`${secondary} ml-3 mt-2`} onClick={() => setTab("schedule")}>ดูตารางโปรแกรมรวมทุกสาย</button>
         </div>
         {groupedFixtures.map(item => <div className="space-y-2" key={item.group.id}>
           <h3 className="rounded-xl bg-orange-50 p-3 font-black text-orange-900">กลุ่ม {item.group.group_code} · {item.actual.length} คู่</h3>
@@ -717,79 +600,9 @@ export default function EsportsPage() {
       </section>}
 
 
-      {currentEvent && tab === "schedule" && <section className={`${panel} space-y-4`} id="esport-print-schedule">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-extrabold uppercase tracking-widest text-indigo-700">PHULANGKA GAMES 2026</p>
-            <h2 className="mt-1 text-xl font-black text-slate-950">ตารางโปรแกรมการแข่งขัน E-Sport · ทีม{gender}</h2>
-            <p className="mt-1 text-sm text-slate-600">รูปแบบตารางรวมตามวัน–เวลาและสายแข่งขัน สำหรับกรรมการและโรงเรียน · วันที่ 5–7 ธันวาคม 2569</p>
-          </div>
-          <div className="no-print flex flex-wrap gap-2">
-            <button type="button" className={secondary} onClick={downloadScheduleCsv}>ส่งออก CSV</button>
-            <button type="button" className={primary} onClick={() => window.print()}>พิมพ์ตาราง</button>
-          </div>
-        </div>
-        <div className="no-print grid gap-3 rounded-xl border border-indigo-100 bg-indigo-50/50 p-3 sm:grid-cols-4">
-          <label className="text-xs font-bold text-indigo-950">สายแข่งขัน
-            <select className={`${input} mt-1`} value={scheduleGroupFilter} onChange={event => setScheduleGroupFilter(event.target.value)}>
-              <option value="all">ทุกสาย (แนะนำให้ดูภาพรวม)</option>{currentGroups.map(group => <option value={group.id} key={group.id}>กลุ่ม {group.group_code}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-bold text-indigo-950">วันที่
-            <select className={`${input} mt-1`} value={scheduleDateFilter} onChange={event => setScheduleDateFilter(event.target.value)}>
-              <option value="all">ทุกวัน</option>{allScheduledDates.map(date => <option value={date} key={date}>{thaiDate(date)}</option>)}
-            </select>
-          </label>
-          <label className="text-xs font-bold text-indigo-950 sm:col-span-2">รูปแบบการแสดง
-            <div className="mt-1 flex gap-2">
-              <button type="button" className={scheduleMode === "actual" ? primary : secondary} onClick={() => setScheduleMode("actual")}>โปรแกรมที่บันทึกจริง</button>
-              <button type="button" className={scheduleMode === "suggested" ? primary : secondary} onClick={() => setScheduleMode("suggested")}>แผนลำดับเว้นพัก</button>
-            </div>
-          </label>
-        </div>
-        {scheduleMode === "suggested" && <div className="rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950">
-          <strong>แผนแนะนำเว้นพัก:</strong> สลับการแข่งขันข้ามสาย A–D เพื่อให้โรงเรียนไม่ลงสนาม 2 คู่ติดกัน (คู่ที่มีผลหรือกำหนดเวลาจริงแล้วจะคงเดิม) · วันและเวลาไม่ถูกแก้อัตโนมัติ
-        </div>}
-        {chronologicalIssues.length > 0 && <div className="no-print rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">
-          <strong>ตรวจพบคู่ลงสนามติดกันตามวัน–เวลาที่บันทึก:</strong> {chronologicalIssues.length} จุด · โปรดตรวจเวลาแข่งขันจริง (ระบบไม่เปลี่ยนผลหรือเวลาเดิมอัตโนมัติ)
-        </div>}
-        {admin && <div className="no-print rounded-xl border border-indigo-200 bg-indigo-50 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="font-black text-indigo-950">จัดลำดับเว้นพักรวมทุกสาย</h3>
-              <p className="mt-1 text-xs text-indigo-900">คู่ฉบับร่างและไม่มีวันเวลา {pendingGroupMatches.length} คู่ · สลับสายเพื่อไม่ให้โรงเรียนเดิมแข่งติดกัน {suggestedRestIssues.length ? `· แผนยังมีจุดติดกัน ${suggestedRestIssues.length} จุด` : "· แผนไม่มีคู่ติดทีมเดิม"}</p>
-              <p className="mt-1 text-xs text-indigo-900">คู่ที่เสร็จแล้วหรือกำหนดวันเวลาไว้จะถูกคงเดิมเสมอ</p>
-            </div>
-            <button type="button" className={primary} disabled={!pendingSuggestedOrder.length || suggestedRestIssues.length > 0 || !!busyId} onClick={() => void saveRecommendedOrder()}>{busyId === "rest-event" ? "กำลังบันทึก…" : "บันทึกลำดับเว้นพักสำหรับคู่ที่ยังไม่กำหนด"}</button>
-          </div>
-          {suggestedRestIssues.length > 0 && <p className="mt-2 text-xs font-bold text-red-700">ขณะนี้ยังมีคู่ติดกันในแผนแนะนำ จึงปิดปุ่มบันทึกเพื่อป้องกันผิดกติกา</p>}
-        </div>}
-        <div className="overflow-x-auto rounded-xl border border-slate-300">
-          <table className="w-full min-w-[820px] border-collapse text-left text-sm">
-            <thead className="bg-slate-900 text-white"><tr>{["คู่ที่", "วัน/เดือน/ปี", "เวลา", "สาย", "รหัสคู่", "คู่แข่งขัน", "สนาม", "สถานะ / ผล"].map(label => <th key={label} className="whitespace-nowrap border-r border-slate-700 px-3 py-3 text-center font-extrabold last:border-r-0">{label}</th>)}</tr></thead>
-            <tbody>
-              {scheduleRows.map((match, index) => {
-                const groupLabel = groupById.get(match.group_id || "")?.group_code || "—";
-                const first = teamById.get(match.team1_id || "")?.school_name || "รอทีม";
-                const second = teamById.get(match.team2_id || "")?.school_name || "รอทีม";
-                const confirmed = !!match.scheduled_date && !!match.start_time;
-                return <tr key={match.id} className="border-b border-slate-200 even:bg-slate-50 hover:bg-indigo-50/60">
-                  <td className="px-3 py-2 text-center font-black text-indigo-900">{index + 1}</td>
-                  <td className="whitespace-nowrap px-3 py-2 text-center">{thaiDate(match.scheduled_date)}</td>
-                  <td className={`whitespace-nowrap px-3 py-2 text-center font-bold ${confirmed ? "text-slate-900" : "text-amber-700"}`}>{shortTime(match.start_time)}</td>
-                  <td className="px-3 py-2 text-center"><span className="rounded-md bg-indigo-100 px-2 py-1 font-black text-indigo-950">{groupLabel}</span></td>
-                  <td className="px-3 py-2 text-center text-xs font-semibold text-slate-500">{match.match_no}</td>
-                  <td className="min-w-64 px-3 py-2 font-semibold">{first} <span className="mx-1 font-normal text-slate-400">พบ</span> {second}</td>
-                  <td className="px-3 py-2 text-xs text-slate-700">{match.venue_name || "รอยืนยันสนาม"}</td>
-                  <td className="px-3 py-2 text-center text-xs">{match.match_status === "completed" ? <span className="font-black text-emerald-800">เสร็จสิ้น {match.score1}–{match.score2}</span> : statusLabel[match.match_status]}</td>
-                </tr>;
-              })}
-              {scheduleRows.length === 0 && <tr><td colSpan={8} className="p-8 text-center text-slate-500">ไม่มีโปรแกรมแข่งขันตามตัวกรองนี้</td></tr>}
-            </tbody>
-          </table>
-        </div>
-        <p className="text-xs text-slate-500">หมายเหตุ: เลข "คู่ที่" เป็นลำดับในตารางที่กำลังแสดง ไม่ใช่รหัสคู่เดิม · วันเวลาแสดงเฉพาะที่บันทึกจริง · โปรแกรมจริงเรียงตามวันที่และเวลาที่บันทึก ส่วนคู่ที่ยังไม่มีวันเวลาใช้ลำดับแนะนำ / ลำดับที่ผู้ดูแลรับรอง</p>
-      </section>}
+      {events.length > 0 && tab === "schedule" && (
+        <EsportsSessionSchedule events={events} groups={groups} teams={teams} matches={matches} />
+      )}
 
       {currentEvent && tab === "standings" && <section className="space-y-4">
         {currentGroups.map(group => {
