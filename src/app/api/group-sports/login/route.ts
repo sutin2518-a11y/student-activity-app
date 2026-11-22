@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createPublicServerAuth, createSportsAdminClient, fingerprint, normalizedUsername, SPORTS_SLUG, validPassword, validUsername } from "@/lib/group-sports/school-auth-server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 const response = (body: object, status: number) => NextResponse.json(body, {status,headers:{"Cache-Control":"no-store"}});
 
 export async function POST(request: NextRequest) {

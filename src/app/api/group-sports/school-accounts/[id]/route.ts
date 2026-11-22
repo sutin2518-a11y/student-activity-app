@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createSportsAdminClient, generatePassword, messageOf, requireSportsOrganizer, validPassword, validUUID } from "@/lib/group-sports/school-auth-server";
 
-export const runtime = "nodejs";
-export const dynamic = "force-dynamic";
 const reply = (body:object,status=200) => NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 
 export async function PATCH(request:NextRequest, context:{params:Promise<{id:string}>}) {
