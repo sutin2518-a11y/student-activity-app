@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { downloadRovPhoto } from "@/lib/group-sports/rov-photos";
 import "./print.css";
 
 type PrintedAthlete = {
@@ -11,6 +12,7 @@ type PrintedAthlete = {
   team_role?: string | null;
   ign?: string | null;
   play_position?: string | null;
+  photo_url?: string | null;
 };
 
 type PrintedCoach = { name: string; phone?: string | null };
@@ -121,7 +123,8 @@ function SimpleRovApplication({ application }: { application: PrintedApplication
         <section className="gs-rov-photo-grid" aria-label="ช่องติดรูปนักกีฬา 7 คน">
           {Array.from({ length: 7 }, (_, index) => (
             <div className="gs-rov-photo-item" key={index}>
-              <div className="gs-rov-photo-frame" aria-label={`ช่องติดรูปนักกีฬาคนที่ ${index + 1}`}>
+              <div className="gs-rov-photo-frame" aria-label={`รูปนักกีฬาคนที่ ${index + 1}`}>
+                {athletes[index]?.photo_url && <img src={athletes[index].photo_url!} alt={`รูป ${athletes[index].full_name}`} />}
                 <span>{index + 1}</span>
               </div>
               <p className="gs-rov-photo-signature">ลงชื่อ................................................</p>
@@ -157,9 +160,12 @@ export default function GroupSportsPrintPage() {
   const [application, setApplication] = useState<PrintedApplication | null>(null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
+  const [missingPhotos, setMissingPhotos] = useState<number | null>(null);
 
   useEffect(() => {
     let active = true;
+    // Blob URLs stay local in the reader's browser and are revoked on leave.
+    const ownedPhotoUrls: string[] = [];
     const fetchApplication = async () => {
       try {
         const entryId = new URLSearchParams(window.location.search).get("entry")?.trim() || "";
@@ -219,6 +225,18 @@ export default function GroupSportsPrintPage() {
           ign: person.ign || null,
           play_position: person.play_position || null,
         }));
+        // Download photos through authenticated Storage RLS. No public URLs are
+        // generated, and only RoV official two-page forms display photos.
+        if (ROV_CODES.has(eventResult.data.event_code || "")) {
+          await Promise.all(athletes.slice(0, 7).map(async (person, index) => {
+            const url = await downloadRovPhoto(entryId, index, person).catch(() => null);
+            if (url) {
+              ownedPhotoUrls.push(url);
+              person.photo_url = url;
+            }
+          }));
+          if (active) setMissingPhotos(athletes.slice(0, 7).filter(person => !person.photo_url).length);
+        }
         if (!active) return;
         setApplication({
           entry: { id: entry.id, entry_name: entry.entry_name, coach_name: entry.coach_name,
@@ -238,7 +256,10 @@ export default function GroupSportsPrintPage() {
       }
     };
     void fetchApplication();
-    return () => { active = false; };
+    return () => {
+      active = false;
+      for (const url of ownedPhotoUrls) URL.revokeObjectURL(url);
+    };
   }, []);
 
   const isRov = application ? ROV_CODES.has(application.event.event_code || "") : false;
@@ -247,7 +268,7 @@ export default function GroupSportsPrintPage() {
       <div className="gs-print-toolbar" aria-label="เครื่องมือพิมพ์ใบสมัคร">
         <Link href="/group-sports" className="gs-print-back">← กลับสู่ระบบกีฬากลุ่ม</Link>
         <div className="gs-print-toolbar-actions">
-          <span className="gs-print-instruction">เลือกเครื่องพิมพ์หรือ “Save as PDF” ในหน้าต่างพิมพ์</span>
+          <span className="gs-print-instruction">{isRov && missingPhotos !== null && missingPhotos > 0 ? `ยังไม่มีรูป ${missingPhotos} คน · กรอบที่ไม่มีรูปจะเว้นว่าง` : "เลือกเครื่องพิมพ์หรือ Save as PDF ในหน้าต่างพิมพ์"}</span>
           <button type="button" disabled={!application} onClick={() => window.print()} className="gs-print-button">
             พิมพ์ / บันทึก PDF
           </button>

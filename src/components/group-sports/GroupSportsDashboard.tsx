@@ -4,6 +4,8 @@ import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
+import RovPhotoManager from "@/components/group-sports/RovPhotoManager";
+import { uploadRovPhoto, verifyPhotoFile } from "@/lib/group-sports/rov-photos";
 import { FormEvent, useCallback, useEffect, useMemo, useState, type ReactElement, type SVGProps } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
@@ -291,6 +293,16 @@ function validateAthletes(event: SportEvent, athletes: AthleteInput[], individua
   return "";
 }
 
+function SelectedAthletePhoto({ file }: { file: File }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    const objectUrl = URL.createObjectURL(file);
+    setUrl(objectUrl);
+    return () => URL.revokeObjectURL(objectUrl);
+  }, [file]);
+  return url ? <img src={url} alt="ตัวอย่างรูปถ่ายที่เลือก" className="h-16 w-12 rounded border border-slate-200 object-cover"/> : null;
+}
+
 export default function GroupSportsDashboard() {
   const [tab, setTab] = useState<TabKey>("overview");
   const [sportsMenuOpen, setSportsMenuOpen] = useState(false);
@@ -320,6 +332,7 @@ export default function GroupSportsDashboard() {
 
   const [coaches,setCoaches] = useState<Coach[]>([{name:"",phone:""}]);
   const [players,setPlayers] = useState<AthleteInput[]>([blankPlayer()]);
+  const [photoFiles,setPhotoFiles] = useState<Record<number,File>>({});
   const [rosterImportBusy,setRosterImportBusy] = useState(false);
   const [rosterImportPreview,setRosterImportPreview] = useState<{fileName:string;athletes:ImportedAthlete[]} | null>(null);
   const [editEntry,setEditEntry] = useState<Entry | null>(null);
@@ -680,7 +693,22 @@ export default function GroupSportsDashboard() {
         const saved = {...payload,id:id!,assistant_coach:assistant,coaches:normalizedCoaches,athlete_count:athletes.length} as Entry;
         setEntries(current=>[saved,...current.filter(row=>row.id!==id)]);
       }
+      // Save the actual entry first; photos must never create duplicate registrations.
+      // A failed image does not roll back a valid registration; the school may retry
+      // from "ดูรายชื่อ → แนบรูป" on the saved application.
+      let failedPhotos: string[] = [];
+      if (!isDemo && id && isRov(sportEvent) && Object.keys(photoFiles).length) {
+        for (const [row, file] of Object.entries(photoFiles)) {
+          const index = Number(row);
+          const athlete = athletes[index];
+          if (!athlete) continue;
+          try { await uploadRovPhoto(id, index, athlete, file); }
+          catch (cause) { failedPhotos.push(`${index + 1}: ${cause instanceof Error ? cause.message : "ไม่ทราบสาเหตุ"}`); }
+        }
+      }
+      setPhotoFiles({});
       setEditEntry(null); setDetail(null); setRosterImportPreview(null);
+      if (failedPhotos.length) setError(`บันทึกใบสมัครสำเร็จ แต่ยังแนบรูปบางคนไม่ได้ (${failedPhotos.join("; ")}) กรุณาเปิด “ดูรายชื่อ” เพื่อแนบรูปอีกครั้ง`);
       setNotice(individualBatch ? `${isDemo ? "นำเข้าในโหมดสาธิต" : "ส่งข้อมูลลงทะเบียน"}กีฬาเดี่ยว ${batchSaved.length} คน (แยกใบสมัครรายคน) เรียบร้อยแล้ว` : isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "ส่งข้อมูลลงทะเบียนเรียบร้อยแล้ว");
       setFormOpen(false);
     } catch (err) {
@@ -707,7 +735,7 @@ export default function GroupSportsDashboard() {
         list=data.players as AthleteInput[];staff=data.coaches || staff;
       }
       if(edit) {
-        setCoaches(staff.length?staff:[{name:"",phone:""}]);setEditEntry(entry);setEventChoice(entry.event_id);setPlayers(list.length?list.map(editPlayerName):[blankPlayer()]);setRosterImportPreview(null);setFormOpen(true);
+        setCoaches(staff.length?staff:[{name:"",phone:""}]);setEditEntry(entry);setEventChoice(entry.event_id);setPlayers(list.length?list.map(editPlayerName):[blankPlayer()]);setRosterImportPreview(null);setPhotoFiles({});setFormOpen(true);
         window.scrollTo({top:0,behavior:"smooth"});
       } else setDetail({entry:{...entry,coaches:staff},players:list});
     } catch(err) {setError(err instanceof Error?err.message:"เปิดรายชื่อไม่สำเร็จ");}
@@ -914,6 +942,7 @@ export default function GroupSportsDashboard() {
                 ? Array.from({length:5},(_,i)=>({...blankPlayer(),team_role:i===0?"หัวหน้าทีม":"ตัวจริง"}))
                 : [blankPlayer()]);
               setCoaches([{name:"",phone:""}]);
+              setPhotoFiles({});
             }
             setEventChoice(id);
           }}><option value="" disabled>เลือกรายการแข่งขัน</option>{events.filter(item => !editEntry || item.id===editEntry.event_id).map(item => <option key={item.id} value={item.id}>{item.sport_name}{!acceptsNewEntries(item) ? ` · ${statusLabel(item.status)}` : ""}</option>)}</select></label>
@@ -975,6 +1004,7 @@ export default function GroupSportsDashboard() {
                 <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600" onClick={()=>setRosterImportPreview(null)}>ยกเลิก</button>
                 <button type="button" disabled={busy} className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" onClick={()=>{
                   setPlayers(rosterImportPreview.athletes);
+                  setPhotoFiles({});
                   setRosterImportPreview(null);
                   setNotice("นำเข้ารายชื่อนักกีฬาในแบบฟอร์มแล้ว กรุณาตรวจสอบอีกครั้งและกดส่งข้อมูลลงทะเบียนเพื่อบันทึก");
                 }}>ใช้รายชื่อ {rosterImportPreview.athletes.length} คนแทนรายชื่อในฟอร์ม</button>
@@ -1002,7 +1032,26 @@ export default function GroupSportsDashboard() {
             <label className="text-xs">ชื่อในเกม (IGN) *<input required className={inputClass} value={player.ign||""} onChange={e=>setPlayers(rows=>rows.map((p,j)=>j===i?{...p,ign:e.target.value}:p))}/></label>
             <label className="text-xs">ตำแหน่งที่เล่น<select className={inputClass} value={player.play_position||""} onChange={e=>setPlayers(rows=>rows.map((p,j)=>j===i?{...p,play_position:e.target.value}:p))}><option value="">ไม่ระบุ</option>{ROV_PLAY_POSITIONS.map(r=><option key={r}>{r}</option>)}</select></label>
           </div>}
-          <button type="button" disabled={players.length===1} className="mt-2 rounded-lg px-2 py-1 text-sm font-bold text-red-700 hover:bg-red-50" onClick={()=>setPlayers(rows=>rows.filter((_,j)=>j!==i))}>ลบ</button>
+          {isRov(chosenEvent) && <div className="mt-3 flex flex-wrap items-center gap-3 rounded-lg border border-rose-200 bg-white p-3">
+            <span className="text-xs font-bold text-red-900">รูปถ่ายนักกีฬา (ไม่บังคับ)</span>
+            <label className="cursor-pointer rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-red-900">
+              {photoFiles[i] ? "เปลี่ยนรูป" : "เลือกรูป JPG / PNG / WebP"}
+              <input type="file" className="sr-only" accept="image/jpeg,image/png,image/webp" onChange={event => {
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
+                if (!file) return;
+                try { verifyPhotoFile(file); setRegistrationError(""); setPhotoFiles(previous => ({ ...previous, [i]: file })); }
+                catch (cause) { setRegistrationError(cause instanceof Error ? cause.message : "ไฟล์รูปไม่ถูกต้อง"); }
+              }}/>
+            </label>
+            {photoFiles[i] && <SelectedAthletePhoto file={photoFiles[i]}/>}
+            {photoFiles[i] && <span className="text-xs text-emerald-800">เลือกแล้ว: {photoFiles[i].name} (จะอัปโหลดหลังบันทึกใบสมัคร)</span>}
+            {photoFiles[i] && <button type="button" className="text-xs font-bold text-red-700 underline" onClick={()=>setPhotoFiles(previous=>{ const next = {...previous}; delete next[i]; return next; })}>นำรูปออก</button>}
+          </div>}
+          <button type="button" disabled={players.length===1} className="mt-2 rounded-lg px-2 py-1 text-sm font-bold text-red-700 hover:bg-red-50" onClick={()=>{
+            setPlayers(rows=>rows.filter((_,j)=>j!==i));
+            setPhotoFiles(previous=>Object.fromEntries(Object.entries(previous).filter(([key])=>Number(key)!==i).map(([key,file])=>[Number(key)>i?Number(key)-1:Number(key),file])));
+          }}>ลบ</button>
         </div>)}
         {registrationError && <div id="sports-registration-error" role="alert" tabIndex={-1} className="mt-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">
           <strong className="block">ยังส่งข้อมูลลงทะเบียนไม่ได้</strong>{registrationError}
@@ -1066,7 +1115,7 @@ export default function GroupSportsDashboard() {
   const openNewRegistration = () => {
     setEditEntry(null);
     setDetail(null);
-    setRosterImportPreview(null);
+    setRosterImportPreview(null);setPhotoFiles({});
     setPlayers([blankPlayer()]);
     setCoaches([{name:"",phone:""}]);
     setEventChoice("");
@@ -1347,6 +1396,7 @@ export default function GroupSportsDashboard() {
                 {detail && <section className="mt-4 rounded-xl border bg-rose-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><strong>รายชื่อ · {detail.entry.entry_name}</strong><div className="flex items-center gap-3">{!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(detail.entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800">พิมพ์ / บันทึก PDF</Link>}<button onClick={()=>setDetail(null)}>ปิด</button></div></div>
                   {detail.entry.coaches?.length ? detail.entry.coaches.map((c,i)=><p key={i}>ครูผู้ควบคุมทีม {i+1} · {c.name} {c.phone}</p>) : <p>ผู้ฝึกสอน {detail.entry.coach_name||"—"} {detail.entry.assistant_coach && ` · ผู้ช่วย ${detail.entry.assistant_coach}`}</p>}
                   <ol className="my-3 list-decimal pl-6">{detail.players.map((p,i)=><li key={i}>{[p.student_code,p.full_name,...(isRov(eventById.get(detail.entry.event_id)) ? [p.team_role,p.ign,p.play_position] : [])].filter(Boolean).join(" · ")}</li>)}</ol>
+                  {!isDemo && isRov(eventById.get(detail.entry.event_id)) && canManageSchool && <RovPhotoManager entryId={detail.entry.id} athletes={detail.players} />}
                   {rosterAdmin && detail.entry.status==="submitted" && <div className="flex flex-wrap gap-2"><input className="rounded-lg border bg-white p-2" aria-label="เหตุผลที่ส่งคืน" placeholder="เหตุผลที่ส่งคืน" value={reason} onChange={e=>setReason(e.target.value)}/><button className="rounded-lg bg-amber-100 p-2" disabled={busy||!reason.trim()} onClick={()=>void updateEntryStatus(detail.entry.id,"rejected")}>ส่งคืนให้แก้ไข</button><button className="rounded-lg bg-emerald-700 p-2 text-white" disabled={busy} onClick={()=>void updateEntryStatus(detail.entry.id,"approved")}>อนุมัติ</button></div>}
                 </section>}
               </section>
