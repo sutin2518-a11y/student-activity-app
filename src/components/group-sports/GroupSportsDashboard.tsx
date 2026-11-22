@@ -3,6 +3,7 @@
 import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
+import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
@@ -112,7 +113,7 @@ type AthleteInput = {
   gender: string | null;
 };
 
-type TabKey = "overview" | "submissions" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals";
+type TabKey = "overview" | "submissions" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals" | "accounts";
 type UserRole = { role: string; school_id?: string | null; competition_id?: string | null };
 
 const DEMO_COMPETITION: Competition = {
@@ -180,6 +181,7 @@ const tabs: { key: TabKey; label: string; colorClass: string; activeRing: string
   { key: "matches", label: "โปรแกรม / ผล", colorClass: "border-cyan-700 bg-gradient-to-br from-cyan-600 via-sky-700 to-blue-900", activeRing: "ring-cyan-200" },
   { key: "standings", label: "ตารางคะแนน", colorClass: "border-lime-700 bg-gradient-to-br from-lime-600 via-green-700 to-emerald-900", activeRing: "ring-lime-200" },
   { key: "medals", label: "เหรียญรางวัล", colorClass: "border-amber-600 bg-gradient-to-br from-yellow-500 via-amber-600 to-orange-800", activeRing: "ring-amber-200" },
+  { key: "accounts", label: "บัญชีโรงเรียน", colorClass: "border-fuchsia-700 bg-gradient-to-br from-fuchsia-500 via-pink-600 to-rose-700", activeRing: "ring-fuchsia-200" },
 ];
 
 function makeId(prefix: string) {
@@ -289,6 +291,7 @@ export default function GroupSportsDashboard() {
   const canManageCompetition = isDemo || isAdmin || roles.some((role) => role.role === "competition_admin" && (!role.competition_id || role.competition_id === competition?.id));
   const canManageSchool = rosterAdmin || roles.some((role) => role.role === "school_manager" && (!role.competition_id || role.competition_id === competition?.id));
   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
+  const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
   const entrySchools = rosterAdmin
     ? schools
     : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
@@ -302,7 +305,7 @@ export default function GroupSportsDashboard() {
       let profileRole = "";
       let roleRows: UserRole[] = [];
       if (user) {
-        setUserEmail(user.email || "");
+        setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
         const [profileResult, roleResult] = await Promise.all([
           supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
           supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
@@ -995,7 +998,7 @@ export default function GroupSportsDashboard() {
             <Link href="/" className="text-sm font-semibold text-blue-100 transition hover:text-white">← กลับสู่ระบบกิจกรรม</Link>
             <div className="flex items-center gap-2 text-xs">
               {isDemo ? <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-bold text-amber-200">โหมดสาธิต · ข้อมูลตัวอย่าง</span> : <span className="rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1.5 font-bold text-emerald-200">เชื่อมต่อฐานข้อมูล</span>}
-              {userEmail && <span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-blue-100 sm:inline">{userEmail}</span>}
+              {userEmail ? <><span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-blue-100 sm:inline">{userEmail}</span><button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 font-semibold text-white hover:bg-white/20">ออกจากระบบ</button></> : <Link href="/group-sports/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-blue-900 hover:bg-blue-100">เข้าสู่ระบบโรงเรียน</Link>}
             </div>
           </div>
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
@@ -1014,9 +1017,9 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-5 grid grid-cols-2 gap-2.5 overflow-hidden rounded-[24px] border border-white/90 bg-gradient-to-r from-rose-50 via-sky-50 to-violet-50 px-3 pb-3 pt-4 shadow-[0_10px_28px_-16px_rgba(15,23,42,0.35)] sm:grid-cols-3 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-5 lg:grid-cols-5 2xl:grid-cols-9">
+        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-5 grid grid-cols-2 gap-2.5 overflow-hidden rounded-[24px] border border-white/90 bg-gradient-to-r from-rose-50 via-sky-50 to-violet-50 px-3 pb-3 pt-4 shadow-[0_10px_28px_-16px_rgba(15,23,42,0.35)] sm:grid-cols-3 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-5 lg:grid-cols-5 2xl:grid-cols-10">
           <div aria-hidden="true" className="pointer-events-none absolute inset-x-5 top-0 h-1 rounded-b-full bg-gradient-to-r from-pink-500 via-amber-400 via-emerald-400 via-sky-500 to-violet-500" />
-          {tabs.map((item) => {
+          {tabs.filter(item => item.key !== "accounts" || canManageAccounts).map((item) => {
             const isActive = tab === item.key;
             return (
               <button
@@ -1050,6 +1053,7 @@ export default function GroupSportsDashboard() {
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
         ) : (
           <>
+            {tab === "accounts" && canManageAccounts && <SchoolAccountsManager />}
             {tab === "submissions" && <SchoolSubmissionsContent embedded />}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && (

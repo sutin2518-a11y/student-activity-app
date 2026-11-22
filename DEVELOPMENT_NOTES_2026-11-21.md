@@ -116,3 +116,14 @@
 - ไม่มีการเปลี่ยน SQL migration/API หรือจำนวนผู้เล่นของกีฬา; ไม่ต้องรัน Migration ใหม่
 - ตรวจ syntax TS/TSX 55 ไฟล์ และ type check โมดูลเพิ่ม dropdown; ทดสอบ ZIP CRC/ไฟล์ XML และการมีช่วง dropdown C/E/G รวมถึงการนำเข้า `Mid` เก่าและปฏิเสธ `นาง` ผ่านแล้ว
 - ยังไม่ทดสอบ production build หรือ Supabase จริงตามข้อจำกัด dependencies ของ source ที่แนบมา
+
+## 2026-11-22 — v7: โรงเรียนเข้าสู่ระบบกีฬากลุ่มด้วย Username / Password
+
+- เพิ่มหน้า `/group-sports/login` แยกจากระบบกิจกรรมที่ใช้ Google Workspace
+- เพิ่มเมนู Admin เท่านั้น `บัญชีโรงเรียน` ใน Dashboard เดิม เพื่อสร้าง/รีเซ็ต/ปิดและเปิดบัญชี
+- เพิ่ม API `/api/group-sports/login`, `/api/group-sports/school-accounts`, `/api/group-sports/school-accounts/[id]`
+- Auth ใช้ Supabase Password ภายใน โดย Username ไม่แสดงอีเมลและมี server-side mapping ที่อ่านได้เฉพาะ Service Role
+- เพิ่ม Migration `202611220012_sports_school_accounts.sql` รวมตาราง mapping, RLS/GRANT, rate limit พื้นฐาน
+- ไม่เปลี่ยน Google Workspace login และบังคับให้ข้อมูลกีฬากลุ่มใช้ role `school_manager` พร้อม school_id ที่ผูกกับบัญชี
+- คู่มือติดตั้ง `README_SPORTS_SCHOOL_LOGIN_V7.md`
+- ผ่าน syntax check TypeScript/TSX 61 ไฟล์; npm ci ล้มเหลวจาก network EAI_AGAIN จึงยังไม่ได้ทดสอบ production build หรือ DB จริง

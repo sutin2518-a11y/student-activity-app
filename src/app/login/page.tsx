@@ -84,7 +84,7 @@ export default function LoginPage() {
           </button>
           <p className="text-center text-xs text-slate-500">ไม่ต้องใช้รหัสผ่าน 12345678 หรือสมัครบัญชีด้วยตนเอง</p>
           <div className="border-t border-slate-100 pt-4 text-center">
-            <Link href="/" className="text-xs font-semibold text-slate-600 hover:text-red-700">← กลับไปหน้าหลัก</Link>
+            <div className="flex flex-col items-center gap-3"><Link href="/group-sports/login" className="rounded-lg bg-blue-50 px-4 py-2 text-xs font-bold text-blue-800 hover:bg-blue-100">โรงเรียนที่เข้าร่วมกีฬากลุ่ม · ใช้ Username / Password</Link><Link href="/" className="text-xs font-semibold text-slate-600 hover:text-red-700">← กลับไปหน้าหลัก</Link></div>
           </div>
         </div>
       </div>
