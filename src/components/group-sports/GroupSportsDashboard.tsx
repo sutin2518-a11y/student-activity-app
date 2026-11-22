@@ -201,16 +201,25 @@ const DEMO_MEDALS: Medal[] = [
   { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
 ];
 
-// Compact, monochrome line icons matching the supplied reference design.
-const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-[#d3e1f6] bg-[#edf4ff] px-1.5 py-2 text-center shadow-[0_2px_7px_rgba(30,58,95,0.06)] transition-all duration-200 hover:border-[#91b6e9] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b2a60] active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none";
-const tabs: { key: TabKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
+// Compact monochrome navigation. The three competition views share one animated menu.
+// Keep the active/inactive background colours in exclusive class branches so Tailwind
+// does not accidentally put white text on a light background.
+const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border px-1.5 py-2 text-center transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b2a60] active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none";
+const sportsMenuActive = "border-[#153d7a] bg-[#102d63] text-white ring-[3px] ring-[#8bb8f4]/75 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(15,46,103,0.18),0_0_18px_rgba(59,130,246,0.3)]";
+const sportsMenuInactive = "border-[#d3e1f6] bg-[#edf4ff] text-[#0c2858] shadow-[0_2px_7px_rgba(30,58,95,0.06)] hover:border-[#91b6e9] hover:bg-[#e5f0ff] hover:shadow-md";
+type SportsManagementTab = "schedule" | "events" | "matches";
+type NavKey = Exclude<TabKey, SportsManagementTab> | "sports";
+const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
+  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
+  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
+  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon },
+];
+const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
   { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon },
-  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
+  { key: "sports", label: "จัดการแข่งขัน", icon: CalendarGearIcon },
   { key: "schools", label: "โรงเรียน", icon: SchoolIcon },
-  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
   { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon },
-  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon },
   { key: "standings", label: "ตารางคะแนน", icon: BarChartIcon },
   { key: "medals", label: "เหรียญรางวัล", icon: MedalIcon },
   { key: "accounts", label: "บัญชีโรงเรียน", icon: UserShieldIcon },
@@ -283,6 +292,7 @@ function validateAthletes(event: SportEvent, athletes: AthleteInput[], individua
 
 export default function GroupSportsDashboard() {
   const [tab, setTab] = useState<TabKey>("overview");
+  const [sportsMenuOpen, setSportsMenuOpen] = useState(false);
   const [scheduleView, setScheduleView] = useState<"schedule" | "events">("schedule");
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
@@ -1049,31 +1059,83 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-4 overflow-hidden rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
-          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-10 xl:overflow-visible">
-          {tabs.map((item) => {
-            const isActive = tab === item.key;
-            const Icon = item.icon;
-            return (
-              <button
-                key={item.key}
-                type="button"
-                aria-current={isActive ? "page" : undefined}
-                aria-pressed={isActive}
-                onClick={() => {
-                  setTab(item.key);
-                  if (item.key === "schedule") setScheduleView("schedule");
-                  setFormOpen(false);
-                  setError("");
-                }}
-                className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? "border-[#0f2e67] bg-[#0f2e67] text-white shadow-[0_6px_14px_rgba(15,46,103,0.25)]" : "text-[#0c2858]"}`}
-              >
-                <Icon className={`h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#0c2858]"}`} />
-                <span className={`line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#0c2858]"}`}>{item.label}</span>
-                {isActive && <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-[3px] w-9 -translate-x-1/2 rounded-full bg-yellow-400" />}
-              </button>
-            );
-          })}
+        <nav aria-label="เมนูกีฬากลุ่ม" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
+            {tabs.map((item) => {
+              const isSportsGroup = item.key === "sports";
+              const isActive = isSportsGroup ? sportsSubTabs.some((sub) => sub.key === tab) : tab === item.key;
+              const Icon = item.icon;
+              return (
+                <button
+                  key={item.key}
+                  type="button"
+                  aria-current={isActive && !isSportsGroup ? "page" : undefined}
+                  aria-pressed={isActive && !isSportsGroup}
+                  aria-expanded={isSportsGroup ? sportsMenuOpen : undefined}
+                  aria-controls={isSportsGroup ? "sports-management-submenu" : undefined}
+                  onClick={() => {
+                    if (isSportsGroup) {
+                      setSportsMenuOpen((open) => !open);
+                      return;
+                    }
+                    setSportsMenuOpen(false);
+                    setTab(item.key as TabKey);
+                    setFormOpen(false);
+                    setError("");
+                  }}
+                  className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
+                >
+                  {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent motion-safe:animate-pulse" />}
+                  <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#0c2858]"}`} />
+                  <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#0c2858]"}`}>{item.label}</span>
+                  {isSportsGroup && (
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${sportsMenuOpen ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
+                      <path d="m6 9 6 6 6-6" />
+                    </svg>
+                  )}
+                  {isActive && <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-[3px] w-10 -translate-x-1/2 rounded-full bg-amber-300 shadow-[0_0_9px_rgba(253,230,138,0.85)]" />}
+                </button>
+              );
+            })}
+          </div>
+
+          <div
+            id="sports-management-submenu"
+            aria-hidden={!sportsMenuOpen}
+            className={`grid origin-top transition-[grid-template-rows,opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"}`}
+          >
+            <div className="min-h-0 overflow-hidden">
+              <div className="mt-2 rounded-xl border border-blue-100 bg-gradient-to-b from-[#f5f9ff] to-white p-2 shadow-[inset_0_1px_3px_rgba(29,78,216,0.05)] sm:p-3">
+                <p className="mb-2 px-1 text-xs font-bold text-[#153d7a]">เลือกเมนูจัดการแข่งขัน</p>
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {sportsSubTabs.map((sub) => {
+                    const SubIcon = sub.icon;
+                    const selected = tab === sub.key;
+                    return (
+                      <button
+                        key={sub.key}
+                        type="button"
+                        tabIndex={sportsMenuOpen ? 0 : -1}
+                        aria-current={selected ? "page" : undefined}
+                        onClick={() => {
+                          if (!sportsMenuOpen) return;
+                          setTab(sub.key);
+                          if (sub.key === "schedule") setScheduleView("schedule");
+                          setSportsMenuOpen(false);
+                          setFormOpen(false);
+                          setError("");
+                        }}
+                        className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-extrabold transition-[background-color,color,border-color,box-shadow,transform] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 motion-reduce:transition-none ${selected ? "border-[#153d7a] bg-[#153d7a] text-white shadow-[0_3px_14px_rgba(21,61,122,0.22)]" : "border-[#d3e1f6] bg-white text-[#0c2858] hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"}`}
+                      >
+                        <SubIcon className="h-6 w-6 shrink-0" />
+                        <span>{sub.label}</span>
+                        {selected && <span className="h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(253,230,138,0.8)]" aria-hidden="true" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
           </div>
         </nav>
 
