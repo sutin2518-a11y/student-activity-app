@@ -1063,19 +1063,32 @@ export default function GroupSportsDashboard() {
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
-              const isActive = isSportsGroup ? sportsSubTabs.some((sub) => sub.key === tab) : tab === item.key;
+              // Highlight the parent while its menu is open or any competition view is selected.
+              const isActive = isSportsGroup ? (sportsMenuOpen || sportsSubTabs.some((sub) => sub.key === tab)) : tab === item.key;
               const Icon = item.icon;
               return (
                 <button
                   key={item.key}
                   type="button"
                   aria-current={isActive && !isSportsGroup ? "page" : undefined}
-                  aria-pressed={isActive && !isSportsGroup}
+                  aria-pressed={isActive}
                   aria-expanded={isSportsGroup ? sportsMenuOpen : undefined}
                   aria-controls={isSportsGroup ? "sports-management-submenu" : undefined}
                   onClick={() => {
                     if (isSportsGroup) {
-                      setSportsMenuOpen((open) => !open);
+                      // Opening from another section must also change the content:
+                      // otherwise the old page (e.g. โรงเรียน) stays visible beneath the menu.
+                      const alreadyInSports = sportsSubTabs.some((sub) => sub.key === tab);
+                      if (!alreadyInSports) {
+                        setTab("schedule");
+                        setScheduleView("schedule");
+                        setFormOpen(false);
+                        setError("");
+                        setSportsMenuOpen(true);
+                      } else {
+                        // Once inside the group, a second click only opens/closes its submenu.
+                        setSportsMenuOpen((open) => !open);
+                      }
                       return;
                     }
                     setSportsMenuOpen(false);
