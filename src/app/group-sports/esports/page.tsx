@@ -530,7 +530,7 @@ export default function EsportsPage() {
     <header className="no-print bg-gradient-to-r from-slate-950 via-[#17264b] to-slate-900 text-white">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports" className="text-sm font-bold text-rose-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-rose-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
+          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports?section=results" className="text-sm font-bold text-rose-200 hover:text-white">← กลับหน้าผลการแข่งขัน</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-rose-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
           <div className="text-xs text-rose-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
         </div>
         <p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>

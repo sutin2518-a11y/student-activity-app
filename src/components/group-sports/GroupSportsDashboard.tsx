@@ -220,7 +220,7 @@ type NavKey = Exclude<TabKey, SportsManagementTab | "submissions"> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
   { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
-  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon },
+  { key: "matches", label: "ผลการแข่งขัน", icon: CalendarCheckIcon },
 ];
 const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
@@ -280,6 +280,23 @@ function acceptsNewEntries(event: SportEvent) {
 }
 const blankPlayer = (): AthleteInput => ({ student_code: "", full_name: "", grade_level: null, gender: null });
 const isRov = (event?: SportEvent) => ["GS3-ES-SM", "GS3-ES-SF"].includes(event?.event_code || "");
+
+// Results are grouped by sport, not by every age/sex/event variation.
+// A dedicated management screen (currently RoV) is linked from this same hub.
+const RESULT_SPORT_NAMES = [
+  "วอลเลย์บอลชายหาด", "มวยสากลสมัครเล่น", "เซปักตะกร้อ", "ตะกร้อลอดห่วง",
+  "เทเบิลเทนนิส", "บาสเกตบอล", "วอลเลย์บอล", "แบดมินตัน", "ฟุตซอล",
+  "ฟุตบอล", "เปตอง", "กรีฑา", "ว่ายน้ำ", "แฮนด์บอล", "เทนนิส",
+  "เทควันโด", "มวยไทย", "ยูโด", "จักรยาน", "หมากรุกไทย", "หมากฮอส",
+  "ฟุตวอลเลย์", "ปิงปอง", "จานร่อน", "ชักเย่อ", "กระบี่กระบอง",
+];
+function resultSportName(event: SportEvent): string {
+  if (isRov(event) || /e[ -]?sport|rov|อีสปอร์ต/i.test(event.sport_name)) return "E-Sport (RoV)";
+  if (event.event_type === "athletics" || /^(วิ่ง|กระโดด|ขว้าง|ทุ่ม|พุ่ง)/.test(event.sport_name)) return "กรีฑา";
+  const name = event.sport_name.trim();
+  return RESULT_SPORT_NAMES.find((sport) => name.startsWith(sport)) || name.replace(/(ชาย|หญิง|ผสม|รุ่น|อายุ|ม\.[ต้นปลาย1-6]).*$/u, "").trim() || name;
+}
+
 
 function validateAthletes(event: SportEvent, athletes: AthleteInput[], individualBatch = false) {
   if (!athletes.length) return "กรุณากรอกรายชื่อนักกีฬาอย่างน้อย 1 คน";
@@ -376,6 +393,8 @@ export default function GroupSportsDashboard() {
   const [registrationError, setRegistrationError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState("all");
+  const [resultSportFilter, setResultSportFilter] = useState("all");
+  const [resultEventFilter, setResultEventFilter] = useState("all");
   const [resultMatchId, setResultMatchId] = useState("");
   const [resultScoreA, setResultScoreA] = useState("0");
   const [resultScoreB, setResultScoreB] = useState("0");
@@ -507,6 +526,11 @@ export default function GroupSportsDashboard() {
     void loadData();
   }, [loadData]);
 
+  // Deep link for committees returning from specialist sport pages.
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("section") === "results") setTab("matches");
+  }, []);
+
   // The registration form is above the saved applications. After a user clicks
   // "ดูรายชื่อ" / "แนบรูปใบสมัครเดิม", reveal the result (or error) right away.
   useEffect(() => {
@@ -528,6 +552,29 @@ export default function GroupSportsDashboard() {
   const schoolById = useMemo(() => new Map(schools.map((school) => [school.id, school])), [schools]);
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
   const resultByMatch = useMemo(() => new Map(results.map((result) => [result.match_id, result])), [results]);
+  const resultSportGroups = useMemo(() => {
+    const groups = new Map<string, SportEvent[]>();
+    for (const event of events) {
+      if (resultSportName(event) === "E-Sport (RoV)") continue; // separate existing RoV system
+      const name = resultSportName(event);
+      groups.set(name, [...(groups.get(name) || []), event]);
+    }
+    return [...groups.entries()].map(([name, sportEvents]) => ({ name, events: sportEvents }))
+      .sort((a, b) => a.name.localeCompare(b.name, "th"));
+  }, [events]);
+  const filteredResultEvents = useMemo(() => events.filter((event) =>
+    resultSportName(event) !== "E-Sport (RoV)" &&
+    (resultSportFilter === "all" || resultSportName(event) === resultSportFilter)
+  ), [events, resultSportFilter]);
+  const filteredResultMatches = useMemo(() => {
+    const ids = new Set(filteredResultEvents.filter((event) => resultEventFilter === "all" || event.id === resultEventFilter).map((event) => event.id));
+    return matches.filter((match) => ids.has(match.event_id));
+  }, [matches, filteredResultEvents, resultEventFilter]);
+  const filteredIndividualResults = useMemo(() => {
+    const ids = new Set(filteredResultEvents.filter((event) => resultEventFilter === "all" || event.id === resultEventFilter).map((event) => event.id));
+    return eventResults.filter((result) => ids.has(result.event_id)).sort((a,b) => (a.rank ?? 999) - (b.rank ?? 999));
+  }, [eventResults, filteredResultEvents, resultEventFilter]);
+
 
   const medalTable = useMemo(() => {
     const rows = schools.map((school) => {
@@ -1217,7 +1264,7 @@ export default function GroupSportsDashboard() {
   const headerAction = () => {
     if (tab === "schools" && (isDemo || isAdmin)) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโรงเรียน</button>;
     if (tab === "events" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มรายการ</button>;
-    if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโปรแกรม</button>;
+    if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มคู่แข่งขัน</button>;
     if (tab === "standings" && canRecordResults) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกผลเดี่ยว / กรีฑา</button>;
     if (tab === "medals" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกเหรียญ</button>;
     return null;
@@ -1507,7 +1554,7 @@ export default function GroupSportsDashboard() {
                   </div>
                 </section>
                 <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => setTab("matches")} className="text-xs font-bold text-red-700">ดูโปรแกรมทั้งหมด →</button></div>
+                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => {setScheduleView("schedule");setTab("schedule");}} className="text-xs font-bold text-red-700">ดูโปรแกรมทั้งหมด →</button></div>
                   <MatchTable matches={matches.slice(0, 5)} schools={schoolById} events={eventById} results={resultByMatch} />
                 </section>
               </>
@@ -1583,10 +1630,41 @@ export default function GroupSportsDashboard() {
 
             {tab === "matches" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โปรแกรมและผลการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">จัดสาย รอบ วันเวลา สนาม และบันทึกคะแนน</p></div><span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">เสร็จสิ้น {completedMatches.length} / {matches.length} แมตช์</span></div>
-                <MatchTable matches={matches} schools={schoolById} events={eventById} results={resultByMatch} />
-                {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{matches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
-                {!matches.length && <EmptyState title="ยังไม่มีโปรแกรมการแข่งขัน" description="เพิ่มรายการแข่งขันและโรงเรียนก่อนจัดโปรแกรม" />}
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div><h2 className="text-xl font-black text-slate-900">ผลการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">เลือกชนิดกีฬาเพื่อดูผลและเข้าสู่ระบบจัดการแข่งขันเฉพาะกีฬา</p></div>
+                  <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">บันทึกผลแล้ว {completedMatches.length} / {matches.length} แมตช์</span>
+                </div>
+                <div className="mb-5 rounded-2xl border border-rose-100 bg-[#fffafa] p-4 sm:p-5">
+                  <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
+                    <div><h3 className="font-extrabold text-[#7f1d1d]">เลือกชนิดกีฬา</h3><p className="mt-1 text-xs text-slate-600">หน้าเดียวรวมทุกชนิดกีฬา · เลือกดูผลโดยไม่ต้องเปิดหน้าใหม่</p></div>
+                    <button type="button" onClick={() => {setResultSportFilter("all");setResultEventFilter("all");setResultMatchId("");}} className="rounded-xl border border-rose-200 bg-white px-3 py-2 text-xs font-bold text-red-800 hover:bg-rose-50">แสดงผลทุกกีฬา</button>
+                  </div>
+                  <Link href="/group-sports/esports" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-red-200 bg-white p-4 shadow-[0_3px_12px_rgba(127,29,29,.06)] transition hover:border-red-400 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700">
+                    <span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-100 text-2xl">🎮</span><span className="min-w-0"><span className="block font-extrabold text-[#7f1d1d]">E-Sport (RoV)</span><span className="mt-1 block text-xs text-slate-600">มีระบบจัดการแข่งขันแยก · แบ่งกลุ่ม บันทึกผล ตารางคะแนน และสาย Knockout</span></span></span>
+                    <span className="shrink-0 rounded-lg bg-[#991b1b] px-3 py-2 text-center text-xs font-bold text-white group-hover:bg-[#7f1d1d]">เข้าสู่ E-Sport ↗</span>
+                  </Link>
+                  <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                    {resultSportGroups.map((group) => {
+                      const isSelected = resultSportFilter === group.name;
+                      const ids = new Set(group.events.map((event) => event.id));
+                      const finished = matches.filter((match) => ids.has(match.event_id) && match.status === "completed").length;
+                      return <button key={group.name} type="button" aria-pressed={isSelected} onClick={() => {setResultSportFilter(group.name);setResultEventFilter("all");setResultMatchId("");}}
+                        className={`flex min-h-20 items-center justify-between gap-2 rounded-xl border p-3 text-left transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700 ${isSelected ? "border-red-300 bg-rose-100 text-[#7f1d1d]" : "border-slate-200 bg-white text-slate-800 hover:border-rose-300 hover:bg-rose-50"}`}>
+                        <span className="min-w-0"><span className="block text-sm font-extrabold">{group.name}</span><span className="mt-1 block text-xs opacity-75">{group.events.length} รายการ · มีผล {finished} คู่</span></span><span aria-hidden="true" className="shrink-0 text-lg text-red-800">›</span>
+                      </button>;
+                    })}
+                    {!resultSportGroups.length && <p className="rounded-xl border border-dashed border-rose-200 bg-white p-4 text-sm text-slate-500 sm:col-span-2">ชนิดกีฬาอื่นจะแสดงอัตโนมัติเมื่อมีรายการในระบบ</p>}
+                  </div>
+                </div>
+                <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3">
+                  <div className="min-w-0 flex-1"><p className="text-sm font-bold text-slate-900">{resultSportFilter === "all" ? "ผลการแข่งขันทุกชนิดกีฬา" : `ผลการแข่งขัน: ${resultSportFilter}`}</p><p className="text-xs text-slate-500">เลือกประเภทย่อยหรือรุ่นแข่งขันเพื่อดูผลเฉพาะรายการ</p></div>
+                  <label className="w-full sm:w-72"><span className="sr-only">กรองรายการแข่งขัน</span><select value={resultEventFilter} onChange={(event) => {setResultEventFilter(event.target.value);setResultMatchId("");}} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="all">ทุกรุ่น / ทุกประเภท</option>{filteredResultEvents.map((event) => <option key={event.id} value={event.id}>{event.sport_name} · {event.gender_rule} {event.level_rule}</option>)}</select></label>
+                </div>
+                {filteredResultMatches.length ? <MatchTable matches={filteredResultMatches} schools={schoolById} events={eventById} results={resultByMatch} /> : <EmptyState title="ยังไม่มีผลการแข่งขันประเภททีม" description="เมื่อกรรมการบันทึกผลการแข่งขัน ข้อมูลจะแสดงในส่วนนี้" />}
+                {filteredIndividualResults.length > 0 && <div className="mt-5 overflow-hidden rounded-xl border border-slate-200"><h3 className="bg-slate-50 px-4 py-3 font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="p-3">รายการ</th><th className="p-3">โรงเรียน</th><th className="p-3">นักกีฬา / ทีม</th><th className="p-3">อันดับ</th><th className="p-3">สถิติ</th></tr></thead><tbody>{filteredIndividualResults.map((result) => <tr key={result.id} className="border-b last:border-0"><td className="p-3 font-semibold">{eventById.get(result.event_id)?.sport_name || "-"}</td><td className="p-3">{schoolById.get(result.school_id)?.name || "-"}</td><td className="p-3">{result.entry_name}</td><td className="p-3 font-bold text-red-800">{result.rank || "-"}</td><td className="p-3">{result.performance_value ?? "-"} {result.performance_unit || ""}</td></tr>)}</tbody></table></div></div>}
+                {canRecordResults && <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3"><p className="text-xs text-rose-900">กรรมการที่ได้รับสิทธิ์สามารถบันทึกผลประเภททีมด้านล่าง หรือไปบันทึกผลกีฬาเดี่ยวและกรีฑาได้ ส่วน E-Sport ใช้ระบบแยกด้านบน</p><button type="button" className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-bold text-red-800 hover:bg-rose-100" onClick={() => {setTab("standings");setFormOpen(true);}}>บันทึกผลเดี่ยว / กรีฑา →</button></div>}
+                {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{filteredResultMatches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
+
               </section>
             )}
 
