@@ -311,6 +311,7 @@ export default function GroupSportsDashboard() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [registrationError, setRegistrationError] = useState("");
   const [formOpen, setFormOpen] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState("all");
   const [resultMatchId, setResultMatchId] = useState("");
@@ -577,7 +578,15 @@ export default function GroupSportsDashboard() {
 
   async function addEntry(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canManageSchool || !competition) return;
+    setRegistrationError("");
+    const showRegistrationError = (message: string) => {
+      setRegistrationError(message);
+      setError(message);
+      // The source form may be many screens tall when several players are imported.
+      // Keep failures beside the Submit button, not only at the top of the page.
+      window.requestAnimationFrame(() => document.getElementById("sports-registration-error")?.scrollIntoView({behavior:"smooth",block:"center"}));
+    };
+    if (!canManageSchool || !competition) return showRegistrationError("ไม่พบสิทธิ์ลงทะเบียนหรือข้อมูลการแข่งขัน กรุณาเข้าสู่ระบบอีกครั้ง");
     const form = new FormData(event.currentTarget);
     const eventId = String(form.get("event_id") || "");
     const schoolId = String(form.get("school_id") || "");
@@ -588,8 +597,10 @@ export default function GroupSportsDashboard() {
     const firstAthleteName = `${players[0]?.prefix || ""}${players[0]?.full_name.trim() || ""}`;
     const entryName = editEntry?.entry_name || (sportEvent?.event_type !== "team" && sportEvent?.max_athletes_per_entry === 1
       ? firstAthleteName : schoolName);
-    if (!sportEvent || !schoolId || !entryName) return setError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกรายชื่อนักกีฬา");
-    if (!editEntry && sportEvent.stage3_source != null && sportEvent.status !== "registration") return setError("รายการนี้ยังไม่เปิดรับสมัคร");
+    if (!sportEvent || !schoolId || !entryName) return showRegistrationError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกชื่อนักกีฬาให้ครบ");
+    if (rosterImportBusy) return showRegistrationError("กำลังอ่าน Excel กรุณารอให้ระบบตรวจรายชื่อให้เสร็จก่อน");
+    if (rosterImportPreview) return showRegistrationError("กรุณากด ‘ใช้รายชื่อในฟอร์ม’ หลังตรวจตัวอย่าง Excel ก่อนส่งลงทะเบียน");
+    if (!editEntry && sportEvent.stage3_source != null && sportEvent.status !== "registration") return showRegistrationError("รายการนี้ยังไม่เปิดรับสมัคร");
     const athletes = players.map(p=>({
       ...p,
       full_name:p.full_name.trim() ? (p.prefix || "") + p.full_name.trim() : "",
@@ -598,25 +609,31 @@ export default function GroupSportsDashboard() {
       grade_level: null,
       gender: null,
     }));
-    if (athletes.some(a=>!a.full_name)) return setError("กรุณากรอกชื่อผู้เล่นทุกแถว");
-    if (isRov(sportEvent) && (athletes.length<5 || athletes.length>7)) return setError("RoV ต้องมีผู้เล่นหลัก 5 คน และสามารถเพิ่มตัวสำรองได้อีกไม่เกิน 2 คน (ไม่บังคับ)");
+    const invalidPrefix = players.findIndex(player => !namePrefixes.includes((player.prefix || "").trim()));
+    if (invalidPrefix !== -1) return showRegistrationError(`นักกีฬาคนที่ ${invalidPrefix + 1}: กรุณาเลือกคำนำหน้าชื่อ (เด็กชาย/เด็กหญิง/นาย/นางสาว)`);
+    const missingName = players.findIndex(player => !player.full_name.trim());
+    if (missingName !== -1) return showRegistrationError(`นักกีฬาคนที่ ${missingName + 1}: กรุณากรอกชื่อ–สกุล`);
+    if (athletes.some(a=>!a.full_name)) return showRegistrationError("กรุณากรอกชื่อผู้เล่นทุกแถว");
+    if (isRov(sportEvent) && (athletes.length<5 || athletes.length>7)) return showRegistrationError("RoV ต้องมีผู้เล่นหลัก 5 คน และสามารถเพิ่มตัวสำรองได้อีกไม่เกิน 2 คน (ไม่บังคับ)");
     if (isRov(sportEvent)) {
+      const missingIgn = athletes.findIndex(a => !(a.ign || "").trim());
+      if (missingIgn !== -1) return showRegistrationError(`นักกีฬาคนที่ ${missingIgn + 1}: กรุณากรอกชื่อในเกม (IGN)`);
       const reserveCount = athletes.filter(a=>a.team_role==="ตัวสำรอง").length;
       const invalidRole = athletes.some(a=>!["หัวหน้าทีม","ตัวจริง","ตัวสำรอง"].includes(a.team_role||""));
       if (athletes.filter(a=>a.team_role==="หัวหน้าทีม").length!==1 ||
           athletes.filter(a=>a.team_role==="ตัวจริง").length!==4 ||
           reserveCount>2 || invalidRole)
-        return setError("กรุณาระบุหัวหน้าทีม 1 คน ตัวจริงอีก 4 คน และตัวสำรองไม่เกิน 2 คน (ไม่บังคับ)");
+        return showRegistrationError("กรุณาระบุหัวหน้าทีม 1 คน ตัวจริงอีก 4 คน และตัวสำรองไม่เกิน 2 คน (ไม่บังคับ)");
     }
     // Every type of sport requires at least one named coach and a telephone.
     // Keep the same validation for team, pairs, individuals, athletics and RoV.
-    if (!coaches.length) return setError("กรุณาเพิ่มครูผู้ควบคุมทีมอย่างน้อย 1 คน");
-    if (coaches.some(c=>!c.name.trim() || !/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,""))))
-      return setError("กรุณากรอกชื่อและเบอร์โทรศัพท์ครูทุกคนให้ครบ (หมายเลข 9–15 หลัก)");
+    if (!coaches.length) return showRegistrationError("กรุณาเพิ่มครูผู้ควบคุมทีมอย่างน้อย 1 คน");
+    const invalidCoach = coaches.findIndex(c=>!c.name.trim() || !/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,"")));
+    if (invalidCoach !== -1) return showRegistrationError(`ครูผู้ควบคุมคนที่ ${invalidCoach + 1}: กรุณากรอกชื่อและเบอร์โทรศัพท์ 9–15 หลักให้ถูกต้อง`);
     const normalizedCoaches = coaches.map(c=>({name:c.name.trim(),phone:c.phone.trim()}));
     const individualBatch = !editEntry && supportsIndividualBatch(sportEvent) && athletes.length > 1;
     const validationMessage = validateAthletes(sportEvent, athletes, individualBatch);
-    if (validationMessage) return setError(validationMessage);
+    if (validationMessage) return showRegistrationError(validationMessage);
     const payload = {
       competition_id: competition.id,
       event_id: eventId,
@@ -626,7 +643,7 @@ export default function GroupSportsDashboard() {
       coach_name: normalizedCoaches[0].name,
       status: "submitted",
     };
-    setBusy(true); setError("");
+    setBusy(true); setError(""); setRegistrationError("");
     try {
       const assistant = normalizedCoaches[1]?.name || "";
       let id = editEntry?.id;
@@ -667,7 +684,15 @@ export default function GroupSportsDashboard() {
       setNotice(individualBatch ? `${isDemo ? "นำเข้าในโหมดสาธิต" : "ส่งข้อมูลลงทะเบียน"}กีฬาเดี่ยว ${batchSaved.length} คน (แยกใบสมัครรายคน) เรียบร้อยแล้ว` : isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "ส่งข้อมูลลงทะเบียนเรียบร้อยแล้ว");
       setFormOpen(false);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "ลงทะเบียนไม่สำเร็จ");
+      const reason = err instanceof Error ? err.message : "ลงทะเบียนไม่สำเร็จ";
+      const help = /PGRST202|Could not find the function|schema cache/i.test(reason)
+        ? "ตรวจสอบว่าได้ติดตั้ง SQL Migration 0015 และรีโหลด Schema Cache ของ Supabase แล้ว"
+        : /permission denied|ไม่มีสิทธิ์|not authorized|JWT/i.test(reason)
+        ? "ตรวจสอบสิทธิ์บัญชีโรงเรียนและเข้าสู่ระบบอีกครั้ง"
+        : /duplicate key|23505/i.test(reason)
+        ? "มีข้อมูลซ้ำในรายการนี้ โปรดตรวจสอบว่าเคยลงทะเบียนไว้แล้วหรือไม่"
+        : "";
+      showRegistrationError(`${help ? `${help} — ` : ""}${reason}`);
     } finally { setBusy(false); }
   }
 
@@ -877,12 +902,12 @@ export default function GroupSportsDashboard() {
     );
 
     if (tab === "entries" && canManageSchool) return (
-      <form key={editEntry?.id || "new-roster"} className={formShell} onSubmit={addEntry}>
+      <form key={editEntry?.id || "new-roster"} className={formShell} onSubmit={addEntry} noValidate>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">ลงทะเบียนทีม / นักกีฬา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
         <div className="grid gap-3 md:grid-cols-2">
           <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required disabled={rosterImportBusy} className={inputClass} value={eventChoice} onChange={e=>{
             const id=e.target.value;
-            setRosterImportPreview(null);
+            setRosterImportPreview(null); setRegistrationError("");
             // Separate competitions should never inherit another event's roster.
             if (id !== eventChoice && !editEntry) {
               setPlayers(isRov(events.find(item=>item.id===id))
@@ -979,7 +1004,12 @@ export default function GroupSportsDashboard() {
           </div>}
           <button type="button" disabled={players.length===1} className="mt-2 rounded-lg px-2 py-1 text-sm font-bold text-red-700 hover:bg-red-50" onClick={()=>setPlayers(rows=>rows.filter((_,j)=>j!==i))}>ลบ</button>
         </div>)}
-        <div className="mt-4 flex justify-end"><button disabled={busy || rosterImportBusy || !!rosterImportPreview || (!editEntry && !!chosenEvent && !acceptsNewEntries(chosenEvent))} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : chosenEvent && supportsIndividualBatch(chosenEvent) && players.length > 1 ? `ส่งข้อมูลลงทะเบียน ${players.length} คน` : "ส่งข้อมูลลงทะเบียน"}</button></div>
+        {registrationError && <div id="sports-registration-error" role="alert" tabIndex={-1} className="mt-4 rounded-xl border border-red-300 bg-red-50 px-4 py-3 text-sm font-semibold leading-6 text-red-800">
+          <strong className="block">ยังส่งข้อมูลลงทะเบียนไม่ได้</strong>{registrationError}
+        </div>}
+        {!editEntry && chosenEvent && !acceptsNewEntries(chosenEvent) && <p className="mt-3 text-sm font-medium text-amber-800">รายการนี้ยังไม่เปิดรับสมัคร ต้องให้ผู้ดูแลเปลี่ยนสถานะเป็น “เปิดรับสมัคร” ก่อน</p>}
+        {rosterImportPreview && <p className="mt-3 text-sm font-medium text-amber-800">ตรวจ Excel แล้วต้องกด “ใช้รายชื่อ … คนแทนรายชื่อในฟอร์ม” ก่อนบันทึก</p>}
+        <div className="mt-4 flex justify-end"><button type="submit" disabled={busy || rosterImportBusy || !!rosterImportPreview || (!editEntry && !!chosenEvent && !acceptsNewEntries(chosenEvent))} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : chosenEvent && supportsIndividualBatch(chosenEvent) && players.length > 1 ? `ส่งข้อมูลลงทะเบียน ${players.length} คน` : "ส่งข้อมูลลงทะเบียน"}</button></div>
       </form>
     );
 
