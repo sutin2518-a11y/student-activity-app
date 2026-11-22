@@ -1053,23 +1053,37 @@ export default function GroupSportsDashboard() {
 
   return (
     <main className="min-h-screen bg-[#f3f6fb] text-slate-800">
-      <header className="relative overflow-hidden bg-gradient-to-r from-slate-950 via-blue-950 to-slate-900 text-white">
-        <div className="absolute -right-24 -top-28 h-80 w-80 rounded-full bg-blue-500/20 blur-3xl" />
-        <div className="absolute -bottom-28 left-1/3 h-64 w-64 rounded-full bg-amber-400/10 blur-3xl" />
+      {/* Responsive, accessible hero using the artwork from the red-white sports banner.
+          The image is decorative only: navigation and login stay real controls. */}
+      <header className="relative isolate overflow-hidden bg-gradient-to-r from-[#68000b] via-[#9d001b] to-[#dc1534] text-white">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] bg-right-bottom bg-no-repeat lg:block"
+          style={{ backgroundImage: "url('/images/group-sports-hero-rov.png')", backgroundSize: "auto 100%" }}
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 hidden lg:block"
+          style={{ background: "linear-gradient(90deg, #67000c 0%, #850013 45%, rgba(133,0,20,.94) 55%, rgba(133,0,20,.40) 76%, transparent 100%)" }}
+        />
+        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-white/90 via-red-200/70 to-white/50" />
         <div className="relative w-full px-4 py-5 md:px-8 md:py-7">
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <Link href="/" className="text-sm font-semibold text-blue-100 transition hover:text-white">← กลับสู่ระบบกิจกรรม</Link>
+            <Link href="/" className="rounded-md text-sm font-semibold text-white/90 underline-offset-4 transition hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">← กลับสู่ระบบกิจกรรม</Link>
             <div className="flex items-center gap-2 text-xs">
-              {isDemo && <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-bold text-amber-200">โหมดสาธิต · ข้อมูลตัวอย่าง</span>}
-              {userEmail ? <><span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-blue-100 sm:inline">{userEmail}</span><button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 font-semibold text-white hover:bg-white/20">ออกจากระบบ</button></> : <Link href="/group-sports/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-blue-900 hover:bg-blue-100">เข้าสู่ระบบโรงเรียน</Link>}
+              {isDemo && <span className="rounded-full border border-yellow-100/60 bg-black/15 px-3 py-1.5 font-bold text-yellow-100">โหมดสาธิต · ข้อมูลตัวอย่าง</span>}
+              {userEmail ? <>
+                <span className="hidden max-w-48 truncate rounded-full bg-white/15 px-3 py-1.5 text-white sm:inline">{userEmail}</span>
+                <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-xl border border-white/50 bg-white/15 px-4 py-2 font-bold text-white transition hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">ออกจากระบบ</button>
+              </> : <Link href="/group-sports/login" className="rounded-full bg-white px-5 py-2.5 font-extrabold text-[#a90021] shadow-lg shadow-black/10 transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">เข้าสู่ระบบโรงเรียน</Link>}
             </div>
           </div>
           <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-            <div className="max-w-3xl">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.25em] text-amber-300">Provincial School Sports Management</p>
-              <h1 className="text-2xl font-black leading-tight md:text-4xl">ระบบบริหารจัดการแข่งขันกีฬากลุ่ม</h1>
-              <p className="mt-2 text-sm text-blue-100 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
-              <p className="mt-4 text-sm font-semibold text-white">{competition?.name || "ยังไม่ได้สร้างรายการแข่งขัน"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</p>
+            <div className="max-w-[880px] lg:max-w-[63%]">
+              <p className="mb-2 text-xs font-bold uppercase tracking-[0.23em] text-white/90">Provincial School Sports Management</p>
+              <h1 className="border-l-[5px] border-rose-400 pl-3 text-2xl font-black leading-tight drop-shadow-[0_2px_6px_rgba(55,0,8,0.30)] sm:text-3xl md:text-4xl">ระบบบริหารจัดการแข่งขันกีฬากลุ่ม</h1>
+              <p className="mt-3 text-sm leading-relaxed text-white/95 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
+              <p className="mt-4 inline-flex max-w-full items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white backdrop-blur-sm"><span aria-hidden="true">🏆</span><span>{competition?.name || "การแข่งขันกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</span></p>
             </div>
             {headerAction() && <div className="flex flex-wrap gap-2">{headerAction()}</div>}
           </div>
