@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createSportsAdminClient, generateInternalEmail, generatePassword, messageOf, normalizedUsername, requireSportsOrganizer, validPassword, validUsername, validUUID } from "@/lib/group-sports/school-auth-server";
+import { createSportsAdminClient, generateInternalEmail, generatePassword, getSportsAccountEmailDomain, messageOf, normalizedUsername, requireSportsOrganizer, validPassword, validUsername, validUUID } from "@/lib/group-sports/school-auth-server";
 
 const reply = (body: object, status = 200) => NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 
@@ -17,7 +17,9 @@ export async function GET(request:NextRequest) {
     if (schools.error) throw schools.error;
     if (links.error) throw links.error;
     const participants = new Set((links.data||[]).map(r=>r.school_id));
-    return reply({accounts:accounts.data || [],schools:(schools.data || []).filter(s=>participants.has(s.id)&&s.status!=="inactive")});
+    let configError: string | null = null;
+    try { getSportsAccountEmailDomain(); } catch (err) { configError = messageOf(err); }
+    return reply({accounts:accounts.data || [],schools:(schools.data || []).filter(s=>participants.has(s.id)&&s.status!=="inactive"),config_error:configError});
   } catch (e) { return reply({error:messageOf(e)},503); }
 }
 
