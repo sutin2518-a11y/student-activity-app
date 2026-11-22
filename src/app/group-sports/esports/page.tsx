@@ -701,47 +701,39 @@ export default function EsportsPage() {
 
   return <div className="min-h-screen bg-slate-100 text-slate-900">
     <header className="no-print bg-[#090f27] text-white">
-      {/* Keep navigation and account status accessible; replace only the old text banner. */}
-      <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
-          <nav aria-label="ลิงก์นำทาง E-Sport" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+      {/* Keep the route links separate and compact, so the competition content starts higher. */}
+      <div className="mx-auto max-w-[1440px] px-4 py-2 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-1.5">
+          <nav aria-label="ลิงก์นำทาง E-Sport" className="flex flex-wrap items-center gap-x-5 gap-y-1.5">
             <Link href="/group-sports?section=results" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">← กลับหน้าผลการแข่งขัน</Link>
             <Link href="/group-sports/schedule" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">โปรแกรมกีฬาทั้งหมด</Link>
           </nav>
-          <div className="text-xs text-rose-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
+          <div className="max-w-full break-all text-[11px] text-rose-100 sm:text-xs">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
         </div>
       </div>
 
-      <h1 className="sr-only">ระบบจัดการแข่งขัน E-Sport (RoV) · กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30</h1>
-      <div className="mx-auto max-w-[1440px] lg:px-6 lg:pb-5">
-        {/* On desktop, show the full 3:1 artwork, including all Thai text, without cropping. */}
-        <div className="hidden overflow-hidden rounded-2xl ring-1 ring-white/10 lg:block">
+      {/* v30.4: compact 120px desktop / 100px mobile hero. Reuse the original RoV artwork
+          as scenery and overlay real text so that cutting the banner height never cuts words. */}
+      <div className="mx-auto max-w-[1440px] px-3 pb-3 sm:px-6">
+        <div className="relative isolate flex h-[100px] items-center overflow-hidden rounded-xl bg-[#070d23] ring-1 ring-white/10 sm:h-[110px] lg:h-[120px]">
           <Image
             src="/images/esports-rov-banner-2569.webp"
-            alt="แบนเนอร์การแข่งขัน E-Sport RoV ภูลังกาเกมส์ 2569 พร้อมภาพนักรบแฟนตาซีและข้อความการแข่งขัน"
-            width={2172}
-            height={724}
-            className="h-auto w-full"
-            loading="eager"
-            fetchPriority="high"
+            alt=""
+            aria-hidden="true"
+            fill
+            priority
             sizes="(min-width: 1440px) 1392px, 100vw"
+            className="object-cover object-[75%_42%]"
           />
-        </div>
-
-        {/* Small screens: focus on the artwork and keep a readable live-text title. */}
-        <div
-          className="relative isolate flex min-h-[255px] flex-col justify-center overflow-hidden px-5 py-8 sm:min-h-[300px] sm:px-8 lg:hidden"
-          style={{
-            backgroundImage: "linear-gradient(90deg, rgba(7,13,35,.96) 0%, rgba(10,18,48,.88) 45%, rgba(11,18,46,.30) 100%), url('/images/esports-rov-banner-2569.webp')",
-            backgroundPosition: "82% center",
-            backgroundSize: "cover"
-          }}
-        >
-          <div className="relative z-10 max-w-lg">
-            <p className="text-[11px] font-extrabold tracking-[.12em] text-amber-300 sm:text-xs">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
-            <p className="mt-4 text-3xl font-black leading-tight drop-shadow-lg sm:text-4xl" aria-hidden="true">ระบบจัดการแข่งขัน E-Sport</p>
-            <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-slate-100 drop-shadow-md sm:text-base">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 · 5–7 ธันวาคม 2569</p>
-            <span className="mt-5 inline-flex rounded-full border border-amber-300/60 bg-slate-950/45 px-3 py-1 text-xs font-extrabold tracking-widest text-amber-200">RoV · 5v5</span>
+          {/* Fully obscure the embedded title on the left to prevent duplicated/cropped text. */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 bg-[linear-gradient(90deg,#070d23_0%,#070d23_52%,rgba(7,13,35,0.96)_62%,rgba(7,13,35,0.48)_78%,rgba(7,13,35,0.10)_100%)]"
+          />
+          <div className="relative z-10 min-w-0 px-4 py-2 sm:px-6 lg:px-8">
+            <p className="hidden text-[9px] font-extrabold tracking-[0.12em] text-amber-300 sm:block lg:text-[11px]">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
+            <h1 className="text-[19px] font-black leading-tight text-white drop-shadow-md sm:mt-1 sm:text-[24px] lg:text-[29px]">ระบบจัดการแข่งขัน E-Sport</h1>
+            <p className="mt-1 max-w-[86%] text-[10px] font-semibold leading-[1.25] text-slate-100 drop-shadow-sm sm:max-w-full sm:text-[11px] lg:text-xs">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 · 5–7 ธันวาคม 2569</p>
           </div>
         </div>
       </div>
@@ -755,7 +747,7 @@ export default function EsportsPage() {
       #esport-print-schedule tr { break-inside: avoid; }
       @page { size: A4 landscape; margin: 10mm; }
     }`}</style>
-    <main className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
+    <main className="mx-auto max-w-7xl space-y-3 px-4 py-3 sm:px-6 sm:py-4">
       {error && <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800" role="alert">{error}</div>}
       {notice && <div className="rounded-xl bg-emerald-50 p-3 text-sm font-bold text-emerald-800" role="status">{notice}</div>}
       {admin && currentEvent?.status === "draft" && <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">ข้อมูล E-Sport ยังเป็นฉบับร่าง ผู้ดูแลสามารถจัดโปรแกรมและบันทึกผลได้ แต่ผู้ชมทั่วไปจะเห็นเมื่อเผยแพร่รายการจากหน้าโปรแกรมการแข่งขันแล้ว</div>}
