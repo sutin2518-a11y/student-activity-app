@@ -2,6 +2,7 @@
 
 import EsportsSessionSchedule from "@/components/group-sports/EsportsSessionSchedule";
 import Link from "next/link";
+import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -527,15 +528,50 @@ export default function EsportsPage() {
   const pendingResultDownstream = pendingResult ? getDownstreamMatches(pendingResult.matchId, currentMatches) : [];
 
   return <div className="min-h-screen bg-slate-100 text-slate-900">
-    <header className="no-print bg-gradient-to-r from-slate-950 via-[#17264b] to-slate-900 text-white">
-      <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports?section=results" className="text-sm font-bold text-rose-200 hover:text-white">← กลับหน้าผลการแข่งขัน</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-rose-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
+    <header className="no-print bg-[#090f27] text-white">
+      {/* Keep navigation and account status accessible; replace only the old text banner. */}
+      <div className="mx-auto max-w-[1440px] px-4 py-3 sm:px-6">
+        <div className="flex flex-wrap items-center justify-between gap-x-5 gap-y-2">
+          <nav aria-label="ลิงก์นำทาง E-Sport" className="flex flex-wrap items-center gap-x-5 gap-y-2">
+            <Link href="/group-sports?section=results" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">← กลับหน้าผลการแข่งขัน</Link>
+            <Link href="/group-sports/schedule" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">โปรแกรมกีฬาทั้งหมด</Link>
+          </nav>
           <div className="text-xs text-rose-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
         </div>
-        <p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
-        <h1 className="mt-2 text-2xl font-black sm:text-3xl">ระบบจัดการแข่งขัน E-Sport</h1>
-        <p className="mt-2 text-sm text-slate-300">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 · 5–7 ธันวาคม 2569</p>
+      </div>
+
+      <h1 className="sr-only">ระบบจัดการแข่งขัน E-Sport (RoV) · กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30</h1>
+      <div className="mx-auto max-w-[1440px] lg:px-6 lg:pb-5">
+        {/* On desktop, show the full 3:1 artwork, including all Thai text, without cropping. */}
+        <div className="hidden overflow-hidden rounded-2xl ring-1 ring-white/10 lg:block">
+          <Image
+            src="/images/esports-rov-banner-2569.webp"
+            alt="แบนเนอร์การแข่งขัน E-Sport RoV ภูลังกาเกมส์ 2569 พร้อมภาพนักรบแฟนตาซีและข้อความการแข่งขัน"
+            width={2172}
+            height={724}
+            className="h-auto w-full"
+            loading="eager"
+            fetchPriority="high"
+            sizes="(min-width: 1440px) 1392px, 100vw"
+          />
+        </div>
+
+        {/* Small screens: focus on the artwork and keep a readable live-text title. */}
+        <div
+          className="relative isolate flex min-h-[255px] flex-col justify-center overflow-hidden px-5 py-8 sm:min-h-[300px] sm:px-8 lg:hidden"
+          style={{
+            backgroundImage: "linear-gradient(90deg, rgba(7,13,35,.96) 0%, rgba(10,18,48,.88) 45%, rgba(11,18,46,.30) 100%), url('/images/esports-rov-banner-2569.webp')",
+            backgroundPosition: "82% center",
+            backgroundSize: "cover"
+          }}
+        >
+          <div className="relative z-10 max-w-lg">
+            <p className="text-[11px] font-extrabold tracking-[.12em] text-amber-300 sm:text-xs">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
+            <p className="mt-4 text-3xl font-black leading-tight drop-shadow-lg sm:text-4xl" aria-hidden="true">ระบบจัดการแข่งขัน E-Sport</p>
+            <p className="mt-3 max-w-md text-sm font-semibold leading-6 text-slate-100 drop-shadow-md sm:text-base">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 · 5–7 ธันวาคม 2569</p>
+            <span className="mt-5 inline-flex rounded-full border border-amber-300/60 bg-slate-950/45 px-3 py-1 text-xs font-extrabold tracking-widest text-amber-200">RoV · 5v5</span>
+          </div>
+        </div>
       </div>
     </header>
 
