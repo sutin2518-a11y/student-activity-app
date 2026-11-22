@@ -1,6 +1,6 @@
-/** Private athlete headshots for the official two-page RoV application.
+/** Shared private athlete photographs across ALL school sports applications.
  * The photo object key is bound to both the entry and the athlete's name/code
- * and original roster position. Thus changing the roster can NEVER display
+ * and original roster position. Thus changing the roster cannot display
  * somebody else's previously uploaded photo by accident.
  */
 import { supabase } from "@/lib/supabase";
@@ -18,7 +18,7 @@ export function verifyPhotoFile(file: File) {
 
 /** Stable object key without any student name, student ID or phone in the URL. */
 export async function athletePhotoPath(entryId: string, index: number, athlete: PhotoAthlete): Promise<string> {
-  if (!/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(entryId) || index < 0 || index >= 7) {
+  if (!/^[a-f0-9]{8}-[a-f0-9-]{27,}$/i.test(entryId) || index < 0 || index >= 200) {
     throw new Error("รหัสใบสมัครหรือลำดับนักกีฬาไม่ถูกต้อง");
   }
   const identity = `${athlete.full_name.normalize("NFKC").trim()}\n${(athlete.student_code || "").trim()}`;
@@ -60,7 +60,7 @@ async function encodeJpeg(input: File): Promise<Blob> {
 }
 
 /** Upload is permitted by Supabase Storage RLS only to an authorized school/organizer. */
-export async function uploadRovPhoto(entryId: string, index: number, athlete: PhotoAthlete, file: File) {
+export async function uploadAthletePhoto(entryId: string, index: number, athlete: PhotoAthlete, file: File) {
   const [path, jpeg] = await Promise.all([athletePhotoPath(entryId, index, athlete), encodeJpeg(file)]);
   const result = await supabase.storage.from(ROV_PHOTO_BUCKET).upload(path, jpeg, {
     contentType: "image/jpeg", cacheControl: "0", upsert: true,
@@ -69,7 +69,7 @@ export async function uploadRovPhoto(entryId: string, index: number, athlete: Ph
 }
 
 /** Returns a local blob URL (never a public or long-lived link). Caller revokes it. */
-export async function downloadRovPhoto(entryId: string, index: number, athlete: PhotoAthlete): Promise<string | null> {
+export async function downloadAthletePhoto(entryId: string, index: number, athlete: PhotoAthlete): Promise<string | null> {
   const path = await athletePhotoPath(entryId, index, athlete);
   const result = await supabase.storage.from(ROV_PHOTO_BUCKET).download(path);
   if (result.error || !result.data) return null; // Unattached images show an empty paper frame.
@@ -84,3 +84,7 @@ export async function downloadRovPhoto(entryId: string, index: number, athlete: 
     return null;
   }
 }
+
+// Backward-compatible names for existing RoV screens and PDF templates.
+export const uploadRovPhoto = uploadAthletePhoto;
+export const downloadRovPhoto = downloadAthletePhoto;

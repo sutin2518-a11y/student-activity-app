@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRovPhoto } from "@/lib/group-sports/rov-photos";
+import { sportsPrintTemplateFor } from "@/lib/group-sports/application-print-templates";
 import "./print.css";
 
 type PrintedAthlete = {
@@ -282,7 +283,7 @@ export default function GroupSportsPrintPage() {
     };
   }, []);
 
-  const isRov = application ? ROV_CODES.has(application.event.event_code || "") : false;
+  const isRov = application ? sportsPrintTemplateFor(application.event.event_code) === "rov-official" : false;
   const missingDirector = Boolean(application && !application.school.director_name?.trim());
   const missingVenue = Boolean(application && !eventVenue(application.event));
   return (
