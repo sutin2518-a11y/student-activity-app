@@ -37,7 +37,7 @@ export default function EsportsSessionsPage() {
 
       if (auth.data.user) {
         const role = await supabase.rpc(
-          "sports_stage3_admin",
+          "sports_esports_can_manage",
           { p_comp: comp.data.id }
         );
 

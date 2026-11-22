@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
+import EsportsAdminManager from "@/components/group-sports/EsportsAdminManager";
 
 const SLUG = "phayao-secondary-group-sports-2569";
 const EVENT_CODES = ["GS3-ES-SM", "GS3-ES-SF"] as const;
@@ -15,7 +16,7 @@ const secondary = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
 const danger = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
 
 type Gender = "ชาย" | "หญิง";
-type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history" | "prelaunch";
+type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history" | "prelaunch" | "admins";
 
 // แยกสีเมนูแต่ละส่วนให้เห็นชัดทั้งสถานะที่เลือกและยังไม่เลือก
 const tabPalette: Record<Tab, { active: string; idle: string }> = {
@@ -40,6 +41,10 @@ const tabPalette: Record<Tab, { active: string; idle: string }> = {
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   history: {
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
+  },
+  admins: {
     active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
@@ -403,6 +408,7 @@ export default function EsportsPage() {
   const [competitionId, setCompetitionId] = useState("");
   const [email, setEmail] = useState("");
   const [admin, setAdmin] = useState(false);
+  const [mainAdmin, setMainAdmin] = useState(false);
   const [events, setEvents] = useState<EventRow[]>([]);
   const [groups, setGroups] = useState<GroupRow[]>([]);
   const [teams, setTeams] = useState<TeamRow[]>([]);
@@ -429,9 +435,16 @@ export default function EsportsPage() {
       const id = comp.data.id as string; setCompetitionId(id);
       let allowed = false;
       if (user) {
-        const role = await supabase.rpc("sports_stage3_admin", { p_comp: id });
-        if (role.error) throw role.error;
-        allowed = role.data === true;
+        const [principal, delegated] = await Promise.all([
+          supabase.rpc("sports_stage3_admin", { p_comp: id }),
+          supabase.rpc("sports_esports_can_manage", { p_comp: id })
+        ]);
+        if (principal.error) throw principal.error;
+        if (delegated.error) throw delegated.error;
+        setMainAdmin(principal.data === true);
+        allowed = delegated.data === true;
+      } else {
+        setMainAdmin(false);
       }
       const eventResult = await supabase.from("sports_events").select("id,event_code,sport_name,gender_rule,status")
         .eq("competition_id", id).in("event_code", [...EVENT_CODES]).order("event_code");
@@ -776,7 +789,7 @@ export default function EsportsPage() {
             <Link href="/group-sports?section=results" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">← กลับหน้าผลการแข่งขัน</Link>
             <Link href="/group-sports/schedule" className="text-xs font-bold text-rose-200 underline-offset-4 hover:text-white hover:underline sm:text-sm">โปรแกรมกีฬาทั้งหมด</Link>
           </nav>
-          <div className="max-w-full break-all text-[11px] text-rose-100 sm:text-xs">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
+          <div className="max-w-full break-all text-[11px] text-rose-100 sm:text-xs">{email ? `${email} · ${mainAdmin ? "ผู้ดูแลระบบหลัก" : admin ? "ผู้ดูแล E-Sport" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
         </div>
       </div>
 
@@ -837,6 +850,7 @@ export default function EsportsPage() {
         <button type="button" className={tabButtonClass("knockout", tab)} aria-pressed={tab === "knockout"} onClick={() => setTab("knockout")}>สาย Knockout</button>
         {admin && <button type="button" className={tabButtonClass("history", tab)} aria-pressed={tab === "history"} onClick={() => setTab("history")}>ประวัติการแก้ไข</button>}
         {admin && <button type="button" className={tabButtonClass("prelaunch", tab)} aria-pressed={tab === "prelaunch"} onClick={() => setTab("prelaunch")}>เตรียมใช้จริง / รีเซตทดสอบ</button>}
+        {mainAdmin && <button type="button" className={tabButtonClass("admins", tab)} aria-pressed={tab === "admins"} onClick={() => setTab("admins")}>ผู้ดูแล E-Sport</button>}
         <div className="flex-1" />
         <button type="button" className={secondary} disabled={loading || !!busyId} onClick={() => void load()}>รีเฟรชข้อมูล</button>
       </div>
@@ -966,6 +980,8 @@ export default function EsportsPage() {
       </section>}
 
       {admin && tab === "prelaunch" && <PrelaunchResetPanel onReset={load} />}
+
+      {mainAdmin && competitionId && tab === "admins" && <EsportsAdminManager competitionId={competitionId} />}
 
       {admin && currentEvent && tab === "history" && <section className={`${panel} space-y-3`}>
         <div><h2 className="text-lg font-black">ประวัติการแก้ไขผลและสายการแข่งขัน</h2><p className="mt-1 text-xs text-slate-500">แสดงประวัติ 150 รายการล่าสุดของประเภทการแข่งขันที่เลือก พร้อมข้อมูลก่อนและหลังแก้ไข</p></div>

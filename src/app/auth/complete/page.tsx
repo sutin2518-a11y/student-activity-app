@@ -73,12 +73,28 @@ export default function AuthCompletePage() {
           throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleError.message);
         }
 
+        // RoV-only administrators are pre-approved by email in an E-Sport-specific
+        // roster, not given competition-wide roles in sports_user_roles.
+        const esportsCheck = await supabase.rpc("sports_esports_my_access");
+        if (esportsCheck.error) {
+          throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
+        }
+        const hasEsportsAccess = esportsCheck.data === true;
         const hasSportsAccess = (sportsRoles || []).some((item: { role: string }) =>
           ["super_admin", "competition_admin", "school_manager", "referee", "viewer"].includes(String(item.role))
         );
         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
         const destination = PATH_BY_ROLE[role];
 
+        const isPrincipalSportsAdmin = (sportsRoles || []).some((item: { role: string }) =>
+          ["super_admin", "competition_admin"].includes(String(item.role))
+        );
+        // A delegated RoV administrator may also be a teacher or school manager;
+        // prefer the E-Sport dashboard unless they are already a principal admin.
+        if (hasEsportsAccess && !isPrincipalSportsAdmin) {
+          if (mounted) router.replace("/group-sports/esports");
+          return;
+        }
         if (isCkwAccount && destination) {
           if (mounted) router.replace(destination);
           return;
