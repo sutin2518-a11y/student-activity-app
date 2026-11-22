@@ -313,36 +313,47 @@ export default function GroupSportsDashboard() {
   const [schoolInfoSection, setSchoolInfoSection] = useState<SchoolInformationSection>("submission");
   const schoolInfoNavRef = useRef<HTMLElement | null>(null);
   const schoolInfoTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const sportsTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const [sportsDropdownLeft, setSportsDropdownLeft] = useState(8);
   const [schoolInfoDropdownLeft, setSchoolInfoDropdownLeft] = useState(8);
 
-  const alignSchoolInfoDropdown = useCallback(() => {
+  // Submenus live IN the navigation's document flow, rather than overlapping the page.
+  // Align the compact panels below their respective buttons even on horizontally
+  // scrollable mobile navigation and when the viewport changes size.
+  const alignGroupDropdown = useCallback((group: "sports" | "school_info") => {
     const nav = schoolInfoNavRef.current;
-    const trigger = schoolInfoTriggerRef.current;
+    const trigger = (group === "sports" ? sportsTriggerRef : schoolInfoTriggerRef).current;
     if (!nav || !trigger) return;
     const parent = nav.getBoundingClientRect();
     const target = trigger.getBoundingClientRect();
-    const dropdownWidth = Math.min(340, Math.max(0, parent.width - 16));
+    const dropdownWidth = Math.min(360, Math.max(0, parent.width - 16));
     const left = Math.min(Math.max(target.left - parent.left, 8), Math.max(8, parent.width - dropdownWidth - 8));
-    setSchoolInfoDropdownLeft(left);
+    if (group === "sports") setSportsDropdownLeft(left);
+    else setSchoolInfoDropdownLeft(left);
   }, []);
 
   useEffect(() => {
-    if (!schoolInfoMenuOpen) return;
-    alignSchoolInfoDropdown();
+    if (!sportsMenuOpen && !schoolInfoMenuOpen) return;
+    const group = sportsMenuOpen ? "sports" : "school_info";
+    alignGroupDropdown(group);
     const nav = schoolInfoNavRef.current;
     const navItems = nav?.querySelector('[data-sports-nav-items]');
     const onOutsidePointerDown = (event: PointerEvent) => {
-      if (nav && !nav.contains(event.target as Node)) setSchoolInfoMenuOpen(false);
+      if (nav && !nav.contains(event.target as Node)) {
+        setSportsMenuOpen(false);
+        setSchoolInfoMenuOpen(false);
+      }
     };
+    const onPositionChange = () => alignGroupDropdown(group);
     document.addEventListener("pointerdown", onOutsidePointerDown);
-    window.addEventListener("resize", alignSchoolInfoDropdown);
-    navItems?.addEventListener("scroll", alignSchoolInfoDropdown, { passive: true });
+    window.addEventListener("resize", onPositionChange);
+    navItems?.addEventListener("scroll", onPositionChange, { passive: true });
     return () => {
       document.removeEventListener("pointerdown", onOutsidePointerDown);
-      window.removeEventListener("resize", alignSchoolInfoDropdown);
-      navItems?.removeEventListener("scroll", alignSchoolInfoDropdown);
+      window.removeEventListener("resize", onPositionChange);
+      navItems?.removeEventListener("scroll", onPositionChange);
     };
-  }, [schoolInfoMenuOpen, alignSchoolInfoDropdown]);
+  }, [sportsMenuOpen, schoolInfoMenuOpen, alignGroupDropdown]);
   const [scheduleView, setScheduleView] = useState<"schedule" | "events">("schedule");
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
@@ -1250,7 +1261,7 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="26.1-vertical-school-info" onKeyDown={(event) => { if (event.key === "Escape") { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); } }} className="relative z-30 my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+        <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="26.2-flowing-pastel-dropdowns" onKeyDown={(event) => { if (event.key === "Escape") { if (sportsMenuOpen) sportsTriggerRef.current?.focus(); else if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="relative z-30 my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
           <div data-sports-nav-items className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
@@ -1264,7 +1275,7 @@ export default function GroupSportsDashboard() {
               return (
                 <button
                   key={item.key}
-                  ref={isSchoolInfoGroup ? schoolInfoTriggerRef : undefined}
+                  ref={isSchoolInfoGroup ? schoolInfoTriggerRef : isSportsGroup ? sportsTriggerRef : undefined}
                   type="button"
                   aria-current={isActive && !isSportsGroup && !isSchoolInfoGroup ? "page" : undefined}
                   aria-pressed={isActive}
@@ -1273,7 +1284,7 @@ export default function GroupSportsDashboard() {
                   aria-controls={isSportsGroup ? "sports-management-submenu" : isSchoolInfoGroup ? "school-information-submenu" : undefined}
                   onClick={() => {
                     if (isSchoolInfoGroup) {
-                      alignSchoolInfoDropdown();
+                      alignGroupDropdown("school_info");
                       setSportsMenuOpen(false);
                       if (tab !== "school_info" && tab !== "submissions") {
                         setTab("school_info");
@@ -1287,6 +1298,7 @@ export default function GroupSportsDashboard() {
                       return;
                     }
                     if (isSportsGroup) {
+                      alignGroupDropdown("sports");
                       setSchoolInfoMenuOpen(false);
                       // Opening from another section must also change the content:
                       // otherwise the old page (e.g. โรงเรียน) stays visible beneath the menu.
@@ -1334,15 +1346,20 @@ export default function GroupSportsDashboard() {
             })}
           </div>
 
+          {/* Both submenus take up real height in the page. The expanding grid gently pushes
+              the dashboard below it down; there is never content behind an open menu. */}
           <div
             id="sports-management-submenu"
             aria-hidden={!sportsMenuOpen}
-            className={`grid origin-top transition-[grid-template-rows,opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"}`}
+            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="mt-2 rounded-xl border border-rose-100 bg-gradient-to-b from-[#fff5f5] to-white p-2 shadow-[inset_0_1px_3px_rgba(185,28,28,0.05)] sm:p-3">
-                <p className="mb-2 px-1 text-xs font-bold text-[#7f1d1d]">เลือกเมนูจัดการแข่งขัน</p>
-                <div className="grid gap-2 sm:grid-cols-3">
+              <div
+                style={{ marginLeft: sportsDropdownLeft }}
+                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
+              >
+                <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
+                <div role="group" aria-label="เลือกเมนูจัดการแข่งขัน" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
                   {sportsSubTabs.map((sub) => {
                     const SubIcon = sub.icon;
                     const selected = tab === sub.key;
@@ -1361,11 +1378,10 @@ export default function GroupSportsDashboard() {
                           setFormOpen(false);
                           setError("");
                         }}
-                        className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-extrabold transition-[background-color,color,border-color,box-shadow,transform] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 motion-reduce:transition-none ${selected ? "border-[#7f1d1d] bg-[#991b1b] text-white shadow-[0_3px_14px_rgba(127,29,29,0.20)]" : "border-rose-200 bg-white text-[#7f1d1d] hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:shadow-sm"}`}
+                        className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition-[background-color,color,transform,box-shadow] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none ${selected ? "bg-rose-100 font-extrabold text-[#7f1d1d]" : "bg-white font-semibold text-slate-800 hover:bg-rose-50 hover:text-[#7f1d1d]"}`}
                       >
-                        <SubIcon className="h-6 w-6 shrink-0" />
-                        <span>{sub.label}</span>
-                        {selected && <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.72)]" aria-hidden="true" />}
+                        <span className="flex min-w-0 items-center gap-3"><SubIcon className="h-5 w-5 shrink-0 text-[#991b1b]" /><span>{sub.label}</span></span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
                       </button>
                     );
                   })}
@@ -1373,45 +1389,47 @@ export default function GroupSportsDashboard() {
               </div>
             </div>
           </div>
-          {/* Compact dropdown directly under the active navigation button, like the school's existing vertical menus.
-              It overlays the content rather than stretching the navigation into a multi-column grid. */}
           <div
             id="school-information-submenu"
             aria-hidden={!schoolInfoMenuOpen}
-            style={{ left: schoolInfoDropdownLeft }}
-            className={`absolute top-[calc(100%-2px)] z-50 w-[calc(100%-1rem)] max-w-[340px] origin-top-left transition-[opacity,transform,visibility] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "visible translate-y-0 scale-100 opacity-100" : "invisible pointer-events-none -translate-y-2 scale-[0.97] opacity-0"}`}
+            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
           >
-            <div role="menu" aria-label="ข้อมูลสำหรับโรงเรียนและพิธีเปิด" className="overflow-hidden rounded-xl border border-[#9f2020] bg-[#ba2525] py-1.5 text-white shadow-[0_14px_36px_rgba(74,9,9,0.28)]">
-              {[{key:"submission" as const,label:"ส่งข้อมูลโรงเรียน (พิธีเปิด)"},...SCHOOL_INFORMATION_SECTIONS].map(option => {
-                const selected = schoolInfoSection === option.key && (tab === "school_info" || tab === "submissions");
-                return (
-                  <button
-                    type="button"
-                    role="menuitem"
-                    key={option.key}
-                    tabIndex={schoolInfoMenuOpen ? 0 : -1}
-                    aria-current={selected ? "page" : undefined}
-                    onClick={() => {
-                      setSchoolInfoSection(option.key);
-                      setTab("school_info");
-                      setSchoolInfoMenuOpen(false);
-                      setSportsMenuOpen(false);
-                      setFormOpen(false);
-                      setError("");
-                      schoolInfoTriggerRef.current?.focus();
-                    }}
-                    className={`group flex min-h-11 w-full items-center justify-between gap-3 border-b border-white/15 px-4 py-3 text-left text-sm font-semibold leading-snug transition-[background-color,color,padding] duration-200 last:border-b-0 focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-amber-300 motion-reduce:transition-none ${selected ? "bg-[#831515] text-white" : "text-white hover:bg-[#992020] hover:pl-5 focus-visible:bg-[#992020]"}`}
-                  >
-                    <span className="flex items-center gap-2">
-                      {selected && <span aria-hidden="true" className="h-5 w-[3px] rounded-full bg-amber-300" />}
-                      <span>{option.label}</span>
-                    </span>
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-white/85 transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none">
-                      <path d="m9 6 6 6-6 6" />
-                    </svg>
-                  </button>
-                );
-              })}
+            <div className="min-h-0 overflow-hidden">
+              <div
+                style={{ marginLeft: schoolInfoDropdownLeft }}
+                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
+              >
+                <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
+                <div role="group" aria-label="ข้อมูลสำหรับโรงเรียนและพิธีเปิด" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
+                  {[{key:"submission" as const,label:"ส่งข้อมูลโรงเรียน (พิธีเปิด)"},...SCHOOL_INFORMATION_SECTIONS].map(option => {
+                    const selected = schoolInfoSection === option.key && (tab === "school_info" || tab === "submissions");
+                    return (
+                      <button
+                        type="button"
+                        key={option.key}
+                        tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                        aria-current={selected ? "page" : undefined}
+                        onClick={() => {
+                          if (!schoolInfoMenuOpen) return;
+                          setSchoolInfoSection(option.key);
+                          setTab("school_info");
+                          setSchoolInfoMenuOpen(false);
+                          setSportsMenuOpen(false);
+                          setFormOpen(false);
+                          setError("");
+                        }}
+                        className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition-[background-color,color,transform,box-shadow] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none ${selected ? "bg-rose-100 font-extrabold text-[#7f1d1d]" : "bg-white font-semibold text-slate-800 hover:bg-rose-50 hover:text-[#7f1d1d]"}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2">
+                          {selected && <span aria-hidden="true" className="h-5 w-[3px] rounded-full bg-rose-600" />}
+                          <span>{option.label}</span>
+                        </span>
+                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </nav>
