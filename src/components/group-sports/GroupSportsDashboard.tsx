@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
+import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
 import SchoolDirectorEditor from "@/components/group-sports/SchoolDirectorEditor";
@@ -150,7 +151,7 @@ type AthleteInput = {
   gender: string | null;
 };
 
-type TabKey = "overview" | "submissions" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals" | "accounts";
+type TabKey = "overview" | "submissions" | "school_info" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals" | "accounts";
 type UserRole = { role: string; school_id?: string | null; competition_id?: string | null };
 
 const DEMO_COMPETITION: Competition = {
@@ -213,7 +214,7 @@ const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col ite
 const sportsMenuActive = "border-[#7f1d1d] bg-[#991b1b] text-white ring-[3px] ring-rose-200 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(127,29,29,0.18),0_0_16px_rgba(220,38,38,0.20)]";
 const sportsMenuInactive = "border-rose-100 bg-[#fff9f9] text-[#7f1d1d] shadow-[0_2px_7px_rgba(127,29,29,0.05)] hover:border-rose-300 hover:bg-rose-50 hover:shadow-md";
 type SportsManagementTab = "schedule" | "events" | "matches";
-type NavKey = Exclude<TabKey, SportsManagementTab> | "sports";
+type NavKey = Exclude<TabKey, SportsManagementTab | "submissions"> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
   { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
@@ -221,7 +222,7 @@ const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: Ic
 ];
 const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
-  { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon },
+  { key: "school_info", label: "ข้อมูลสำหรับโรงเรียน", icon: FileUploadIcon },
   { key: "sports", label: "จัดการแข่งขัน", icon: CalendarGearIcon },
   { key: "schools", label: "โรงเรียน", icon: SchoolIcon },
   { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon },
@@ -308,6 +309,8 @@ function SelectedAthletePhoto({ file }: { file: File }) {
 export default function GroupSportsDashboard() {
   const [tab, setTab] = useState<TabKey>("overview");
   const [sportsMenuOpen, setSportsMenuOpen] = useState(false);
+  const [schoolInfoMenuOpen, setSchoolInfoMenuOpen] = useState(false);
+  const [schoolInfoSection, setSchoolInfoSection] = useState<SchoolInformationSection>("submission");
   const [scheduleView, setScheduleView] = useState<"schedule" | "events">("schedule");
   const [competition, setCompetition] = useState<Competition | null>(null);
   const [schools, setSchools] = useState<School[]>([]);
@@ -1215,28 +1218,42 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="17-red-white" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="17-red-white" onKeyDown={(event) => { if (event.key === "Escape") { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="relative my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
-              // The dropdown owns the active highlight while it is expanded.
-              // Without the second condition below, the previously selected page
-              // (e.g. Schools) can stay highlighted at the same time as Sports.
+              const isSchoolInfoGroup = item.key === "school_info";
               const isActive = isSportsGroup
-                ? sportsMenuOpen || sportsSubTabs.some((sub) => sub.key === tab)
-                : !sportsMenuOpen && tab === item.key;
+                ? sportsMenuOpen || (!schoolInfoMenuOpen && sportsSubTabs.some((sub) => sub.key === tab))
+                : isSchoolInfoGroup
+                  ? schoolInfoMenuOpen || (!sportsMenuOpen && (tab === "school_info" || tab === "submissions"))
+                  : !sportsMenuOpen && !schoolInfoMenuOpen && tab === item.key;
               const Icon = item.icon;
               return (
                 <button
                   key={item.key}
                   type="button"
-                  aria-current={isActive && !isSportsGroup ? "page" : undefined}
+                  aria-current={isActive && !isSportsGroup && !isSchoolInfoGroup ? "page" : undefined}
                   aria-pressed={isActive}
                   data-selected={isActive ? "true" : "false"}
-                  aria-expanded={isSportsGroup ? sportsMenuOpen : undefined}
-                  aria-controls={isSportsGroup ? "sports-management-submenu" : undefined}
+                  aria-expanded={isSportsGroup ? sportsMenuOpen : isSchoolInfoGroup ? schoolInfoMenuOpen : undefined}
+                  aria-controls={isSportsGroup ? "sports-management-submenu" : isSchoolInfoGroup ? "school-information-submenu" : undefined}
                   onClick={() => {
+                    if (isSchoolInfoGroup) {
+                      setSportsMenuOpen(false);
+                      if (tab !== "school_info" && tab !== "submissions") {
+                        setTab("school_info");
+                        setSchoolInfoSection("submission");
+                        setFormOpen(false);
+                        setError("");
+                        setSchoolInfoMenuOpen(true);
+                      } else {
+                        setSchoolInfoMenuOpen(open => !open);
+                      }
+                      return;
+                    }
                     if (isSportsGroup) {
+                      setSchoolInfoMenuOpen(false);
                       // Opening from another section must also change the content:
                       // otherwise the old page (e.g. โรงเรียน) stays visible beneath the menu.
                       const alreadyInSports = sportsSubTabs.some((sub) => sub.key === tab);
@@ -1253,6 +1270,7 @@ export default function GroupSportsDashboard() {
                       return;
                     }
                     setSportsMenuOpen(false);
+                    setSchoolInfoMenuOpen(false);
                     if (item.key === "entries") {
                       // Show the form immediately. A second click on the active tab
                       // must not erase the form while the school is still typing.
@@ -1271,8 +1289,8 @@ export default function GroupSportsDashboard() {
                   {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />}
                   <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#7f1d1d]"}`} />
                   <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#7f1d1d]"}`}>{item.label}</span>
-                  {isSportsGroup && (
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${sportsMenuOpen ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
+                  {(isSportsGroup || isSchoolInfoGroup) && (
+                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${(isSportsGroup ? sportsMenuOpen : schoolInfoMenuOpen) ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
                       <path d="m6 9 6 6 6-6" />
                     </svg>
                   )}
@@ -1305,6 +1323,7 @@ export default function GroupSportsDashboard() {
                           setTab(sub.key);
                           if (sub.key === "schedule") setScheduleView("schedule");
                           setSportsMenuOpen(false);
+                          setSchoolInfoMenuOpen(false);
                           setFormOpen(false);
                           setError("");
                         }}
@@ -1315,6 +1334,30 @@ export default function GroupSportsDashboard() {
                         {selected && <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.72)]" aria-hidden="true" />}
                       </button>
                     );
+                  })}
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="school-information-submenu" aria-hidden={!schoolInfoMenuOpen}
+            className={`grid origin-top transition-[grid-template-rows,opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"}`}>
+            <div className="min-h-0 overflow-hidden">
+              <div className="mt-2 rounded-xl border border-rose-100 bg-gradient-to-b from-[#fff5f5] to-white p-3">
+                <p className="mb-2 text-xs font-bold text-[#7f1d1d]">เลือกข้อมูลสำหรับโรงเรียนและงานพิธีเปิด</p>
+                <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                  {[{key:"submission" as const,label:"ส่งข้อมูลโรงเรียน (พิธีเปิด)"},...SCHOOL_INFORMATION_SECTIONS].map(option => {
+                    const selected = schoolInfoSection === option.key;
+                    return <button type="button" key={option.key} tabIndex={schoolInfoMenuOpen?0:-1}
+                      aria-current={selected && tab === "school_info" ? "page" : undefined}
+                      onClick={() => {
+                        setSchoolInfoSection(option.key);
+                        setTab("school_info");
+                        setSchoolInfoMenuOpen(false);
+                        setSportsMenuOpen(false);
+                        setFormOpen(false);
+                        setError("");
+                      }}
+                      className={`min-h-12 rounded-xl border px-4 py-3 text-left text-sm font-bold transition-colors ${selected ? "border-red-800 bg-[#991b1b] text-white" : "border-rose-200 bg-white text-[#7f1d1d] hover:bg-rose-50"}`}>{option.label}</button>;
                   })}
                 </div>
               </div>
@@ -1346,7 +1389,11 @@ export default function GroupSportsDashboard() {
                 </div>
               </section>
             ))}
-            {tab === "submissions" && <SchoolSubmissionsContent embedded />}
+            {(tab === "submissions" || (tab === "school_info" && schoolInfoSection === "submission")) && <SchoolSubmissionsContent embedded />}
+            {tab === "school_info" && schoolInfoSection !== "submission" && (isDemo
+              ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">โหมดสาธิตยังไม่มีข้อมูลประชาสัมพันธ์จริง กรุณาเชื่อมต่อ Supabase</div>
+              : <SchoolInformationHub competitionId={competition?.id ?? null} section={schoolInfoSection}
+                  canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && (
               <>
