@@ -56,62 +56,100 @@ function safeFilename(value: string): string {
   return value.replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
 }
 
-/** Compact paper form: all extra RoV fields remain untouched in the database. */
+/**
+ * Official two-page RoV form, matching the supplied school competition forms.
+ * All IGN, lane, telephone and student-ID evidence remains in Supabase; only
+ * the names, team roles, school and confirmation signatures are printed.
+ */
 function SimpleRovApplication({ application }: { application: PrintedApplication }) {
-  const roleLabel = (role?: string | null): string => {
-    if (role === "หัวหน้าทีม") return "ตัวจริง (หัวหน้าทีม)";
-    if (role === "ตัวสำรอง") return "ตัวสำรอง";
-    if (role === "ตัวจริง") return "ตัวจริง";
-    return role?.trim() || "—";
-  };
+  const gender = application.event.event_code === "GS3-ES-SM" ? "ชาย" :
+    application.event.event_code === "GS3-ES-SF" ? "หญิง" :
+      (application.event.gender_rule || "");
+  const tournament = "กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30";
+  const academicYear = application.competition.academic_year || "2569";
+
+  // Captain first, then other starting players, then optional substitutes.
+  // A stable index breaks ties so the order of the stored roster is preserved.
+  const captainFirst = (role?: string | null): number => role === "หัวหน้าทีม" ? 0 : role === "ตัวสำรอง" ? 2 : 1;
+  const athletes = application.athletes
+    .map((person, index) => ({ person, index }))
+    .sort((a, b) => captainFirst(a.person.team_role) - captainFirst(b.person.team_role) || a.index - b.index)
+    .slice(0, 7)
+    .map(({ person }) => person);
+
+  const coach = application.coaches[0]?.name || "";
+  const assistant = application.coaches[1]?.name || "";
+  const roles = ["ผู้จัดการทีม", "ผู้ฝึกสอน", "ผู้ช่วยผู้ฝึกสอน", "นักกีฬา (กัปตันทีม)",
+    "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา"];
+  const names = ["", coach, assistant, ...Array.from({ length: 7 }, (_, index) => athletes[index]?.full_name || "")];
+  const notes = ["", "", "", ...Array.from({ length: 7 }, (_, index) =>
+    athletes[index]?.team_role === "ตัวสำรอง" ? "สำรอง" : "")];
 
   return (
-    <article className="gs-application gs-rov-simple" aria-label="ใบสมัครกีฬา RoV สำหรับพิมพ์ A4">
-      <header className="gs-rov-header">
-        <p>ระบบบริหารจัดการแข่งขันกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา</p>
-        <h1>ใบสมัครเข้าร่วมการแข่งขันกีฬา E-Sport (RoV)</h1>
-        <p>{application.competition.name}{application.competition.academic_year ? ` · ปีการศึกษา ${application.competition.academic_year}` : ""}</p>
-      </header>
-
-      <div className="gs-rov-info">
-        <p><strong>โรงเรียน</strong> <span>{application.school.name}</span></p>
-        <p><strong>รายการแข่งขัน</strong> <span>{application.event.sport_name}</span></p>
-      </div>
-
-      <section className="gs-rov-section">
-        <h2>รายชื่อนักกีฬา ({application.athletes.length} คน)</h2>
-        <table className="gs-rov-table">
-          <thead><tr><th className="gs-rov-number">ลำดับ</th><th>คำนำหน้า ชื่อ–สกุล</th><th className="gs-rov-role">ประเภทนักกีฬา</th></tr></thead>
-          <tbody>{application.athletes.map((athlete, index) => (
-            <tr key={`${athlete.student_code || ""}-${index}`}>
-              <td className="gs-rov-number">{index + 1}</td>
-              <td>{athlete.full_name || "—"}</td>
-              <td>{roleLabel(athlete.team_role)}</td>
+    <div className="gs-rov-two-page" aria-label="ใบสมัคร RoV สองหน้า พร้อมผังรูปนักกีฬา">
+      <article className="gs-application gs-rov-sheet gs-rov-roster-page" aria-label="หน้า 1 ใบสมัครรายชื่อทีม RoV">
+        <header className="gs-rov-official-header">
+          <p className="gs-rov-school-top">โรงเรียน {application.school.name}</p>
+          <h1>นักกีฬาชนิดกีฬา E-SPORT ทีม{gender} ( ARENA OF VALOR )</h1>
+          <p>{tournament}</p>
+          <p>ปีการศึกษา {academicYear}</p>
+          <p>ณ .......................................................................................</p>
+          <p>โรงเรียน {application.school.name}</p>
+        </header>
+        <table className="gs-rov-official-table" aria-label="รายชื่อผู้ควบคุมและนักกีฬา">
+          <colgroup><col className="gs-rov-col-no"/><col className="gs-rov-col-name"/><col className="gs-rov-col-position"/><col className="gs-rov-col-note"/></colgroup>
+          <thead><tr><th scope="col">ที่</th><th scope="col">ชื่อ - สกุล</th><th scope="col">ตำแหน่ง</th><th scope="col">หมายเหตุ</th></tr></thead>
+          <tbody>{roles.map((position, index) => (
+            <tr key={index}>
+              <td className="gs-rov-official-number">{index + 1}</td>
+              <td>{names[index] || " "}</td>
+              <td>{position}</td>
+              <td>{notes[index] || " "}</td>
             </tr>
           ))}</tbody>
         </table>
-      </section>
+      </article>
 
-      <section className="gs-rov-section gs-rov-coaches">
-        <h2>ครูผู้ควบคุมทีม ({application.coaches.length} คน)</h2>
-        <div className="gs-rov-coach-list">
-          {application.coaches.length ? application.coaches.map((coach, index) => (
-            <div key={`${index}-${coach.name}`}>{index + 1}. {coach.name}</div>
-          )) : <div>...........................................................................</div>}
-        </div>
-      </section>
-
-      <div className="gs-rov-certification">ขอรับรองว่ารายชื่อนักกีฬาข้างต้นเป็นข้อมูลที่โรงเรียนส่งเข้าร่วมการแข่งขันจริง</div>
-      <section className="gs-rov-signatures" aria-label="ช่องลงนามรับรองใบสมัคร">
-        <div><p>ลงชื่อ ........................................................</p>
-          <p>( {application.coaches[0]?.name || "........................................................"} )</p>
-          <strong>ครูผู้ควบคุมทีม</strong></div>
-        <div><p>ลงชื่อ ........................................................</p>
-          <p>( ........................................................ )</p>
-          <strong>ผู้อำนวยการโรงเรียน / ผู้ได้รับมอบหมาย</strong></div>
-      </section>
-      <footer className="gs-rov-footer">เอกสารใบสมัครจากระบบกีฬากลุ่ม · รายละเอียดเพิ่มเติมและหลักฐานการลงทะเบียนเก็บไว้ในระบบ</footer>
-    </article>
+      <article className="gs-application gs-rov-sheet gs-rov-photo-page" aria-label="หน้า 2 ผังรูปนักกีฬา RoV">
+        <header className="gs-rov-photo-header">
+          <p>โรงเรียน {application.school.name}</p>
+          <div className="gs-rov-photo-kind">ผังรูป <span className="gs-rov-checkmark">☑</span> นักกีฬา <span className="gs-rov-checkbox">□</span> เจ้าหน้าที่ทีม</div>
+          <h2>นักกีฬาชนิดกีฬา E-SPORT ทีม{gender} ( ARENA OF VALOR )</h2>
+          <p>{tournament}</p>
+          <p>ปีการศึกษา {academicYear}</p>
+        </header>
+        <section className="gs-rov-photo-grid" aria-label="ช่องติดรูปนักกีฬา 7 คน">
+          {Array.from({ length: 7 }, (_, index) => (
+            <div className="gs-rov-photo-item" key={index}>
+              <div className="gs-rov-photo-frame" aria-label={`ช่องติดรูปนักกีฬาคนที่ ${index + 1}`}>
+                <span>{index + 1}</span>
+              </div>
+              <p className="gs-rov-photo-signature">ลงชื่อ................................................</p>
+              <p className="gs-rov-photo-athlete-name">{athletes[index]?.full_name || " "}</p>
+            </div>
+          ))}
+        </section>
+        <section className="gs-rov-photo-certifications" aria-label="ช่องลงนามครูและผู้อำนวยการ">
+          <div className="gs-rov-photo-staff-signatures">
+            <div>
+              <p>ลงชื่อ....................................................</p>
+              <p>( {coach || "................................................"} )</p>
+              <p>ผู้ฝึกสอน</p>
+            </div>
+            <div>
+              <p>ลงชื่อ....................................................</p>
+              <p>( {assistant || "................................................"} )</p>
+              <p>ผู้ช่วยผู้ฝึกสอน</p>
+            </div>
+          </div>
+          <div className="gs-rov-photo-director">
+            <p>ลงชื่อ....................................................</p>
+            <p>( .................................................... )</p>
+            <p>ผู้อำนวยการโรงเรียน {application.school.name}</p>
+          </div>
+        </section>
+      </article>
+    </div>
   );
 }
 

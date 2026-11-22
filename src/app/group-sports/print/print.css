@@ -133,3 +133,104 @@
   .gs-rov-role { width: 105px; }
   .gs-rov-coach-list { grid-template-columns: 1fr; }
 }
+
+/* RoV: two-page official school roster + photo sheet (reference supplied by user). */
+.gs-rov-two-page { width: 100%; }
+.gs-rov-sheet {
+  box-sizing: border-box;
+  min-height: 297mm;
+  font-family: "Sarabun", "Noto Looped Thai", "TH Sarabun New", Tahoma, sans-serif;
+  color: #111;
+  background: #fff;
+  padding: 19mm 19mm 15mm;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.gs-rov-sheet + .gs-rov-sheet { margin-top: 22px; }
+.gs-rov-official-header { text-align: center; font-weight: 500; line-height: 1.8; }
+.gs-rov-official-header p, .gs-rov-photo-header p { margin: 0; }
+.gs-rov-official-header h1 { font-size: 15px; font-weight: 700; margin: 16px 0 0; }
+.gs-rov-school-top { padding-bottom: 3px; }
+.gs-rov-official-table {
+  table-layout: fixed;
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 31mm;
+  font-size: 13px;
+}
+.gs-rov-official-table th, .gs-rov-official-table td {
+  border: 1px solid #333;
+  padding: 5px 6px;
+  vertical-align: middle;
+  height: 30px;
+  overflow-wrap: anywhere;
+}
+.gs-rov-official-table th { text-align: center; font-weight: 700; }
+.gs-rov-col-no { width: 7%; }
+.gs-rov-col-name { width: 46%; }
+.gs-rov-col-position { width: 30%; }
+.gs-rov-col-note { width: 17%; }
+.gs-rov-official-number { text-align: center; }
+.gs-rov-photo-header { text-align: center; line-height: 1.55; }
+.gs-rov-photo-header h2 { margin: 0; font-size: 14px; font-weight: 700; }
+.gs-rov-photo-kind { font-size: 13px; }
+.gs-rov-checkbox, .gs-rov-checkmark { font-weight: bold; font-size: 16px; }
+.gs-rov-photo-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  column-gap: 9mm;
+  row-gap: 5mm;
+  margin-top: 13mm;
+  break-inside: avoid;
+}
+.gs-rov-photo-item { min-height: 65mm; text-align: center; break-inside: avoid; }
+.gs-rov-photo-frame {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  width: 27mm;
+  height: 37mm;
+  margin: 0 auto;
+  padding-top: 2mm;
+  border: 1px solid #333;
+  font-size: 12px;
+}
+.gs-rov-photo-signature { font-size: 11px; margin: 6mm 0 2px; white-space: nowrap; }
+.gs-rov-photo-athlete-name { font-size: 11px; margin: 0; min-height: 15px; }
+.gs-rov-photo-certifications { text-align: center; font-size: 12px; line-height: 1.8; break-inside: avoid; }
+.gs-rov-photo-certifications p { margin: 0; }
+.gs-rov-photo-staff-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 13mm; }
+.gs-rov-photo-director { margin-top: 10mm; }
+
+@media print {
+  .gs-rov-sheet {
+    height: 273mm;
+    min-height: 273mm;
+    width: 186mm;
+    max-width: none;
+    margin: 0;
+    padding: 8mm 5mm 4mm;
+    border: 0;
+    box-shadow: none;
+    font-size: 12px;
+    break-inside: avoid;
+  }
+  .gs-rov-sheet + .gs-rov-sheet { margin-top: 0; }
+  .gs-rov-roster-page { break-after: page; page-break-after: always; }
+  .gs-rov-photo-page { break-before: page; page-break-before: always; }
+  .gs-rov-official-table { margin-top: 27mm; font-size: 12px; }
+  .gs-rov-official-table th, .gs-rov-official-table td { padding: 4px 5px; height: 29px; }
+  .gs-rov-photo-grid { margin-top: 11mm; row-gap: 4mm; }
+  .gs-rov-photo-item { min-height: 48mm; }
+  .gs-rov-photo-frame { width: 24mm; height: 31mm; }
+  .gs-rov-photo-signature { margin-top: 3mm; }
+  .gs-rov-photo-director { margin-top: 8mm; }
+}
+@media screen and (max-width: 650px) {
+  .gs-rov-sheet { padding: 16px; min-height: 0; }
+  .gs-rov-official-table { margin-top: 20px; font-size: 10px; }
+  .gs-rov-official-table th, .gs-rov-official-table td { padding: 3px; }
+  .gs-rov-photo-grid { column-gap: 3px; }
+  .gs-rov-photo-frame { width: 22mm; height: 31mm; }
+  .gs-rov-photo-signature { font-size: 8px; }
+}
