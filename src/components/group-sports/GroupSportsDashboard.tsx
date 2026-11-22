@@ -1059,12 +1059,16 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="13.2" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
-              // Highlight the parent while its menu is open or any competition view is selected.
-              const isActive = isSportsGroup ? (sportsMenuOpen || sportsSubTabs.some((sub) => sub.key === tab)) : tab === item.key;
+              // The dropdown owns the active highlight while it is expanded.
+              // Without the second condition below, the previously selected page
+              // (e.g. Schools) can stay highlighted at the same time as Sports.
+              const isActive = isSportsGroup
+                ? sportsMenuOpen || sportsSubTabs.some((sub) => sub.key === tab)
+                : !sportsMenuOpen && tab === item.key;
               const Icon = item.icon;
               return (
                 <button
@@ -1072,6 +1076,7 @@ export default function GroupSportsDashboard() {
                   type="button"
                   aria-current={isActive && !isSportsGroup ? "page" : undefined}
                   aria-pressed={isActive}
+                  data-selected={isActive ? "true" : "false"}
                   aria-expanded={isSportsGroup ? sportsMenuOpen : undefined}
                   aria-controls={isSportsGroup ? "sports-management-submenu" : undefined}
                   onClick={() => {
@@ -1097,8 +1102,11 @@ export default function GroupSportsDashboard() {
                     setError("");
                   }}
                   className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
+                  // Use a direct background style as a resilient fallback: the open
+                  // parent must turn navy immediately even if cached styles load late.
+                  style={isActive ? { backgroundColor: "#102d63", borderColor: "#153d7a", color: "#ffffff" } : undefined}
                 >
-                  {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/10 to-transparent motion-safe:animate-pulse" />}
+                  {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />}
                   <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#0c2858]"}`} />
                   <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#0c2858]"}`}>{item.label}</span>
                   {isSportsGroup && (
