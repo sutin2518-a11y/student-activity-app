@@ -19,14 +19,27 @@ type PrintedCoach = { name: string; phone?: string | null };
 
 type PrintedApplication = {
   entry: { id: string; entry_name: string; coach_name?: string | null; assistant_coach?: string | null; status: string; created_at?: string | null; return_reason?: string | null };
-  event: { sport_name: string; event_code?: string | null; event_type: string; gender_rule?: string | null; level_rule?: string | null };
-  school: { name: string; school_code?: string | null };
+  event: { sport_name: string; event_code?: string | null; event_type: string; gender_rule?: string | null; level_rule?: string | null; venue_name?: string | null };
+  school: { name: string; school_code?: string | null; director_name?: string | null };
   competition: { name: string; academic_year?: string | null };
   athletes: PrintedAthlete[];
   coaches: PrintedCoach[];
 };
 
 const ROV_CODES = new Set(["GS3-ES-SM", "GS3-ES-SF"]);
+const ROV_DEFAULT_VENUE = "หอประชุม โรงเรียนเชียงคำวิทยาคม";
+function schoolDisplayName(name: string): string {
+  const normalized = name.trim();
+  return normalized.startsWith("โรงเรียน") ? normalized.replace(/^โรงเรียน\s*(?:โรงเรียน\s*)+/, "โรงเรียน") : `โรงเรียน${normalized}`;
+}
+function eventVenue(event: PrintedApplication["event"]): string {
+  const value = event.venue_name?.trim() || "";
+  if (ROV_CODES.has(event.event_code || "") && (!value || /^หอประชุม\s*โรงเรียนเชียงคำวิทยาคม$/.test(value))) {
+    return ROV_DEFAULT_VENUE;
+  }
+  return value;
+}
+
 const ID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function entryStatus(value: string): string {
@@ -80,10 +93,12 @@ function SimpleRovApplication({ application }: { application: PrintedApplication
     .map(({ person }) => person);
 
   const coach = application.coaches[0]?.name || "";
+  const manager = application.school.director_name || "";
+  const location = eventVenue(application.event);
   const assistant = application.coaches[1]?.name || "";
   const roles = ["ผู้จัดการทีม", "ผู้ฝึกสอน", "ผู้ช่วยผู้ฝึกสอน", "นักกีฬา (กัปตันทีม)",
     "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา", "นักกีฬา"];
-  const names = ["", coach, assistant, ...Array.from({ length: 7 }, (_, index) => athletes[index]?.full_name || "")];
+  const names = [manager, coach, assistant, ...Array.from({ length: 7 }, (_, index) => athletes[index]?.full_name || "")];
   const notes = ["", "", "", ...Array.from({ length: 7 }, (_, index) =>
     athletes[index]?.team_role === "ตัวสำรอง" ? "สำรอง" : "")];
 
@@ -91,12 +106,12 @@ function SimpleRovApplication({ application }: { application: PrintedApplication
     <div className="gs-rov-two-page" aria-label="ใบสมัคร RoV สองหน้า พร้อมผังรูปนักกีฬา">
       <article className="gs-application gs-rov-sheet gs-rov-roster-page" aria-label="หน้า 1 ใบสมัครรายชื่อทีม RoV">
         <header className="gs-rov-official-header">
-          <p className="gs-rov-school-top">โรงเรียน {application.school.name}</p>
+          <p className="gs-rov-school-top">{schoolDisplayName(application.school.name)}</p>
           <h1>นักกีฬาชนิดกีฬา E-SPORT ทีม{gender} ( ARENA OF VALOR )</h1>
           <p>{tournament}</p>
           <p>ปีการศึกษา {academicYear}</p>
-          <p>ณ .......................................................................................</p>
-          <p>โรงเรียน {application.school.name}</p>
+          <p>ณ {location || "........................................................"}</p>
+          <p>{schoolDisplayName(application.school.name)}</p>
         </header>
         <table className="gs-rov-official-table" aria-label="รายชื่อผู้ควบคุมและนักกีฬา">
           <colgroup><col className="gs-rov-col-no"/><col className="gs-rov-col-name"/><col className="gs-rov-col-position"/><col className="gs-rov-col-note"/></colgroup>
@@ -114,7 +129,7 @@ function SimpleRovApplication({ application }: { application: PrintedApplication
 
       <article className="gs-application gs-rov-sheet gs-rov-photo-page" aria-label="หน้า 2 ผังรูปนักกีฬา RoV">
         <header className="gs-rov-photo-header">
-          <p>โรงเรียน {application.school.name}</p>
+          <p>{schoolDisplayName(application.school.name)}</p>
           <div className="gs-rov-photo-kind">ผังรูป <span className="gs-rov-checkmark">☑</span> นักกีฬา <span className="gs-rov-checkbox">□</span> เจ้าหน้าที่ทีม</div>
           <h2>นักกีฬาชนิดกีฬา E-SPORT ทีม{gender} ( ARENA OF VALOR )</h2>
           <p>{tournament}</p>
@@ -147,8 +162,8 @@ function SimpleRovApplication({ application }: { application: PrintedApplication
           </div>
           <div className="gs-rov-photo-director">
             <p>ลงชื่อ....................................................</p>
-            <p>( .................................................... )</p>
-            <p>ผู้อำนวยการโรงเรียน {application.school.name}</p>
+            <p>( {manager || "...................................................."} )</p>
+            <p>ผู้อำนวยการ{schoolDisplayName(application.school.name)}</p>
           </div>
         </section>
       </article>
@@ -193,7 +208,7 @@ export default function GroupSportsPrintPage() {
         const entry = entryResult.data;
 
         const [eventResult, schoolResult, competitionResult] = await Promise.all([
-          supabase.from("sports_events").select("id,competition_id,sport_name,event_code,event_type,gender_rule,level_rule")
+          supabase.from("sports_events").select("id,competition_id,sport_name,event_code,event_type,gender_rule,level_rule,venue_name")
             .eq("id", entry.event_id).maybeSingle(),
           supabase.from("sports_schools").select("id,name,school_code")
             .eq("id", entry.school_id).maybeSingle(),
@@ -205,6 +220,11 @@ export default function GroupSportsPrintPage() {
             eventResult.data.competition_id !== entry.competition_id) {
           throw new Error("ไม่สามารถอ่านรายละเอียดโรงเรียนหรือรายการแข่งขันได้");
         }
+        // A permission-checked RPC freezes the principal's name on the first
+        // authorized print of a legacy entry; later register edits do not alter it.
+        const directorResult = await supabase.rpc("sports_entry_director_for_print", { p_entry: entryId });
+        if (directorResult.error) throw new Error(`ไม่สามารถตรวจชื่อผู้จัดการทีม: ${directorResult.error.message}`);
+        const directorName = typeof directorResult.data === "string" ? directorResult.data.trim() : "";
 
         // Keep RPC data unknown until the values pass the runtime guard. This
         // also preserves strong typing under TypeScript strict/noImplicitAny.
@@ -243,7 +263,7 @@ export default function GroupSportsPrintPage() {
             assistant_coach: entry.assistant_coach, status: entry.status, created_at: entry.created_at,
             return_reason: entry.return_reason },
           event: eventResult.data,
-          school: schoolResult.data,
+          school: { ...schoolResult.data, director_name: directorName },
           competition: competitionResult.data,
           athletes,
           coaches: validCoaches.length ? validCoaches : fallbackCoaches,
@@ -263,13 +283,15 @@ export default function GroupSportsPrintPage() {
   }, []);
 
   const isRov = application ? ROV_CODES.has(application.event.event_code || "") : false;
+  const missingDirector = Boolean(application && !application.school.director_name?.trim());
+  const missingVenue = Boolean(application && !eventVenue(application.event));
   return (
     <main className="gs-print-shell">
       <div className="gs-print-toolbar" aria-label="เครื่องมือพิมพ์ใบสมัคร">
         <Link href="/group-sports" className="gs-print-back">← กลับสู่ระบบกีฬากลุ่ม</Link>
         <div className="gs-print-toolbar-actions">
           <span className="gs-print-instruction">{isRov && missingPhotos !== null && missingPhotos > 0 ? `ยังไม่มีรูป ${missingPhotos} คน · กรอบที่ไม่มีรูปจะเว้นว่าง` : "เลือกเครื่องพิมพ์หรือ Save as PDF ในหน้าต่างพิมพ์"}</span>
-          <button type="button" disabled={!application} onClick={() => window.print()} className="gs-print-button">
+          <button type="button" disabled={!application || missingDirector || missingVenue} onClick={() => window.print()} className="gs-print-button">
             พิมพ์ / บันทึก PDF
           </button>
         </div>
@@ -284,6 +306,11 @@ export default function GroupSportsPrintPage() {
         </div>
       )}
 
+      {application && (missingDirector || missingVenue) && <div role="alert" className="gs-print-error">
+        <strong>ยังพิมพ์ใบสมัครฉบับสมบูรณ์ไม่ได้</strong>
+        {missingDirector && <p>ยังไม่ได้ระบุผู้อำนวยการโรงเรียน กรุณาไปที่เมนู “โรงเรียน” → “แก้ไขชื่อผู้อำนวยการ” แล้วเปิดใบสมัครใหม่</p>}
+        {missingVenue && <p>ยังไม่ได้กำหนดสถานที่แข่งขัน ให้ผู้ดูแลแก้ไขช่อง “สนาม” ในเมนูรายการแข่งขัน</p>}
+      </div>}
       {application && (isRov ? <SimpleRovApplication application={application} /> : (
         <article className="gs-application" aria-label="ใบสมัครการแข่งขันสำหรับพิมพ์ A4">
           <div className="gs-application-accent" aria-hidden="true" />
@@ -298,7 +325,9 @@ export default function GroupSportsPrintPage() {
           <div className="gs-application-summary">
             <table className="gs-summary-table">
               <tbody>
-                <tr><th>โรงเรียน</th><td colSpan={3}>{application.school.name}</td></tr>
+                <tr><th>โรงเรียน</th><td colSpan={3}>{schoolDisplayName(application.school.name)}</td></tr>
+                <tr><th>สถานที่แข่งขัน</th><td colSpan={3}>{eventVenue(application.event) || "ยังไม่ได้กำหนด"}</td></tr>
+                <tr><th>ผู้จัดการทีม</th><td colSpan={3}>{application.school.director_name || "ยังไม่ได้ระบุชื่อผู้อำนวยการ"}</td></tr>
                 <tr><th>รายการแข่งขัน</th><td colSpan={3}>{application.event.sport_name}</td></tr>
                 <tr><th>ประเภท</th><td>{applicationType(application.event)}</td><th>เพศ / รุ่น</th><td>{application.event.gender_rule || "—"} · {application.event.level_rule || "—"}</td></tr>
                 <tr><th>สถานะใบสมัคร</th><td>{entryStatus(application.entry.status)}</td><th>วันที่ส่งใบสมัคร</th><td>{formatThaiDate(application.entry.created_at)}</td></tr>
@@ -348,7 +377,7 @@ export default function GroupSportsPrintPage() {
                 <strong>ครูผู้ควบคุมทีม</strong>
                 <div>วันที่ .......... / .......... / ..........</div></div>
               <div><div className="gs-sign-line">ลงชื่อ .......................................................</div>
-                <div>( ....................................................... )</div>
+                <div>( {application.school.director_name || "......................................................."} )</div>
                 <strong>ผู้อำนวยการโรงเรียน / ผู้ได้รับมอบหมาย</strong>
                 <div>วันที่ .......... / .......... / ..........</div></div>
             </div>

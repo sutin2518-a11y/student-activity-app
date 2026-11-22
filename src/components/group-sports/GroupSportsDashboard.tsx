@@ -4,6 +4,7 @@ import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
+import SchoolDirectorEditor from "@/components/group-sports/SchoolDirectorEditor";
 import RovPhotoManager from "@/components/group-sports/RovPhotoManager";
 import { uploadRovPhoto, verifyPhotoFile } from "@/lib/group-sports/rov-photos";
 import { FormEvent, useCallback, useEffect, useMemo, useState, type ReactElement, type SVGProps } from "react";
@@ -58,6 +59,7 @@ type School = {
   id: string;
   school_code?: string | null;
   name: string;
+  director_name?: string | null;
   district?: string | null;
   province?: string | null;
   status?: string;
@@ -1353,6 +1355,7 @@ export default function GroupSportsDashboard() {
                   {schools.map((school) => (
                     <div key={school.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-rose-200 hover:shadow-sm">
                       <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-xl">🏫</span><div className="min-w-0"><h3 className="font-bold text-slate-900">{school.name}</h3><p className="mt-1 text-xs text-slate-500">{school.district || "ไม่ระบุอำเภอ"} · {school.province || "พะเยา"}</p><p className="mt-2 text-[11px] text-slate-400">รหัส {school.school_code || "ยังไม่กำหนด"}</p></div></div>
+                      {competition && <SchoolDirectorEditor schoolId={school.id} schoolName={school.name} currentName={school.director_name || ""} competitionId={competition.id} canEdit={rosterAdmin || roles.some(role => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id === competition.id))} onSaved={() => void loadData()} />}
                     </div>
                   ))}
                 </div>
