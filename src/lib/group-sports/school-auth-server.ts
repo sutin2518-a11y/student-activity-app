@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { createHmac, randomBytes, randomUUID } from "node:crypto";
+import { createHmac, randomInt, randomUUID } from "node:crypto";
 import type { NextRequest } from "next/server";
 
 export const SPORTS_SLUG = "phayao-secondary-group-sports-2569";
@@ -11,10 +11,34 @@ export function normalizedUsername(value: unknown): string {
 }
 export function validUsername(name: string): boolean { return usernamePattern.test(name); }
 export function validUUID(value: unknown): value is string { return typeof value === "string" && uuidPattern.test(value); }
+// Legacy accounts created before v11 can have passwords longer than 8 characters.
+// Keep login validation backward-compatible; do not invalidate existing logins.
 export function validPassword(value: unknown): value is string {
-  return typeof value === "string" && value.length >= 12 && value.length <= 128;
+  return typeof value === "string" && value.length >= 8 && value.length <= 128;
 }
-export function generatePassword() { return randomBytes(18).toString("base64url"); }
+
+// New school credentials are deliberately exactly 8 readable alphanumeric characters.
+// Existing credentials are never shortened automatically; admins can reset them.
+export function validNewSchoolPassword(value: unknown): value is string {
+  return typeof value === "string" && /^[A-Za-z0-9]{8}$/.test(value);
+}
+
+const PASSWORD_UPPER = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+const PASSWORD_LOWER = "abcdefghjkmnpqrstuvwxyz";
+const PASSWORD_DIGITS = "23456789";
+const PASSWORD_ALPHABET = PASSWORD_UPPER + PASSWORD_LOWER + PASSWORD_DIGITS;
+
+export function generatePassword(): string {
+  const pick = (chars: string) => chars[randomInt(chars.length)];
+  // Require upper/lowercase letters and a digit, then cryptographically shuffle.
+  const chars = [pick(PASSWORD_UPPER), pick(PASSWORD_LOWER), pick(PASSWORD_DIGITS)];
+  for (let i = chars.length; i < 8; i++) chars.push(pick(PASSWORD_ALPHABET));
+  for (let i = chars.length - 1; i > 0; i--) {
+    const j = randomInt(i + 1);
+    [chars[i], chars[j]] = [chars[j], chars[i]];
+  }
+  return chars.join("");
+}
 
 function urlAndPublicKey(): { url: string; key: string } {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;

@@ -201,19 +201,19 @@ const DEMO_MEDALS: Medal[] = [
   { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
 ];
 
-// Card-style sports navigation with large colourful icons.
-const sportsMenuItem = "group relative flex min-h-[112px] w-full min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 py-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none";
-const tabs: { key: TabKey; label: string; icon: (props: IconProps) => ReactElement; iconClass: string; activeClass: string; badgeClass: string }[] = [
-  { key: "overview", label: "หน้าหลัก", icon: HomeIcon, iconClass: "text-sky-600", activeClass: "border-sky-300 bg-sky-950 text-white shadow-[0_14px_28px_-18px_rgba(3,105,161,0.85)]", badgeClass: "bg-sky-100 text-sky-700 group-hover:bg-sky-200" },
-  { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon, iconClass: "text-rose-600", activeClass: "border-rose-300 bg-rose-950 text-white shadow-[0_14px_28px_-18px_rgba(190,24,93,0.85)]", badgeClass: "bg-rose-100 text-rose-700 group-hover:bg-rose-200" },
-  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon, iconClass: "text-violet-600", activeClass: "border-violet-300 bg-violet-950 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.85)]", badgeClass: "bg-violet-100 text-violet-700 group-hover:bg-violet-200" },
-  { key: "schools", label: "โรงเรียน", icon: SchoolIcon, iconClass: "text-cyan-700", activeClass: "border-cyan-300 bg-cyan-950 text-white shadow-[0_14px_28px_-18px_rgba(14,116,144,0.85)]", badgeClass: "bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200" },
-  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon, iconClass: "text-amber-600", activeClass: "border-amber-300 bg-amber-950 text-white shadow-[0_14px_28px_-18px_rgba(180,83,9,0.85)]", badgeClass: "bg-amber-100 text-amber-700 group-hover:bg-amber-200" },
-  { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon, iconClass: "text-blue-700", activeClass: "border-blue-300 bg-blue-950 text-white shadow-[0_14px_28px_-18px_rgba(29,78,216,0.85)]", badgeClass: "bg-blue-100 text-blue-700 group-hover:bg-blue-200" },
-  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon, iconClass: "text-indigo-700", activeClass: "border-indigo-300 bg-indigo-950 text-white shadow-[0_14px_28px_-18px_rgba(67,56,202,0.85)]", badgeClass: "bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200" },
-  { key: "standings", label: "ตารางคะแนน", icon: BarChartIcon, iconClass: "text-emerald-700", activeClass: "border-emerald-300 bg-emerald-950 text-white shadow-[0_14px_28px_-18px_rgba(4,120,87,0.85)]", badgeClass: "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200" },
-  { key: "medals", label: "เหรียญรางวัล", icon: MedalIcon, iconClass: "text-orange-600", activeClass: "border-orange-300 bg-orange-950 text-white shadow-[0_14px_28px_-18px_rgba(194,65,12,0.85)]", badgeClass: "bg-orange-100 text-orange-700 group-hover:bg-orange-200" },
-  { key: "accounts", label: "บัญชีโรงเรียน", icon: UserShieldIcon, iconClass: "text-fuchsia-700", activeClass: "border-fuchsia-300 bg-[#0f2e67] text-white shadow-[0_14px_28px_-18px_rgba(30,64,175,0.85)]", badgeClass: "bg-fuchsia-100 text-fuchsia-700 group-hover:bg-fuchsia-200" },
+// Compact, monochrome line icons matching the supplied reference design.
+const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 rounded-xl border border-[#d3e1f6] bg-[#edf4ff] px-1.5 py-2 text-center shadow-[0_2px_7px_rgba(30,58,95,0.06)] transition-all duration-200 hover:border-[#91b6e9] hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b2a60] active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none";
+const tabs: { key: TabKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
+  { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
+  { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon },
+  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
+  { key: "schools", label: "โรงเรียน", icon: SchoolIcon },
+  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
+  { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon },
+  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon },
+  { key: "standings", label: "ตารางคะแนน", icon: BarChartIcon },
+  { key: "medals", label: "เหรียญรางวัล", icon: MedalIcon },
+  { key: "accounts", label: "บัญชีโรงเรียน", icon: UserShieldIcon },
 ];
 
 function makeId(prefix: string) {
@@ -1049,8 +1049,8 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-5 overflow-hidden rounded-[24px] border border-[#d8e2f0] bg-[#eef5ff] px-3 py-4 shadow-[0_10px_28px_-16px_rgba(15,23,42,0.35)]">
-          <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:grid xl:grid-cols-10 xl:overflow-visible">
+        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-4 overflow-hidden rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-10 xl:overflow-visible">
           {tabs.map((item) => {
             const isActive = tab === item.key;
             const Icon = item.icon;
@@ -1066,13 +1066,11 @@ export default function GroupSportsDashboard() {
                   setFormOpen(false);
                   setError("");
                 }}
-                className={`${sportsMenuItem} min-w-[132px] xl:min-w-0 ${isActive ? item.activeClass : "text-slate-900 hover:border-slate-300"}`}
+                className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? "border-[#0f2e67] bg-[#0f2e67] text-white shadow-[0_6px_14px_rgba(15,46,103,0.25)]" : "text-[#0c2858]"}`}
               >
-                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${isActive ? "bg-white/10" : item.badgeClass}`}>
-                  <Icon className={`h-9 w-9 ${isActive ? "text-white" : item.iconClass}`} />
-                </div>
-                <span className={`line-clamp-2 text-[13px] font-black leading-tight sm:text-[15px] ${isActive ? "text-white" : "text-slate-900"}`}>{item.label}</span>
-                {isActive && <span aria-hidden="true" className="absolute bottom-2 left-1/2 h-1 w-12 -translate-x-1/2 rounded-full bg-yellow-300" />}
+                <Icon className={`h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#0c2858]"}`} />
+                <span className={`line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#0c2858]"}`}>{item.label}</span>
+                {isActive && <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-[3px] w-9 -translate-x-1/2 rounded-full bg-yellow-400" />}
               </button>
             );
           })}

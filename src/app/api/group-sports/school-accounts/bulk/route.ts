@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { nextSchoolUsername } from "@/lib/group-sports/school-username-generator";
+import { assertCredentialVaultReady, encryptSchoolPassword } from "@/lib/group-sports/school-credential-vault";
 import {
   createSportsAdminClient, generateInternalEmail, generatePassword, getSportsAccountEmailDomain,
   messageOf, requireSportsOrganizer, validUUID,
@@ -29,6 +30,7 @@ export async function POST(request: NextRequest) {
     if (!access) return reply({error: "ไม่มีสิทธิ์สร้างบัญชีโรงเรียน"}, 403);
     // Fail before any account is created if the provisioned email domain is missing.
     getSportsAccountEmailDomain();
+    assertCredentialVaultReady();
 
     const body: unknown = await request.json();
     const ids = body && typeof body === "object" && "school_ids" in body
@@ -96,6 +98,11 @@ export async function POST(request: NextRequest) {
         }).select("id").single();
         if (account.error) throw account.error;
 
+        const vault = await admin.from("sports_school_credential_vault").insert({
+          account_id: account.data.id, ...encryptSchoolPassword(password, account.data.id), updated_by: access.userId,
+        });
+        if (vault.error) throw vault.error;
+
         const role = await admin.from("sports_user_roles").insert({
           user_id: newUserId,
           competition_id: access.competitionId,
@@ -104,6 +111,11 @@ export async function POST(request: NextRequest) {
           is_active: true,
         });
         if (role.error) throw role.error;
+
+        const audit = await admin.from("sports_school_credential_audit").insert({
+          account_id: account.data.id, actor_user_id: access.userId, action: "created",
+        });
+        if (audit.error) throw audit.error;
 
         existingSchools.add(schoolId);
         usedUsernames.add(username);
