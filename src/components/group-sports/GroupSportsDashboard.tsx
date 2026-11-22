@@ -581,9 +581,13 @@ export default function GroupSportsDashboard() {
     const eventId = String(form.get("event_id") || "");
     const schoolId = String(form.get("school_id") || "");
     const sportEvent = events.find((item) => item.id === eventId);
-    const entryName = isRov(sportEvent) ? (editEntry?.entry_name || schools.find(s=>s.id===schoolId)?.name || "")
-      : String(form.get("entry_name") || "").trim() || (sportEvent?.event_type !== "team" ? `${players[0]?.prefix || ""}${players[0]?.full_name.trim() || ""}` : "");
-    if (!sportEvent || !schoolId || !entryName) return setError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกชื่อทีม/นักกีฬา");
+    // All sports use the same coach/athlete form as RoV. The entry name is
+    // created automatically rather than asking schools to type it repeatedly.
+    const schoolName = schools.find(s => s.id === schoolId)?.name.trim() || "";
+    const firstAthleteName = `${players[0]?.prefix || ""}${players[0]?.full_name.trim() || ""}`;
+    const entryName = editEntry?.entry_name || (sportEvent?.event_type !== "team" && sportEvent?.max_athletes_per_entry === 1
+      ? firstAthleteName : schoolName);
+    if (!sportEvent || !schoolId || !entryName) return setError("กรุณาเลือกรายการแข่งขัน โรงเรียน และกรอกรายชื่อนักกีฬา");
     if (!editEntry && sportEvent.stage3_source != null && sportEvent.status !== "registration") return setError("รายการนี้ยังไม่เปิดรับสมัคร");
     const athletes = players.map(p=>({
       ...p,
@@ -602,10 +606,13 @@ export default function GroupSportsDashboard() {
           athletes.filter(a=>a.team_role==="ตัวจริง").length!==4 ||
           reserveCount>2 || invalidRole)
         return setError("กรุณาระบุหัวหน้าทีม 1 คน ตัวจริงอีก 4 คน และตัวสำรองไม่เกิน 2 คน (ไม่บังคับ)");
-      if (!coaches.length) return setError("กรุณาเพิ่มครูผู้ควบคุมทีมอย่างน้อย 1 คน");
-      if (coaches.some(c=>!c.name.trim() || !/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,""))))
-        return setError("กรุณากรอกชื่อและเบอร์โทรศัพท์ครูทุกคนให้ครบ");
     }
+    // Every type of sport requires at least one named coach and a telephone.
+    // Keep the same validation for team, pairs, individuals, athletics and RoV.
+    if (!coaches.length) return setError("กรุณาเพิ่มครูผู้ควบคุมทีมอย่างน้อย 1 คน");
+    if (coaches.some(c=>!c.name.trim() || !/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,""))))
+      return setError("กรุณากรอกชื่อและเบอร์โทรศัพท์ครูทุกคนให้ครบ (หมายเลข 9–15 หลัก)");
+    const normalizedCoaches = coaches.map(c=>({name:c.name.trim(),phone:c.phone.trim()}));
     const individualBatch = !editEntry && supportsIndividualBatch(sportEvent) && athletes.length > 1;
     const validationMessage = validateAthletes(sportEvent, athletes, individualBatch);
     if (validationMessage) return setError(validationMessage);
@@ -615,12 +622,12 @@ export default function GroupSportsDashboard() {
       school_id: schoolId,
       entry_type: sportEvent.event_type === "team" ? "team" : "individual",
       entry_name: entryName,
-      coach_name: isRov(sportEvent)?coaches[0].name.trim():String(form.get("coach_name") || "").trim() || null,
+      coach_name: normalizedCoaches[0].name,
       status: "submitted",
     };
     setBusy(true); setError("");
     try {
-      const assistant = String(form.get("assistant_coach") || "").trim();
+      const assistant = normalizedCoaches[1]?.name || "";
       let id = editEntry?.id;
       let batchSaved: Entry[] = [];
       if (isDemo) {
@@ -629,7 +636,7 @@ export default function GroupSportsDashboard() {
           batchSaved = athletes.map((athlete) => {
             const newId = makeId("demo-entry");
             newRosters[newId] = [athlete];
-            return {...payload,id:newId,entry_name:athlete.full_name,assistant_coach:assistant,athlete_count:1} as Entry;
+            return {...payload,id:newId,entry_name:athlete.full_name,assistant_coach:assistant,coaches:normalizedCoaches,athlete_count:1} as Entry;
           });
           setDemoRosters(prev=>({...prev,...newRosters}));
         } else {
@@ -638,21 +645,21 @@ export default function GroupSportsDashboard() {
         }
       } else if (individualBatch) {
         const result = await supabase.rpc("sports_register_individual_batch",{
-          p_event:eventId,p_school:schoolId,p_coach:payload.coach_name,p_players:athletes
+          p_event:eventId,p_school:schoolId,p_coach:payload.coach_name,p_players:athletes,p_coaches:normalizedCoaches
         });
         if (result.error) throw new Error(result.error.message);
         const records = result.data as {id:string;entry_name:string}[];
         if (!Array.isArray(records) || records.length !== athletes.length) throw new Error("ผลการนำเข้าจากฐานข้อมูลไม่ครบ กรุณาตรวจสอบใบสมัคร");
-        batchSaved = records.map(row=>({...payload,id:row.id,entry_name:row.entry_name,assistant_coach:assistant,athlete_count:1} as Entry));
+        batchSaved = records.map(row=>({...payload,id:row.id,entry_name:row.entry_name,assistant_coach:assistant,coaches:normalizedCoaches,athlete_count:1} as Entry));
       } else {
-        const result = await supabase.rpc("sports_register_roster",{p_entry:id||null,p_event:eventId,p_school:schoolId,p_name:entryName,p_coach:payload.coach_name,p_assistant:assistant||null,p_players:athletes,p_coaches:isRov(sportEvent)?coaches:null});
+        const result = await supabase.rpc("sports_register_roster",{p_entry:id||null,p_event:eventId,p_school:schoolId,p_name:entryName,p_coach:payload.coach_name,p_assistant:assistant||null,p_players:athletes,p_coaches:normalizedCoaches});
         if (result.error) throw new Error(result.error.message);
         id = result.data as string;
       }
       if (individualBatch) {
         setEntries(current=>[...batchSaved,...current]);
       } else {
-        const saved = {...payload,id:id!,assistant_coach:assistant,coaches:isRov(sportEvent)?coaches:undefined,athlete_count:athletes.length} as Entry;
+        const saved = {...payload,id:id!,assistant_coach:assistant,coaches:normalizedCoaches,athlete_count:athletes.length} as Entry;
         setEntries(current=>[saved,...current.filter(row=>row.id!==id)]);
       }
       setEditEntry(null); setDetail(null); setRosterImportPreview(null);
@@ -880,6 +887,7 @@ export default function GroupSportsDashboard() {
               setPlayers(isRov(events.find(item=>item.id===id))
                 ? Array.from({length:5},(_,i)=>({...blankPlayer(),team_role:i===0?"หัวหน้าทีม":"ตัวจริง"}))
                 : [blankPlayer()]);
+              setCoaches([{name:"",phone:""}]);
             }
             setEventChoice(id);
           }}><option value="" disabled>เลือกรายการแข่งขัน</option>{events.filter(item => !editEntry || item.id===editEntry.event_id).map(item => <option key={item.id} value={item.id}>{item.sport_name}{!acceptsNewEntries(item) ? ` · ${statusLabel(item.status)}` : ""}</option>)}</select></label>
@@ -888,17 +896,18 @@ export default function GroupSportsDashboard() {
           {chosenEvent && !editEntry && !acceptsNewEntries(chosenEvent) && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2">
             รายการนี้ยังไม่เปิดรับสมัคร {rosterAdmin && <button type="button" onClick={() => { setScheduleView("events"); setTab("schedule"); setFormOpen(false); }} className="font-bold underline">ไปที่จัดการ / ดูโปรแกรม → รายการแข่งขัน เพื่อเปลี่ยนสถานะเป็น “เปิดรับสมัคร”</button>}
           </div>}
-          {(!chosenEvent || isRov(chosenEvent)) ? <div className="space-y-2 md:col-span-2">
+          <div className="space-y-2 md:col-span-2">
+            <div>
+              <p className="text-sm font-black text-slate-900">ครูผู้ควบคุมทีม / นักกีฬา</p>
+              <p className="mt-1 text-xs text-slate-600">เพิ่มครูผู้ควบคุมได้หลายคนทุกประเภทกีฬา โดยระบุชื่อและเบอร์โทรศัพท์ของครูแต่ละคน ส่วนชื่อทีม/นักกีฬาระบบจะกำหนดจากโรงเรียนหรือรายชื่อนักกีฬาอัตโนมัติ</p>
+            </div>
             {coaches.map((coach,i)=><div key={i} className="grid items-end gap-2 md:grid-cols-[1fr_1fr_auto]">
               <label><span className={labelClass}>ครูผู้ควบคุมทีม คนที่ {i+1} *</span><input className={inputClass} required value={coach.name} onChange={e=>setCoaches(rows=>rows.map((c,j)=>i===j?{...c,name:e.target.value}:c))}/></label>
               <label><span className={labelClass}>เบอร์โทรศัพท์ *</span><input className={inputClass} type="tel" required value={coach.phone} onChange={e=>setCoaches(rows=>rows.map((c,j)=>i===j?{...c,phone:e.target.value}:c))}/></label>
               <button type="button" disabled={coaches.length<=1} title={coaches.length<=1?"ต้องมีครูผู้ควบคุมทีมอย่างน้อย 1 คน":"ลบครูผู้ควบคุมทีมคนนี้"} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-40" onClick={()=>setCoaches(rows=>rows.length>1?rows.filter((_,j)=>i!==j):rows)}>ลบครูคนที่ {i+1}</button>
             </div>)}
             <button type="button" className="rounded-lg bg-blue-50 p-2 font-bold text-blue-800" onClick={()=>setCoaches(rows=>[...rows,{name:"",phone:""}])}>＋ เพิ่มครูผู้ควบคุมทีม</button>
-          </div> : <>
-          <label><span className={labelClass}>ชื่อทีม / ชื่อนักกีฬา *</span><input name="entry_name" defaultValue={editEntry?.entry_name} required={chosenEvent?.event_type === "team"} className={inputClass} placeholder={chosenEvent?.event_type === "team" ? "ชื่อทีม" : "กีฬาเดี่ยว: ใช้ชื่อนักกีฬาคนแรกอัตโนมัติ"} /></label>
-          <label><span className={labelClass}>ครูผู้ควบคุมทีม</span><input name="coach_name" defaultValue={editEntry?.coach_name||""} className={inputClass} placeholder="ชื่อครูผู้ควบคุม" /></label>
-          </>}
+          </div>
         </div>
         <div className="my-4 flex items-center justify-between"><strong>รายชื่อนักกีฬา · {players.filter(p=>p.full_name.trim()).length} คน {isRov(chosenEvent)?"(ตัวจริง 5 คน · ตัวสำรองเพิ่มได้ 0–2 คน ไม่บังคับ)":chosenEvent && supportsIndividualBatch(chosenEvent)?"(แยกใบสมัครคนละ 1 คน สูงสุด 100 คน/ครั้ง)":chosenEvent?.max_athletes_per_entry?`/ ${chosenEvent.max_athletes_per_entry} คน`:""}</strong>
         <button type="button" className="rounded-lg bg-blue-50 p-2 font-bold text-blue-800" disabled={isRov(chosenEvent)?players.length>=7:chosenEvent&&supportsIndividualBatch(chosenEvent)?players.length>=100:!!chosenEvent?.max_athletes_per_entry&&players.length>=chosenEvent.max_athletes_per_entry} onClick={()=>setPlayers(rows=>[...rows,{...blankPlayer(),team_role:isRov(chosenEvent)?"ตัวสำรอง":undefined}])}>＋ เพิ่มนักกีฬา</button></div>
