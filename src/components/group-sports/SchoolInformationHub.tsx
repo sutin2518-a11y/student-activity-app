@@ -8,6 +8,7 @@ export const SCHOOL_INFORMATION_SECTIONS = [
   { key: "cheer_stands", label: "อัฒจันทร์กองเชียร์", hint: "ตำแหน่งอัฒจันทร์และพื้นที่เชียร์ที่คณะกรรมการจัดสรร" },
   { key: "parade_order", label: "ลำดับขบวน", hint: "ลำดับการเดินเข้าสนามและข้อมูลกำหนดเวลา" },
   { key: "assembly_points", label: "จุดตั้งขบวน", hint: "พื้นที่รวมพลและตำแหน่งเตรียมขบวนก่อนเข้าสนาม" },
+  { key: "navigation", label: "แผนที่และการนำทาง", hint: "ลิงก์นำทาง Google Maps ไปยังสนามแข่งขัน จุดจอดรถ จุดส่งขบวน และสถานที่นัดหมาย" },
   { key: "announcements", label: "ประกาศและเอกสารอื่น ๆ", hint: "ข้อมูลเพิ่มเติมสำหรับทุกโรงเรียน" },
 ] as const;
 
@@ -22,14 +23,15 @@ type Bulletin = {
   attachment_path: string | null;
   attachment_name: string | null;
   attachment_mime: string | null;
+  maps_url: string | null;
   is_published: boolean;
   published_at: string | null;
   created_at: string;
   updated_at: string;
 };
 
-type Editor = { id?: string; title: string; details: string; file: File | null };
-const EMPTY_EDITOR: Editor = { title: "", details: "", file: null };
+type Editor = { id?: string; title: string; details: string; mapsUrl: string; file: File | null };
+const EMPTY_EDITOR: Editor = { title: "", details: "", mapsUrl: "", file: null };
 const BUCKET = "sports-school-information";
 const MAX_FILE_SIZE = 12 * 1024 * 1024;
 const EXTENSIONS: Record<string, string> = {
@@ -38,6 +40,22 @@ const EXTENSIONS: Record<string, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
+
+// Validate Maps links before saving and again before displaying them.
+// Accept Google Maps Directions links and official shortened Share links only.
+function safeGoogleMapsUrl(value: string | null | undefined): string | null {
+  if (!value) return null;
+  try {
+    const parsed = new URL(value.trim());
+    if (parsed.protocol !== "https:" || parsed.username || parsed.password || parsed.href.length > 2048) return null;
+    const host = parsed.hostname.toLowerCase();
+    const path = parsed.pathname.toLowerCase();
+    const isGoogleMaps = (host === "google.com" || host === "www.google.com" || host === "google.co.th" || host === "www.google.co.th") && (path === "/maps" || path.startsWith("/maps/"));
+    const isMapsSubdomain = (host === "maps.google.com" || host === "maps.google.co.th");
+    const isShortLink = (host === "maps.app.goo.gl" && path.length > 1) || (host === "goo.gl" && path.startsWith("/maps/"));
+    return (isGoogleMaps || isMapsSubdomain || isShortLink) ? parsed.href : null;
+  } catch { return null; }
+}
 
 function thaiDate(value: string | null): string {
   if (!value) return "ยังไม่เผยแพร่";
@@ -71,7 +89,7 @@ export default function SchoolInformationHub({ competitionId, section, canManage
     setError("");
     try {
       const response = await supabase.from("sports_school_information")
-        .select("id,competition_id,section,title,details,attachment_path,attachment_name,attachment_mime,is_published,published_at,created_at,updated_at")
+        .select("id,competition_id,section,title,details,attachment_path,attachment_name,attachment_mime,maps_url,is_published,published_at,created_at,updated_at")
         .eq("competition_id", competitionId).eq("section", section)
         .order("created_at", { ascending: false });
       if (response.error) throw response.error;
@@ -110,19 +128,24 @@ export default function SchoolInformationHub({ competitionId, section, canManage
     const title = editor.title.trim();
     const details = editor.details.trim();
     if (!title || title.length > 160 || details.length > 5000) { setError("ระบุหัวข้อไม่เกิน 160 ตัวอักษร และรายละเอียดไม่เกิน 5,000 ตัวอักษร"); return; }
+    const rawMapsUrl = editor.mapsUrl.trim();
+    const mapsUrl = safeGoogleMapsUrl(rawMapsUrl);
+    if ((rawMapsUrl && !mapsUrl) || (section === "navigation" && !mapsUrl)) {
+      setError(section === "navigation" ? "กรุณาใส่ลิงก์นำทาง Google Maps ที่ถูกต้อง" : "ลิงก์ต้องเป็น HTTPS จาก Google Maps เท่านั้น"); return;
+    }
     if (editor.file && (!EXTENSIONS[editor.file.type] || editor.file.size > MAX_FILE_SIZE)) { setError("ชนิดไฟล์หรือขนาดไฟล์ไม่ถูกต้อง"); return; }
     setBusy(true);
     try {
       let recordId = editor.id;
       if (!recordId) {
         const newItem = await supabase.from("sports_school_information").insert({
-          competition_id: competitionId, section, title, details, is_published: false,
+          competition_id: competitionId, section, title, details, maps_url: mapsUrl, is_published: false,
         }).select("id").single();
         if (newItem.error) throw newItem.error;
         recordId = newItem.data.id as string;
       } else {
         const changed = await supabase.from("sports_school_information")
-          .update({ title, details }).eq("id", recordId).eq("competition_id", competitionId).select("id").single();
+          .update({ title, details, maps_url: mapsUrl }).eq("id", recordId).eq("competition_id", competitionId).select("id").single();
         if (changed.error) throw changed.error;
       }
       if (editor.file && recordId) {
@@ -167,17 +190,21 @@ export default function SchoolInformationHub({ competitionId, section, canManage
         <p className="mt-1 text-sm text-slate-600">{category?.hint}</p>
         <p className="mt-1 text-xs text-slate-500">รายการที่ยังไม่เผยแพร่จะไม่ปรากฏสำหรับโรงเรียน</p>
       </div>
-      {canManage && <button type="button" onClick={() => { setEditor({...EMPTY_EDITOR});setSuccess("");setError(""); }} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800">+ เพิ่มประกาศ / แนบไฟล์</button>}
+      {canManage && <button type="button" onClick={() => { setEditor({...EMPTY_EDITOR});setSuccess("");setError(""); }} className="rounded-xl bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800">{section === "navigation" ? "+ เพิ่มจุดหมาย" : "+ เพิ่มประกาศ / แนบไฟล์"}</button>}
     </div>
     {error && <p role="alert" className="mb-3 rounded-lg border border-rose-300 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
     {success && <p role="status" className="mb-3 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{success}</p>}
     {editor && canManage && <form onSubmit={save} className="mb-5 grid gap-3 rounded-xl border border-rose-200 bg-rose-50 p-4">
       <h3 className="text-base font-bold text-rose-900">{editor.id ? "แก้ไขประกาศ" : "เพิ่มข้อมูลเบื้องต้น (ฉบับร่าง)"}</h3>
-      <label className="grid gap-1 text-sm font-semibold text-slate-800">ชื่อเรื่อง
-        <input value={editor.title} required maxLength={160} onChange={e => setEditor({...editor, title:e.target.value})} className="rounded-lg border border-rose-200 bg-white p-2.5 outline-red-600" placeholder="เช่น แผนผังขบวนพิธีเปิด (ฉบับร่าง)" />
+      <label className="grid gap-1 text-sm font-semibold text-slate-800">{section === "navigation" ? "ชื่อสถานที่ / จุดหมาย" : "ชื่อเรื่อง"}
+        <input value={editor.title} required maxLength={160} onChange={e => setEditor({...editor, title:e.target.value})} className="rounded-lg border border-rose-200 bg-white p-2.5 outline-red-600" placeholder={section === "navigation" ? "เช่น จุดรวมพลขบวนพาเหรด หรือ ลานจอดรถโรงเรียน" : "เช่น แผนผังขบวนพิธีเปิด (ฉบับร่าง)"} />
       </label>
       <label className="grid gap-1 text-sm font-semibold text-slate-800">รายละเอียด / คำชี้แจง
         <textarea value={editor.details} maxLength={5000} rows={4} onChange={e => setEditor({...editor, details:e.target.value})} className="rounded-lg border border-rose-200 bg-white p-2.5 outline-red-600" placeholder="คำชี้แจง วัน เวลา จุดนัดหมาย หรือหมายเหตุการเปลี่ยนแปลง" />
+      </label>
+      <label className="grid gap-1 text-sm font-semibold text-slate-800">ลิงก์ Google Maps {section === "navigation" ? "*" : "(ถ้ามี)"}
+        <input type="url" maxLength={2048} required={section === "navigation"} value={editor.mapsUrl} onChange={e => setEditor({...editor, mapsUrl:e.target.value})} className="rounded-lg border border-rose-200 bg-white p-2.5 font-normal outline-red-600" placeholder="https://www.google.com/maps/dir/?api=1&destination=..." />
+        <span className="text-xs font-normal text-slate-600">ผู้ดูแลเปิด Google Maps → เลือกจุดหมาย → เส้นทาง → แชร์ → คัดลอกลิงก์ แล้ววางที่นี่ (รองรับ maps.app.goo.gl ด้วย) โรงเรียนจะกดเปิดแผนที่จากปุ่มนำทางได้ ไม่ต้องใช้ Google Maps API Key</span>
       </label>
       <label className="grid gap-1 text-sm font-semibold text-slate-800">แนบภาพหรือเอกสาร (PDF/JPG/PNG/WebP ไม่เกิน 12 MB)
         <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/jpeg,image/png,image/webp" onChange={onPickFile} className="rounded-lg border border-rose-200 bg-white p-2 text-sm" />
@@ -203,6 +230,12 @@ export default function SchoolInformationHub({ competitionId, section, canManage
             {canManage && <span className={`h-fit rounded-full px-3 py-1 text-xs font-bold ${item.is_published?"bg-emerald-100 text-emerald-800":"bg-amber-100 text-amber-800"}`}>{item.is_published?"เผยแพร่แล้ว":"ฉบับร่าง"}</span>}
           </div>
           {item.details && <p className="mt-3 whitespace-pre-wrap text-sm leading-7 text-slate-700">{item.details}</p>}
+          {safeGoogleMapsUrl(item.maps_url) &&
+            <div className="mt-3 flex flex-wrap items-center gap-3 rounded-xl border border-rose-100 bg-rose-50/60 p-3">
+              <span aria-hidden="true" className="text-2xl">📍</span>
+              <span className="min-w-0 flex-1 text-sm font-medium text-slate-700">จุดหมายที่ผู้จัดการแข่งขันกำหนด · เปิด Google Maps เพื่อดูเส้นทางจากตำแหน่งของคุณ</span>
+              <a href={safeGoogleMapsUrl(item.maps_url) ?? undefined} target="_blank" rel="noopener noreferrer" aria-label={`นำทางไปยัง ${item.title} ด้วย Google Maps`} className="inline-flex items-center justify-center rounded-xl bg-[#991b1b] px-4 py-2.5 text-sm font-extrabold text-white shadow-sm transition hover:bg-red-800 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">📍 นำทาง Google Maps ↗</a>
+            </div>}
           {item.attachment_path && fileLinks[item.id] && item.attachment_mime?.startsWith("image/") &&
             <a href={fileLinks[item.id]} target="_blank" rel="noopener noreferrer" className="mt-3 block overflow-hidden rounded-lg border border-rose-100 bg-slate-50 p-2" aria-label={`ดูภาพขนาดเต็ม: ${item.attachment_name ?? item.title}`}>
               <img src={fileLinks[item.id]} alt={item.attachment_name ?? item.title} loading="lazy" className="mx-auto max-h-[460px] w-full object-contain" />
@@ -213,7 +246,7 @@ export default function SchoolInformationHub({ competitionId, section, canManage
             <span className="text-xs text-slate-500">ลิงก์เอกสารชั่วคราว ใช้เฉพาะรายการที่มีสิทธิ์เข้าถึง</span>
           </div>}
           {canManage && <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
-            <button type="button" disabled={busy || item.is_published} title={item.is_published ? "ถอนเผยแพร่ก่อนแก้ไข" : "แก้ไขฉบับร่าง"} onClick={() => { setEditor({id:item.id,title:item.title,details:item.details,file:null});setError("");setSuccess(""); }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">แก้ไข</button>
+            <button type="button" disabled={busy || item.is_published} title={item.is_published ? "ถอนเผยแพร่ก่อนแก้ไข" : "แก้ไขฉบับร่าง"} onClick={() => { setEditor({id:item.id,title:item.title,details:item.details,mapsUrl:item.maps_url ?? "",file:null});setError("");setSuccess(""); }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">แก้ไข</button>
             <button type="button" disabled={busy} onClick={() => { if (window.confirm(item.is_published ? "ถอนข้อมูลนี้ออกจากหน้าโรงเรียน?" : "ยืนยันว่าแผนผัง/ข้อมูลนี้ตรวจสอบแล้ว และพร้อมเผยแพร่ให้ทุกโรงเรียนหรือไม่?")) void setPublication(item,!item.is_published); }} className={`rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-50 ${item.is_published?"border border-amber-300 bg-amber-50 text-amber-900":"bg-emerald-700 text-white"}`}>{item.is_published?"ถอนเผยแพร่":"เผยแพร่ให้โรงเรียนเห็น"}</button>
           </div>}
         </article>)}</div>}
