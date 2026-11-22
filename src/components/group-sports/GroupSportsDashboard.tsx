@@ -1029,10 +1029,22 @@ export default function GroupSportsDashboard() {
     return null;
   };
 
+  // Open the registration form directly from the registration menu.
+  // Reset only when starting a new registration, not when re-clicking the
+  // already-open tab (which might otherwise discard unsaved form input).
+  const openNewRegistration = () => {
+    setEditEntry(null);
+    setDetail(null);
+    setRosterImportPreview(null);
+    setPlayers([blankPlayer()]);
+    setCoaches([{name:"",phone:""}]);
+    setEventChoice("");
+    setFormOpen(true);
+  };
+
   const headerAction = () => {
     if (tab === "schools" && (isDemo || isAdmin)) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโรงเรียน</button>;
     if (tab === "events" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มรายการ</button>;
-    if (tab === "entries" && canManageSchool) return <button onClick={() => {setEditEntry(null);setDetail(null);setRosterImportPreview(null);setPlayers([blankPlayer()]);setCoaches([{name:"",phone:""}]);setEventChoice("");setFormOpen(true);}} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ ลงทะเบียนทีม</button>;
     if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโปรแกรม</button>;
     if (tab === "standings" && canRecordResults) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกผลเดี่ยว / กรีฑา</button>;
     if (tab === "medals" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกเหรียญ</button>;
@@ -1048,7 +1060,7 @@ export default function GroupSportsDashboard() {
           <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
             <Link href="/" className="text-sm font-semibold text-blue-100 transition hover:text-white">← กลับสู่ระบบกิจกรรม</Link>
             <div className="flex items-center gap-2 text-xs">
-              {isDemo ? <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-bold text-amber-200">โหมดสาธิต · ข้อมูลตัวอย่าง</span> : <span className="rounded-full border border-emerald-300/40 bg-emerald-300/10 px-3 py-1.5 font-bold text-emerald-200">เชื่อมต่อฐานข้อมูล</span>}
+              {isDemo && <span className="rounded-full border border-amber-300/40 bg-amber-300/15 px-3 py-1.5 font-bold text-amber-200">โหมดสาธิต · ข้อมูลตัวอย่าง</span>}
               {userEmail ? <><span className="hidden rounded-full bg-white/10 px-3 py-1.5 text-blue-100 sm:inline">{userEmail}</span><button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-lg border border-white/25 bg-white/10 px-3 py-1.5 font-semibold text-white hover:bg-white/20">ออกจากระบบ</button></> : <Link href="/group-sports/login" className="rounded-lg bg-white px-3 py-1.5 font-bold text-blue-900 hover:bg-blue-100">เข้าสู่ระบบโรงเรียน</Link>}
             </div>
           </div>
@@ -1059,16 +1071,13 @@ export default function GroupSportsDashboard() {
               <p className="mt-2 text-sm text-blue-100 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
               <p className="mt-4 text-sm font-semibold text-white">{competition?.name || "ยังไม่ได้สร้างรายการแข่งขัน"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</p>
             </div>
-            <div className="flex flex-wrap gap-2">
-              <button onClick={() => void loadData()} disabled={loading} className="rounded-xl border border-white/20 bg-white/10 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-white/20 disabled:opacity-50">↻ รีเฟรชข้อมูล</button>
-              {headerAction()}
-            </div>
+            {headerAction() && <div className="flex flex-wrap gap-2">{headerAction()}</div>}
           </div>
         </div>
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="13.2" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="15" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
@@ -1106,8 +1115,14 @@ export default function GroupSportsDashboard() {
                       return;
                     }
                     setSportsMenuOpen(false);
+                    if (item.key === "entries") {
+                      // Show the form immediately. A second click on the active tab
+                      // must not erase the form while the school is still typing.
+                      if (tab !== "entries" || !formOpen) openNewRegistration();
+                    } else {
+                      setFormOpen(false);
+                    }
                     setTab(item.key as TabKey);
-                    setFormOpen(false);
                     setError("");
                   }}
                   className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
@@ -1261,7 +1276,14 @@ export default function GroupSportsDashboard() {
 
             {tab === "entries" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">ตรวจสอบรายชื่อที่แต่ละโรงเรียนส่งเข้าร่วมการแข่งขัน</p></div><span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">อนุมัติแล้ว {approvedEntries} / {schoolEntries.length}</span></div>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                  <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">ตรวจสอบรายชื่อที่แต่ละโรงเรียนส่งเข้าร่วมการแข่งขัน</p></div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800">＋ ลงทะเบียนรายการใหม่</button>}
+                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">อนุมัติแล้ว {approvedEntries} / {schoolEntries.length}</span>
+                  </div>
+                </div>
+                {!canManageSchool && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">หากต้องการลงทะเบียนนักกีฬา กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนที่มีสิทธิ์การแข่งขันนี้ <Link href="/group-sports/login" className="font-bold underline">เข้าสู่ระบบโรงเรียน</Link></div>}
                 <div className="mb-4 grid gap-2 sm:grid-cols-3">
                   <select aria-label="โรงเรียน" className="rounded-lg border p-2" value={schoolFilter} onChange={e=>setSchoolFilter(e.target.value)}><option value="">ทุกโรงเรียนที่ดูแล</option>{entrySchools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
                   <select aria-label="รายการแข่งขัน" className="rounded-lg border p-2" value={eventFilter} onChange={e=>setEventFilter(e.target.value)}><option value="">ทุกรายการแข่งขัน</option>{events.map(e=><option key={e.id} value={e.id}>{e.sport_name}</option>)}</select>
