@@ -162,12 +162,15 @@ export default function GroupSportsPrintPage() {
           throw new Error("ไม่สามารถอ่านรายละเอียดโรงเรียนหรือรายการแข่งขันได้");
         }
 
-        const rawCoaches = Array.isArray(roster.data.coaches) ? roster.data.coaches : [];
+        // Keep RPC data unknown until the values pass the runtime guard. This
+        // also preserves strong typing under TypeScript strict/noImplicitAny.
+        const rawCoaches: unknown[] = Array.isArray(roster.data.coaches) ? roster.data.coaches : [];
         const validCoaches: PrintedCoach[] = rawCoaches
-          .filter((coach: unknown): coach is { name: string; phone?: string | null } =>
+          .filter((coach: unknown): coach is PrintedCoach =>
             typeof coach === "object" && coach !== null &&
-            "name" in coach && typeof coach.name === "string" && Boolean(coach.name.trim()))
-          .map((coach) => ({ name: coach.name.trim(), phone: coach.phone || null }));
+            "name" in coach && typeof coach.name === "string" && Boolean(coach.name.trim()) &&
+            (!("phone" in coach) || coach.phone == null || typeof coach.phone === "string"))
+          .map((coach: PrintedCoach) => ({ name: coach.name.trim(), phone: coach.phone || null }));
         const fallbackCoaches = [entry.coach_name, entry.assistant_coach]
           .filter((name): name is string => Boolean(name && name.trim()))
           .map((name) => ({ name, phone: null }));
