@@ -128,7 +128,7 @@ export default function EsportsSessionsPage() {
         <div className="mx-auto max-w-7xl">
           <Link
             href="/group-sports/esports"
-            className="text-sm text-blue-200 hover:text-white"
+            className="text-sm text-rose-200 hover:text-white"
           >
             ← กลับระบบ E-Sport
           </Link>

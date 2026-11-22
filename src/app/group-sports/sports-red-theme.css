@@ -1,0 +1,55 @@
+/* Provincial School Sports · CKW red/white theme, v17.
+ * This stylesheet is imported only by /group-sports/layout.tsx.
+ * Colours in semantic status badges (success / warning / cancellation / medals)
+ * are deliberately NOT overridden here.
+ */
+.sports-red-theme {
+  --sports-primary: #b91c1c;
+  --sports-primary-hover: #991b1b;
+  --sports-deep: #7f1d1d;
+  --sports-soft: #fff1f2;
+  --sports-border: #fecdd3;
+  --sports-surface: #fffafa;
+  color-scheme: light;
+}
+
+.sports-red-theme :is(input, textarea, select) {
+  transition: border-color 160ms ease, box-shadow 160ms ease, background-color 160ms ease;
+}
+
+.sports-red-theme :is(input, textarea, select):focus-visible {
+  border-color: var(--sports-primary);
+  outline: 2px solid transparent;
+  box-shadow: 0 0 0 3px rgb(220 38 38 / 0.14);
+}
+
+.sports-red-theme :is(button, a):focus-visible {
+  outline: 2px solid #b91c1c;
+  outline-offset: 3px;
+}
+
+.sports-red-theme table thead {
+  background-color: #fff5f5;
+}
+
+.sports-red-theme table thead th {
+  color: #7f1d1d;
+}
+
+.sports-red-theme table tbody tr {
+  transition: background-color 160ms ease;
+}
+
+.sports-red-theme table tbody tr:hover {
+  background-color: #fffafa;
+}
+
+.sports-red-theme ::selection {
+  background: #fecaca;
+  color: #7f1d1d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sports-red-theme :is(input, textarea, select),
+  .sports-red-theme table tbody tr { transition: none; }
+}

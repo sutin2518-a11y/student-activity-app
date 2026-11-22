@@ -202,11 +202,12 @@ const DEMO_MEDALS: Medal[] = [
 ];
 
 // Compact monochrome navigation. The three competition views share one animated menu.
+// Red/white branding is intentionally local to the sports app.
 // Keep the active/inactive background colours in exclusive class branches so Tailwind
 // does not accidentally put white text on a light background.
-const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border px-1.5 py-2 text-center transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0b2a60] active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none";
-const sportsMenuActive = "border-[#153d7a] bg-[#102d63] text-white ring-[3px] ring-[#8bb8f4]/75 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(15,46,103,0.18),0_0_18px_rgba(59,130,246,0.3)]";
-const sportsMenuInactive = "border-[#d3e1f6] bg-[#edf4ff] text-[#0c2858] shadow-[0_2px_7px_rgba(30,58,95,0.06)] hover:border-[#91b6e9] hover:bg-[#e5f0ff] hover:shadow-md";
+const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border px-1.5 py-2 text-center transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none";
+const sportsMenuActive = "border-[#7f1d1d] bg-[#991b1b] text-white ring-[3px] ring-rose-200 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(127,29,29,0.18),0_0_16px_rgba(220,38,38,0.20)]";
+const sportsMenuInactive = "border-rose-100 bg-[#fff9f9] text-[#7f1d1d] shadow-[0_2px_7px_rgba(127,29,29,0.05)] hover:border-rose-300 hover:bg-rose-50 hover:shadow-md";
 type SportsManagementTab = "schedule" | "events" | "matches";
 type NavKey = Exclude<TabKey, SportsManagementTab> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
@@ -839,9 +840,9 @@ export default function GroupSportsDashboard() {
 
   const renderForm = () => {
     if (!formOpen) return null;
-    const formShell = "rounded-2xl border border-blue-100 bg-blue-50/60 p-4 md:p-5";
+    const formShell = "rounded-2xl border border-rose-200 bg-[#fff8f8] p-4 md:p-5";
     const labelClass = "mb-1 block text-xs font-bold text-slate-600";
-    const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100";
+    const inputClass = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-red-500 focus:ring-2 focus:ring-rose-100";
     const close = () => setFormOpen(false);
 
     if (tab === "schools" && (isDemo || isAdmin)) return (
@@ -852,7 +853,7 @@ export default function GroupSportsDashboard() {
           <label><span className={labelClass}>รหัสโรงเรียน</span><input name="school_code" className={inputClass} placeholder="เช่น PY001" /></label>
           <label><span className={labelClass}>อำเภอ</span><input name="district" className={inputClass} placeholder="อำเภอ" /></label>
         </div>
-        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโรงเรียน"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโรงเรียน"}</button></div>
       </form>
     );
 
@@ -871,7 +872,7 @@ export default function GroupSportsDashboard() {
           <label><span className={labelClass}>คะแนนเสมอ / แพ้</span><div className="flex gap-2"><input name="points_draw" type="number" min="0" defaultValue="1" className={inputClass} /><input name="points_loss" type="number" min="0" defaultValue="0" className={inputClass} /></div></label>
           <label className="md:col-span-3"><span className={labelClass}>สนามแข่งขัน (ถ้ากำหนดแล้ว)</span><input name="venue_name" className={inputClass} placeholder="ชื่อสนาม" /></label>
         </div>
-        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกรายการแข่งขัน"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกรายการแข่งขัน"}</button></div>
       </form>
     );
 
@@ -906,12 +907,12 @@ export default function GroupSportsDashboard() {
               <label><span className={labelClass}>เบอร์โทรศัพท์ *</span><input className={inputClass} type="tel" required value={coach.phone} onChange={e=>setCoaches(rows=>rows.map((c,j)=>i===j?{...c,phone:e.target.value}:c))}/></label>
               <button type="button" disabled={coaches.length<=1} title={coaches.length<=1?"ต้องมีครูผู้ควบคุมทีมอย่างน้อย 1 คน":"ลบครูผู้ควบคุมทีมคนนี้"} className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-bold text-red-700 disabled:cursor-not-allowed disabled:opacity-40" onClick={()=>setCoaches(rows=>rows.length>1?rows.filter((_,j)=>i!==j):rows)}>ลบครูคนที่ {i+1}</button>
             </div>)}
-            <button type="button" className="rounded-lg bg-blue-50 p-2 font-bold text-blue-800" onClick={()=>setCoaches(rows=>[...rows,{name:"",phone:""}])}>＋ เพิ่มครูผู้ควบคุมทีม</button>
+            <button type="button" className="rounded-lg bg-rose-50 p-2 font-bold text-red-800" onClick={()=>setCoaches(rows=>[...rows,{name:"",phone:""}])}>＋ เพิ่มครูผู้ควบคุมทีม</button>
           </div>
         </div>
         <div className="my-4 flex items-center justify-between"><strong>รายชื่อนักกีฬา · {players.filter(p=>p.full_name.trim()).length} คน {isRov(chosenEvent)?"(ตัวจริง 5 คน · ตัวสำรองเพิ่มได้ 0–2 คน ไม่บังคับ)":chosenEvent && supportsIndividualBatch(chosenEvent)?"(แยกใบสมัครคนละ 1 คน สูงสุด 100 คน/ครั้ง)":chosenEvent?.max_athletes_per_entry?`/ ${chosenEvent.max_athletes_per_entry} คน`:""}</strong>
-        <button type="button" className="rounded-lg bg-blue-50 p-2 font-bold text-blue-800" disabled={isRov(chosenEvent)?players.length>=7:chosenEvent&&supportsIndividualBatch(chosenEvent)?players.length>=100:!!chosenEvent?.max_athletes_per_entry&&players.length>=chosenEvent.max_athletes_per_entry} onClick={()=>setPlayers(rows=>[...rows,{...blankPlayer(),team_role:isRov(chosenEvent)?"ตัวสำรอง":undefined}])}>＋ เพิ่มนักกีฬา</button></div>
-        <div className="mb-4 rounded-2xl border border-sky-200 bg-gradient-to-br from-sky-50 via-white to-emerald-50 p-4">
+        <button type="button" className="rounded-lg bg-rose-50 p-2 font-bold text-red-800" disabled={isRov(chosenEvent)?players.length>=7:chosenEvent&&supportsIndividualBatch(chosenEvent)?players.length>=100:!!chosenEvent?.max_athletes_per_entry&&players.length>=chosenEvent.max_athletes_per_entry} onClick={()=>setPlayers(rows=>[...rows,{...blankPlayer(),team_role:isRov(chosenEvent)?"ตัวสำรอง":undefined}])}>＋ เพิ่มนักกีฬา</button></div>
+        <div className="mb-4 rounded-2xl border border-rose-200 bg-gradient-to-br from-rose-50 via-white to-emerald-50 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-black text-slate-800">นำเข้ารายชื่อนักกีฬาจาก Excel</p>
@@ -927,7 +928,7 @@ export default function GroupSportsDashboard() {
           </div>
           <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
             <label className="block flex-1 text-sm font-semibold text-slate-700">อัปโหลดไฟล์รายชื่อนักกีฬา (.xlsx, .xls)
-              <input key={eventChoice} type="file" accept=".xlsx,.xls" disabled={!chosenEvent || busy || rosterImportBusy} className="mt-1 block w-full cursor-pointer rounded-xl border border-sky-200 bg-white p-2.5 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-blue-100 file:px-3 file:py-2 file:font-bold file:text-blue-800 disabled:opacity-50" onChange={(ev) => {
+              <input key={eventChoice} type="file" accept=".xlsx,.xls" disabled={!chosenEvent || busy || rosterImportBusy} className="mt-1 block w-full cursor-pointer rounded-xl border border-rose-200 bg-white p-2.5 text-xs file:mr-3 file:rounded-lg file:border-0 file:bg-rose-100 file:px-3 file:py-2 file:font-bold file:text-red-800 disabled:opacity-50" onChange={(ev) => {
                 const file = ev.currentTarget.files?.[0];
                 ev.currentTarget.value = ""; // Permit selecting the same file after correction.
                 if (!file || !chosenEvent) return;
@@ -941,13 +942,13 @@ export default function GroupSportsDashboard() {
             </label>
             <p className="text-xs text-slate-500">รองรับไฟล์ไม่เกิน 5 MB · ไม่รวมข้อมูลชั้นและเพศ · ยังไม่บันทึกลงฐานข้อมูล</p>
           </div>
-          {rosterImportBusy && <p role="status" className="mt-3 text-sm font-semibold text-blue-700">กำลังตรวจสอบรายชื่อในไฟล์...</p>}
+          {rosterImportBusy && <p role="status" className="mt-3 text-sm font-semibold text-red-700">กำลังตรวจสอบรายชื่อในไฟล์...</p>}
           {rosterImportPreview && <div className="mt-4 rounded-xl border border-emerald-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm font-black text-emerald-800">พบ {rosterImportPreview.athletes.length} คน · {rosterImportPreview.fileName}</p>
               <div className="flex gap-2">
                 <button type="button" className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600" onClick={()=>setRosterImportPreview(null)}>ยกเลิก</button>
-                <button type="button" disabled={busy} className="rounded-lg bg-blue-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" onClick={()=>{
+                <button type="button" disabled={busy} className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" onClick={()=>{
                   setPlayers(rosterImportPreview.athletes);
                   setRosterImportPreview(null);
                   setNotice("นำเข้ารายชื่อนักกีฬาในแบบฟอร์มแล้ว กรุณาตรวจสอบอีกครั้งและกดส่งข้อมูลลงทะเบียนเพื่อบันทึก");
@@ -978,7 +979,7 @@ export default function GroupSportsDashboard() {
           </div>}
           <button type="button" disabled={players.length===1} className="mt-2 rounded-lg px-2 py-1 text-sm font-bold text-red-700 hover:bg-red-50" onClick={()=>setPlayers(rows=>rows.filter((_,j)=>j!==i))}>ลบ</button>
         </div>)}
-        <div className="mt-4 flex justify-end"><button disabled={busy || rosterImportBusy || !!rosterImportPreview || (!editEntry && !!chosenEvent && !acceptsNewEntries(chosenEvent))} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : chosenEvent && supportsIndividualBatch(chosenEvent) && players.length > 1 ? `ส่งข้อมูลลงทะเบียน ${players.length} คน` : "ส่งข้อมูลลงทะเบียน"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy || rosterImportBusy || !!rosterImportPreview || (!editEntry && !!chosenEvent && !acceptsNewEntries(chosenEvent))} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : chosenEvent && supportsIndividualBatch(chosenEvent) && players.length > 1 ? `ส่งข้อมูลลงทะเบียน ${players.length} คน` : "ส่งข้อมูลลงทะเบียน"}</button></div>
       </form>
     );
 
@@ -995,7 +996,7 @@ export default function GroupSportsDashboard() {
           <label><span className={labelClass}>วันและเวลา</span><input name="scheduled_at" type="datetime-local" className={inputClass} /></label>
           <label><span className={labelClass}>สนามแข่งขัน</span><input name="venue_name" className={inputClass} placeholder="สนาม" /></label>
         </div>
-        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโปรแกรม"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกโปรแกรม"}</button></div>
       </form>
     );
 
@@ -1010,7 +1011,7 @@ export default function GroupSportsDashboard() {
           <label><span className={labelClass}>หน่วย</span><input name="performance_unit" className={inputClass} placeholder="วินาที / เมตร / คะแนน" /></label>
           <label><span className={labelClass}>หมายเหตุผล</span><input name="result_text" className={inputClass} placeholder="เช่น ผ่านเข้ารอบ" /></label>
         </div>
-        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-blue-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกผลรายบุคคล"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกผลรายบุคคล"}</button></div>
       </form>
     );
 
@@ -1022,7 +1023,7 @@ export default function GroupSportsDashboard() {
           <label><span className={labelClass}>โรงเรียนที่ได้รับรางวัล *</span><select name="school_id" required className={inputClass} defaultValue=""><option value="" disabled>เลือกโรงเรียน</option>{schools.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label><span className={labelClass}>ประเภทเหรียญ</span><select name="medal_type" className={inputClass}><option value="gold">เหรียญทอง</option><option value="silver">เหรียญเงิน</option><option value="bronze">เหรียญทองแดง</option></select></label>
         </div>
-        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกเหรียญ"}</button></div>
+        <div className="mt-4 flex justify-end"><button disabled={busy} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">{busy ? "กำลังบันทึก..." : "บันทึกเหรียญ"}</button></div>
       </form>
     );
 
@@ -1043,16 +1044,16 @@ export default function GroupSportsDashboard() {
   };
 
   const headerAction = () => {
-    if (tab === "schools" && (isDemo || isAdmin)) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโรงเรียน</button>;
-    if (tab === "events" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มรายการ</button>;
-    if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโปรแกรม</button>;
-    if (tab === "standings" && canRecordResults) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกผลเดี่ยว / กรีฑา</button>;
-    if (tab === "medals" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-amber-500 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกเหรียญ</button>;
+    if (tab === "schools" && (isDemo || isAdmin)) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโรงเรียน</button>;
+    if (tab === "events" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มรายการ</button>;
+    if (tab === "matches" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ เพิ่มโปรแกรม</button>;
+    if (tab === "standings" && canRecordResults) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกผลเดี่ยว / กรีฑา</button>;
+    if (tab === "medals" && canManageCompetition) return <button onClick={() => setFormOpen((value) => !value)} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white">＋ บันทึกเหรียญ</button>;
     return null;
   };
 
   return (
-    <main className="min-h-screen bg-[#f3f6fb] text-slate-800">
+    <main className="min-h-screen bg-[#faf7f7] text-slate-800">
       {/* Responsive, accessible hero using the artwork from the red-white sports banner.
           The image is decorative only: navigation and login stay real controls. */}
       <header className="relative isolate overflow-hidden bg-gradient-to-r from-[#68000b] via-[#9d001b] to-[#dc1534] text-white">
@@ -1091,7 +1092,7 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="15" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-[#d3e1f6] bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
+        <nav aria-label="เมนูกีฬากลุ่ม" data-menu-version="17-red-white" onKeyDown={(event) => { if (event.key === "Escape") setSportsMenuOpen(false); }} className="relative my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
           <div className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
             {tabs.map((item) => {
               const isSportsGroup = item.key === "sports";
@@ -1141,12 +1142,12 @@ export default function GroupSportsDashboard() {
                   }}
                   className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
                   // Use a direct background style as a resilient fallback: the open
-                  // parent must turn navy immediately even if cached styles load late.
-                  style={isActive ? { backgroundColor: "#102d63", borderColor: "#153d7a", color: "#ffffff" } : undefined}
+                  // parent must turn deep red immediately even if cached styles load late.
+                  style={isActive ? { backgroundColor: "#991b1b", borderColor: "#7f1d1d", color: "#ffffff" } : undefined}
                 >
                   {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />}
-                  <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#0c2858]"}`} />
-                  <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#0c2858]"}`}>{item.label}</span>
+                  <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#7f1d1d]"}`} />
+                  <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#7f1d1d]"}`}>{item.label}</span>
                   {isSportsGroup && (
                     <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${sportsMenuOpen ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
                       <path d="m6 9 6 6 6-6" />
@@ -1164,8 +1165,8 @@ export default function GroupSportsDashboard() {
             className={`grid origin-top transition-[grid-template-rows,opacity,transform] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] translate-y-0 opacity-100" : "pointer-events-none grid-rows-[0fr] -translate-y-2 opacity-0"}`}
           >
             <div className="min-h-0 overflow-hidden">
-              <div className="mt-2 rounded-xl border border-blue-100 bg-gradient-to-b from-[#f5f9ff] to-white p-2 shadow-[inset_0_1px_3px_rgba(29,78,216,0.05)] sm:p-3">
-                <p className="mb-2 px-1 text-xs font-bold text-[#153d7a]">เลือกเมนูจัดการแข่งขัน</p>
+              <div className="mt-2 rounded-xl border border-rose-100 bg-gradient-to-b from-[#fff5f5] to-white p-2 shadow-[inset_0_1px_3px_rgba(185,28,28,0.05)] sm:p-3">
+                <p className="mb-2 px-1 text-xs font-bold text-[#7f1d1d]">เลือกเมนูจัดการแข่งขัน</p>
                 <div className="grid gap-2 sm:grid-cols-3">
                   {sportsSubTabs.map((sub) => {
                     const SubIcon = sub.icon;
@@ -1184,11 +1185,11 @@ export default function GroupSportsDashboard() {
                           setFormOpen(false);
                           setError("");
                         }}
-                        className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-extrabold transition-[background-color,color,border-color,box-shadow,transform] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600 motion-reduce:transition-none ${selected ? "border-[#153d7a] bg-[#153d7a] text-white shadow-[0_3px_14px_rgba(21,61,122,0.22)]" : "border-[#d3e1f6] bg-white text-[#0c2858] hover:-translate-y-0.5 hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"}`}
+                        className={`flex min-h-12 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm font-extrabold transition-[background-color,color,border-color,box-shadow,transform] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-600 motion-reduce:transition-none ${selected ? "border-[#7f1d1d] bg-[#991b1b] text-white shadow-[0_3px_14px_rgba(127,29,29,0.20)]" : "border-rose-200 bg-white text-[#7f1d1d] hover:-translate-y-0.5 hover:border-rose-300 hover:bg-rose-50 hover:shadow-sm"}`}
                       >
                         <SubIcon className="h-6 w-6 shrink-0" />
                         <span>{sub.label}</span>
-                        {selected && <span className="h-2 w-2 rounded-full bg-amber-300 shadow-[0_0_8px_rgba(253,230,138,0.8)]" aria-hidden="true" />}
+                        {selected && <span className="h-2 w-2 rounded-full bg-white shadow-[0_0_8px_rgba(255,255,255,0.72)]" aria-hidden="true" />}
                       </button>
                     );
                   })}
@@ -1210,13 +1211,13 @@ export default function GroupSportsDashboard() {
             {tab === "accounts" && (canManageAccounts ? <SchoolAccountsManager /> : (
               <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
                 <div className="mx-auto max-w-3xl text-center">
-                  <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-100 via-indigo-100 to-fuchsia-100 text-blue-700">
+                  <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-rose-100 via-rose-100 to-rose-100 text-red-700">
                     <UserShieldIcon className="h-10 w-10" />
                   </div>
                   <h2 className="text-2xl font-black text-slate-900">เมนูบัญชีโรงเรียน</h2>
                   <p className="mt-3 text-sm leading-7 text-slate-600">เมนูนี้ใช้สำหรับผู้ดูแลระบบในการสร้าง Username และ Password ให้โรงเรียนที่เข้าร่วมการแข่งขัน หากต้องการใช้งาน กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลหรือบัญชีกรรมการที่มีสิทธิ์จัดการการแข่งขัน</p>
                   <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-                    {userEmail ? <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">ออกจากระบบแล้วเข้าสู่ระบบใหม่</button> : <Link href="/group-sports/login" className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm hover:brightness-110">เข้าสู่ระบบผู้ดูแล</Link>}
+                    {userEmail ? <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">ออกจากระบบแล้วเข้าสู่ระบบใหม่</button> : <Link href="/group-sports/login" className="rounded-xl bg-gradient-to-r from-red-600 to-red-700 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm hover:brightness-110">เข้าสู่ระบบผู้ดูแล</Link>}
                     <button type="button" onClick={() => setTab("overview")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">กลับหน้าหลัก</button>
                   </div>
                 </div>
@@ -1228,8 +1229,8 @@ export default function GroupSportsDashboard() {
               <>
                 <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                   {[
-                    { label: "โรงเรียนในระบบ", value: schools.length, icon: "🏫", color: "text-blue-700", bg: "bg-blue-50" },
-                    { label: "รายการแข่งขัน", value: events.length, icon: "🏅", color: "text-violet-700", bg: "bg-violet-50" },
+                    { label: "โรงเรียนในระบบ", value: schools.length, icon: "🏫", color: "text-red-700", bg: "bg-rose-50" },
+                    { label: "รายการแข่งขัน", value: events.length, icon: "🏅", color: "text-red-700", bg: "bg-rose-50" },
                     { label: "ทีม / รายการที่ลงทะเบียน", value: entries.length, icon: "👥", color: "text-emerald-700", bg: "bg-emerald-50" },
                     { label: "แข่งขันเสร็จแล้ว", value: completedMatches.length, icon: "⚑", color: "text-amber-700", bg: "bg-amber-50" },
                     { label: "เหรียญรางวัล", value: totalMedals, icon: "🥇", color: "text-orange-700", bg: "bg-orange-50" },
@@ -1242,25 +1243,25 @@ export default function GroupSportsDashboard() {
                 </section>
                 <section className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">รายการแข่งขัน</h2><p className="text-xs text-slate-500">ภาพรวมประเภทกีฬาและรุ่นการแข่งขัน</p></div><button onClick={() => setTab("events")} className="text-xs font-bold text-blue-700">ดูทั้งหมด →</button></div>
+                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">รายการแข่งขัน</h2><p className="text-xs text-slate-500">ภาพรวมประเภทกีฬาและรุ่นการแข่งขัน</p></div><button onClick={() => setTab("events")} className="text-xs font-bold text-red-700">ดูทั้งหมด →</button></div>
                     <div className="space-y-3">
                       {events.slice(0, 5).map((item) => (
                         <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
                           <div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{item.sport_name}</p><p className="mt-1 text-xs text-slate-500">{eventTypeLabel(item.event_type)} · {item.gender_rule} · {item.level_rule}</p></div>
-                          <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">{statusLabel(item.status)}</span>
+                          <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-red-700">{statusLabel(item.status)}</span>
                         </div>
                       ))}
                       {!events.length && <EmptyState title="ยังไม่มีรายการแข่งขัน" description="เพิ่มประเภทกีฬาและรุ่นการแข่งขันเพื่อเริ่มต้น" />}
                     </div>
                   </div>
                   <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">ตารางเหรียญ</h2><p className="text-xs text-slate-500">สรุปผลตามโรงเรียน</p></div><button onClick={() => setTab("medals")} className="text-xs font-bold text-blue-700">ดูทั้งหมด →</button></div>
+                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">ตารางเหรียญ</h2><p className="text-xs text-slate-500">สรุปผลตามโรงเรียน</p></div><button onClick={() => setTab("medals")} className="text-xs font-bold text-red-700">ดูทั้งหมด →</button></div>
                     <MedalTable rows={medalTable.slice(0, 5)} />
                     {!medalTable.length && <EmptyState title="ยังไม่มีเหรียญรางวัล" description="เมื่อบันทึกผลและมอบรางวัลแล้วจะแสดงที่นี่" />}
                   </div>
                 </section>
                 <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => setTab("matches")} className="text-xs font-bold text-blue-700">ดูโปรแกรมทั้งหมด →</button></div>
+                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => setTab("matches")} className="text-xs font-bold text-red-700">ดูโปรแกรมทั้งหมด →</button></div>
                   <MatchTable matches={matches.slice(0, 5)} schools={schoolById} events={eventById} results={resultByMatch} />
                 </section>
               </>
@@ -1268,11 +1269,11 @@ export default function GroupSportsDashboard() {
 
             {tab === "schools" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โรงเรียนที่เข้าร่วม</h2><p className="mt-1 text-sm text-slate-500">ทะเบียนโรงเรียนกลางสำหรับการแข่งขันระดับจังหวัด</p></div><span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-700">{schools.length} โรงเรียน</span></div>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โรงเรียนที่เข้าร่วม</h2><p className="mt-1 text-sm text-slate-500">ทะเบียนโรงเรียนกลางสำหรับการแข่งขันระดับจังหวัด</p></div><span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-red-700">{schools.length} โรงเรียน</span></div>
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                   {schools.map((school) => (
-                    <div key={school.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-blue-200 hover:shadow-sm">
-                      <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-50 text-xl">🏫</span><div className="min-w-0"><h3 className="font-bold text-slate-900">{school.name}</h3><p className="mt-1 text-xs text-slate-500">{school.district || "ไม่ระบุอำเภอ"} · {school.province || "พะเยา"}</p><p className="mt-2 text-[11px] text-slate-400">รหัส {school.school_code || "ยังไม่กำหนด"}</p></div></div>
+                    <div key={school.id} className="rounded-2xl border border-slate-200 p-4 transition hover:border-rose-200 hover:shadow-sm">
+                      <div className="flex items-start gap-3"><span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-rose-50 text-xl">🏫</span><div className="min-w-0"><h3 className="font-bold text-slate-900">{school.name}</h3><p className="mt-1 text-xs text-slate-500">{school.district || "ไม่ระบุอำเภอ"} · {school.province || "พะเยา"}</p><p className="mt-2 text-[11px] text-slate-400">รหัส {school.school_code || "ยังไม่กำหนด"}</p></div></div>
                     </div>
                   ))}
                 </div>
@@ -1282,8 +1283,8 @@ export default function GroupSportsDashboard() {
 
             {tab === "events" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">รายการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">กำหนดประเภทกีฬา เพศ รุ่น และรูปแบบการแข่งขัน</p></div><span className="rounded-full bg-violet-50 px-3 py-1.5 text-xs font-bold text-violet-700">{events.length} รายการ</span></div>
-                <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รหัส</th><th className="pb-3 pr-3">รายการแข่งขัน</th><th className="pb-3 pr-3">ประเภท</th><th className="pb-3 pr-3">เพศ / รุ่น</th><th className="pb-3 pr-3">รูปแบบ</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{events.map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3 text-xs font-semibold text-slate-500">{item.event_code || "-"}</td><td className="py-3 pr-3 font-bold text-slate-800">{item.sport_name}</td><td className="py-3 pr-3">{eventTypeLabel(item.event_type)}</td><td className="py-3 pr-3">{item.gender_rule} · {item.level_rule}</td><td className="py-3 pr-3 text-xs text-slate-500">{item.competition_format || "-"}</td><td className="py-3"><span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-bold text-blue-700">{statusLabel(item.status)}</span></td></tr>)}</tbody></table></div>
+                <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">รายการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">กำหนดประเภทกีฬา เพศ รุ่น และรูปแบบการแข่งขัน</p></div><span className="rounded-full bg-rose-50 px-3 py-1.5 text-xs font-bold text-red-700">{events.length} รายการ</span></div>
+                <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รหัส</th><th className="pb-3 pr-3">รายการแข่งขัน</th><th className="pb-3 pr-3">ประเภท</th><th className="pb-3 pr-3">เพศ / รุ่น</th><th className="pb-3 pr-3">รูปแบบ</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{events.map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3 text-xs font-semibold text-slate-500">{item.event_code || "-"}</td><td className="py-3 pr-3 font-bold text-slate-800">{item.sport_name}</td><td className="py-3 pr-3">{eventTypeLabel(item.event_type)}</td><td className="py-3 pr-3">{item.gender_rule} · {item.level_rule}</td><td className="py-3 pr-3 text-xs text-slate-500">{item.competition_format || "-"}</td><td className="py-3"><span className="rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-red-700">{statusLabel(item.status)}</span></td></tr>)}</tbody></table></div>
                 {!events.length && <EmptyState title="ยังไม่มีรายการแข่งขัน" description="เพิ่มรายการกีฬาและกำหนดรุ่นการแข่งขันก่อนเปิดรับสมัคร" />}
               </section>
             )}
@@ -1293,7 +1294,7 @@ export default function GroupSportsDashboard() {
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
                   <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">ตรวจสอบรายชื่อที่แต่ละโรงเรียนส่งเข้าร่วมการแข่งขัน</p></div>
                   <div className="flex flex-wrap items-center gap-2">
-                    {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-blue-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-blue-800">＋ ลงทะเบียนรายการใหม่</button>}
+                    {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
                     <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">อนุมัติแล้ว {approvedEntries} / {schoolEntries.length}</span>
                   </div>
                 </div>
@@ -1305,11 +1306,11 @@ export default function GroupSportsDashboard() {
                 </div>
                 {registrationRows.map(entry=><article key={entry.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
                   <div><strong>{schoolById.get(entry.school_id)?.name} · {entry.entry_name}</strong><p className="text-sm">{eventById.get(entry.event_id)?.sport_name} · {entry.coach_name||"ไม่ระบุครูผู้ควบคุม"} · {entry.athlete_count} คน</p>
-                    <p className="text-sm font-bold text-blue-800">{statusLabel(entry.status)} {entry.return_reason && `· ${entry.return_reason}`}</p></div>
-                  <div className="flex gap-3"><button disabled={busy} onClick={()=>void openRoster(entry)}>ดูรายชื่อ</button>{entry.status==="rejected" && canManageSchool && <button className="text-blue-700" disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขและส่งใหม่</button>}</div>
+                    <p className="text-sm font-bold text-red-800">{statusLabel(entry.status)} {entry.return_reason && `· ${entry.return_reason}`}</p></div>
+                  <div className="flex gap-3"><button disabled={busy} onClick={()=>void openRoster(entry)}>ดูรายชื่อ</button>{entry.status==="rejected" && canManageSchool && <button className="text-red-700" disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขและส่งใหม่</button>}</div>
                 </article>)}
                 {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5">ยังไม่มีใบสมัครตามเงื่อนไขนี้</p>}
-                {detail && <section className="mt-4 rounded-xl border bg-blue-50 p-4"><div className="flex justify-between"><strong>รายชื่อ · {detail.entry.entry_name}</strong><button onClick={()=>setDetail(null)}>ปิด</button></div>
+                {detail && <section className="mt-4 rounded-xl border bg-rose-50 p-4"><div className="flex justify-between"><strong>รายชื่อ · {detail.entry.entry_name}</strong><button onClick={()=>setDetail(null)}>ปิด</button></div>
                   {detail.entry.coaches?.length ? detail.entry.coaches.map((c,i)=><p key={i}>ครูผู้ควบคุมทีม {i+1} · {c.name} {c.phone}</p>) : <p>ผู้ฝึกสอน {detail.entry.coach_name||"—"} {detail.entry.assistant_coach && ` · ผู้ช่วย ${detail.entry.assistant_coach}`}</p>}
                   <ol className="my-3 list-decimal pl-6">{detail.players.map((p,i)=><li key={i}>{[p.student_code,p.full_name,...(isRov(eventById.get(detail.entry.event_id)) ? [p.team_role,p.ign,p.play_position] : [])].filter(Boolean).join(" · ")}</li>)}</ol>
                   {rosterAdmin && detail.entry.status==="submitted" && <div className="flex flex-wrap gap-2"><input className="rounded-lg border bg-white p-2" aria-label="เหตุผลที่ส่งคืน" placeholder="เหตุผลที่ส่งคืน" value={reason} onChange={e=>setReason(e.target.value)}/><button className="rounded-lg bg-amber-100 p-2" disabled={busy||!reason.trim()} onClick={()=>void updateEntryStatus(detail.entry.id,"rejected")}>ส่งคืนให้แก้ไข</button><button className="rounded-lg bg-emerald-700 p-2 text-white" disabled={busy} onClick={()=>void updateEntryStatus(detail.entry.id,"approved")}>อนุมัติ</button></div>}
@@ -1321,7 +1322,7 @@ export default function GroupSportsDashboard() {
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">โปรแกรมและผลการแข่งขัน</h2><p className="mt-1 text-sm text-slate-500">จัดสาย รอบ วันเวลา สนาม และบันทึกคะแนน</p></div><span className="rounded-full bg-amber-50 px-3 py-1.5 text-xs font-bold text-amber-700">เสร็จสิ้น {completedMatches.length} / {matches.length} แมตช์</span></div>
                 <MatchTable matches={matches} schools={schoolById} events={eventById} results={resultByMatch} />
-                {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{matches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-amber-500 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
+                {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{matches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
                 {!matches.length && <EmptyState title="ยังไม่มีโปรแกรมการแข่งขัน" description="เพิ่มรายการแข่งขันและโรงเรียนก่อนจัดโปรแกรม" />}
               </section>
             )}
@@ -1329,8 +1330,8 @@ export default function GroupSportsDashboard() {
             {tab === "standings" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">ตารางคะแนน</h2><p className="mt-1 text-sm text-slate-500">คำนวณจากผลการแข่งขันที่บันทึกแล้ว โดยใช้เกณฑ์คะแนนของแต่ละรายการ</p></div><select value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><option value="all">ทุกรายการ</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></div>
-                {eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).length > 0 && <div className="mb-5 overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><p className="text-xs text-slate-500">อันดับและสถิติที่กรรมการบันทึก</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">รายการ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">ผู้เข้าแข่งขัน</th><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">สถิติ</th><th className="px-4 py-2">หมายเหตุ</th></tr></thead><tbody>{eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).sort((a, b) => (a.rank || 999) - (b.rank || 999)).map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-semibold">{eventById.get(item.event_id)?.sport_name || "-"}</td><td className="px-4 py-3">{schoolById.get(item.school_id)?.name || "-"}</td><td className="px-4 py-3 font-bold">{item.entry_name}</td><td className="px-4 py-3 font-black text-blue-700">{item.rank || "-"}</td><td className="px-4 py-3">{item.performance_value ?? "-"} {item.performance_unit || ""}</td><td className="px-4 py-3 text-slate-500">{item.result_text || "-"}</td></tr>)}</tbody></table></div></div>}
-                <div className="space-y-5">{standings.map(({ event: sportEvent, groupName, rows }) => <div key={`${sportEvent.id}-${groupName}`} className="overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">{sportEvent.sport_name} · {groupName}</h3><p className="text-xs text-slate-500">คะแนนชนะ {sportEvent.points_win ?? 3} · เสมอ {sportEvent.points_draw ?? 1} · แพ้ {sportEvent.points_loss ?? 0}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">แข่ง</th><th className="px-4 py-2">ชนะ</th><th className="px-4 py-2">เสมอ</th><th className="px-4 py-2">แพ้</th><th className="px-4 py-2">ได้ / เสีย</th><th className="px-4 py-2">คะแนน</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.school.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-black">{index + 1}</td><td className="px-4 py-3 font-bold">{row.school.name}</td><td className="px-4 py-3">{row.played}</td><td className="px-4 py-3">{row.win}</td><td className="px-4 py-3">{row.draw}</td><td className="px-4 py-3">{row.loss}</td><td className="px-4 py-3">{row.scored} / {row.conceded}</td><td className="px-4 py-3 font-black text-blue-700">{row.points}</td></tr>)}</tbody></table></div></div>)}{!standings.length && <EmptyState title="ยังไม่มีตารางคะแนน" description="เมื่อบันทึกผลการแข่งขันประเภททีมแล้ว ระบบจะคำนวณตารางคะแนนให้" />}</div>
+                {eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).length > 0 && <div className="mb-5 overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><p className="text-xs text-slate-500">อันดับและสถิติที่กรรมการบันทึก</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">รายการ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">ผู้เข้าแข่งขัน</th><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">สถิติ</th><th className="px-4 py-2">หมายเหตุ</th></tr></thead><tbody>{eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).sort((a, b) => (a.rank || 999) - (b.rank || 999)).map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-semibold">{eventById.get(item.event_id)?.sport_name || "-"}</td><td className="px-4 py-3">{schoolById.get(item.school_id)?.name || "-"}</td><td className="px-4 py-3 font-bold">{item.entry_name}</td><td className="px-4 py-3 font-black text-red-700">{item.rank || "-"}</td><td className="px-4 py-3">{item.performance_value ?? "-"} {item.performance_unit || ""}</td><td className="px-4 py-3 text-slate-500">{item.result_text || "-"}</td></tr>)}</tbody></table></div></div>}
+                <div className="space-y-5">{standings.map(({ event: sportEvent, groupName, rows }) => <div key={`${sportEvent.id}-${groupName}`} className="overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">{sportEvent.sport_name} · {groupName}</h3><p className="text-xs text-slate-500">คะแนนชนะ {sportEvent.points_win ?? 3} · เสมอ {sportEvent.points_draw ?? 1} · แพ้ {sportEvent.points_loss ?? 0}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">แข่ง</th><th className="px-4 py-2">ชนะ</th><th className="px-4 py-2">เสมอ</th><th className="px-4 py-2">แพ้</th><th className="px-4 py-2">ได้ / เสีย</th><th className="px-4 py-2">คะแนน</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.school.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-black">{index + 1}</td><td className="px-4 py-3 font-bold">{row.school.name}</td><td className="px-4 py-3">{row.played}</td><td className="px-4 py-3">{row.win}</td><td className="px-4 py-3">{row.draw}</td><td className="px-4 py-3">{row.loss}</td><td className="px-4 py-3">{row.scored} / {row.conceded}</td><td className="px-4 py-3 font-black text-red-700">{row.points}</td></tr>)}</tbody></table></div></div>)}{!standings.length && <EmptyState title="ยังไม่มีตารางคะแนน" description="เมื่อบันทึกผลการแข่งขันประเภททีมแล้ว ระบบจะคำนวณตารางคะแนนให้" />}</div>
               </section>
             )}
 
@@ -1367,5 +1368,5 @@ function MedalTable({ rows, showEmpty = false }: { rows: { school: School; gold:
 
 function MatchTable({ matches, schools, events, results }: { matches: Match[]; schools: Map<string, School>; events: Map<string, SportEvent>; results: Map<string, MatchResult> }) {
   if (!matches.length) return null;
-  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รายการ / รอบ</th><th className="pb-3 pr-3">คู่แข่งขัน</th><th className="pb-3 pr-3">วันเวลา / สนาม</th><th className="pb-3 pr-3">ผล</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{matches.map((match) => { const result = results.get(match.id); return <tr key={match.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3"><p className="font-bold text-slate-800">{events.get(match.event_id)?.sport_name || "รายการแข่งขัน"}</p><p className="mt-1 text-xs text-slate-500">{match.match_number || "-"} · {match.group_name || "ไม่แบ่งสาย"} · {match.round_name}</p></td><td className="py-3 pr-3"><p className="font-semibold">{schools.get(match.school_a_id || "")?.name || "รอระบุ"}</p><p className="my-1 text-[10px] font-bold text-slate-400">พบ</p><p className="font-semibold">{schools.get(match.school_b_id || "")?.name || "รอระบุ"}</p></td><td className="py-3 pr-3 text-xs text-slate-500">{formatThaiDate(match.scheduled_at)}<p className="mt-1">{match.venue_name || "ยังไม่กำหนดสนาม"}</p></td><td className="py-3 pr-3 font-black text-blue-800">{result ? `${result.score_a} : ${result.score_b}` : "-"}</td><td className="py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${match.status === "completed" ? "bg-emerald-50 text-emerald-700" : match.status === "live" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-600"}`}>{statusLabel(match.status)}</span></td></tr>; })}</tbody></table></div>;
+  return <div className="overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs text-slate-500"><th className="pb-3 pr-3">รายการ / รอบ</th><th className="pb-3 pr-3">คู่แข่งขัน</th><th className="pb-3 pr-3">วันเวลา / สนาม</th><th className="pb-3 pr-3">ผล</th><th className="pb-3">สถานะ</th></tr></thead><tbody>{matches.map((match) => { const result = results.get(match.id); return <tr key={match.id} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3"><p className="font-bold text-slate-800">{events.get(match.event_id)?.sport_name || "รายการแข่งขัน"}</p><p className="mt-1 text-xs text-slate-500">{match.match_number || "-"} · {match.group_name || "ไม่แบ่งสาย"} · {match.round_name}</p></td><td className="py-3 pr-3"><p className="font-semibold">{schools.get(match.school_a_id || "")?.name || "รอระบุ"}</p><p className="my-1 text-[10px] font-bold text-slate-400">พบ</p><p className="font-semibold">{schools.get(match.school_b_id || "")?.name || "รอระบุ"}</p></td><td className="py-3 pr-3 text-xs text-slate-500">{formatThaiDate(match.scheduled_at)}<p className="mt-1">{match.venue_name || "ยังไม่กำหนดสนาม"}</p></td><td className="py-3 pr-3 font-black text-red-800">{result ? `${result.score_a} : ${result.score_b}` : "-"}</td><td className="py-3"><span className={`rounded-full px-2.5 py-1 text-[11px] font-bold ${match.status === "completed" ? "bg-emerald-50 text-emerald-700" : match.status === "live" ? "bg-rose-50 text-rose-700" : "bg-slate-100 text-slate-600"}`}>{statusLabel(match.status)}</span></td></tr>; })}</tbody></table></div>;
 }

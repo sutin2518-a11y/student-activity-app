@@ -8,8 +8,8 @@ import { supabase } from "@/lib/supabase";
 const SLUG = "phayao-secondary-group-sports-2569";
 const EVENT_CODES = ["GS3-ES-SM", "GS3-ES-SF"] as const;
 const panel = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5";
-const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-blue-600 focus:ring-1 focus:ring-blue-600";
-const primary = "rounded-lg bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 disabled:opacity-50";
+const input = "w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-red-600 focus:ring-1 focus:ring-red-600";
+const primary = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
 const secondary = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold text-slate-700 hover:bg-slate-50 disabled:opacity-50";
 const danger = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
 
@@ -19,28 +19,28 @@ type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "histo
 // แยกสีเมนูแต่ละส่วนให้เห็นชัดทั้งสถานะที่เลือกและยังไม่เลือก
 const tabPalette: Record<Tab, { active: string; idle: string }> = {
   groups: {
-    active: "border-blue-800 bg-blue-700 text-white shadow-md ring-2 ring-blue-100",
-    idle: "border-blue-200 bg-blue-50 text-blue-900 hover:border-blue-400 hover:bg-blue-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   matches: {
-    active: "border-orange-700 bg-orange-600 text-white shadow-md ring-2 ring-orange-100",
-    idle: "border-orange-200 bg-orange-50 text-orange-900 hover:border-orange-400 hover:bg-orange-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   schedule: {
-    active: "border-indigo-800 bg-indigo-700 text-white shadow-md ring-2 ring-indigo-100",
-    idle: "border-indigo-200 bg-indigo-50 text-indigo-900 hover:border-indigo-400 hover:bg-indigo-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   standings: {
-    active: "border-emerald-800 bg-emerald-700 text-white shadow-md ring-2 ring-emerald-100",
-    idle: "border-emerald-200 bg-emerald-50 text-emerald-900 hover:border-emerald-400 hover:bg-emerald-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   knockout: {
-    active: "border-violet-800 bg-violet-700 text-white shadow-md ring-2 ring-violet-100",
-    idle: "border-violet-200 bg-violet-50 text-violet-900 hover:border-violet-400 hover:bg-violet-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   history: {
-    active: "border-rose-800 bg-rose-700 text-white shadow-md ring-2 ring-rose-100",
-    idle: "border-rose-200 bg-rose-50 text-rose-900 hover:border-rose-400 hover:bg-rose-100"
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   }
 };
 
@@ -219,7 +219,7 @@ function MatchCard({
   return <article className="rounded-xl border border-slate-200 bg-white p-3 sm:p-4">
     <div className="flex flex-wrap items-center justify-between gap-2">
       <div><p className="text-xs font-bold text-slate-500">{groupCode} · คู่ {match.match_no}</p><p className="mt-1 text-sm font-bold text-slate-900">{team1Name} <span className="px-1 text-slate-400">พบ</span> {team2Name}</p></div>
-      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${completed ? "bg-emerald-100 text-emerald-800" : match.match_status === "scheduled" ? "bg-blue-100 text-blue-800" : match.match_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{statusLabel[match.match_status]}</span>
+      <span className={`rounded-full px-2.5 py-1 text-xs font-bold ${completed ? "bg-emerald-100 text-emerald-800" : match.match_status === "scheduled" ? "bg-rose-100 text-red-800" : match.match_status === "cancelled" ? "bg-red-100 text-red-800" : "bg-amber-100 text-amber-800"}`}>{statusLabel[match.match_status]}</span>
     </div>
     <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
       <span>{thaiDate(match.scheduled_date)}</span><span>{shortTime(match.start_time)}</span><span>{match.venue_name || "รอยืนยันสนาม"}</span>
@@ -530,8 +530,8 @@ export default function EsportsPage() {
     <header className="no-print bg-gradient-to-r from-slate-950 via-[#17264b] to-slate-900 text-white">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports" className="text-sm font-bold text-blue-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-blue-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
-          <div className="text-xs text-blue-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
+          <div className="flex flex-wrap items-center gap-4"><Link href="/group-sports" className="text-sm font-bold text-rose-200 hover:text-white">← กลับระบบกีฬากลุ่ม</Link><Link href="/group-sports/schedule" className="text-sm font-bold text-rose-200 hover:text-white">โปรแกรมกีฬาทั้งหมด</Link></div>
+          <div className="text-xs text-rose-100">{email ? `${email} · ${admin ? "ผู้ดูแลการแข่งขัน" : "ผู้เข้าชม"}` : <Link href="/login" className="rounded-lg bg-white px-3 py-2 font-bold text-slate-900">เข้าสู่ระบบ</Link>}</div>
         </div>
         <p className="mt-5 text-xs font-bold tracking-[.22em] text-amber-300">PHULANGKA GAMES 2026 · ARENA OF VALOR</p>
         <h1 className="mt-2 text-2xl font-black sm:text-3xl">ระบบจัดการแข่งขัน E-Sport</h1>
@@ -577,8 +577,8 @@ export default function EsportsPage() {
       {currentEvent && tab === "groups" && <section className="grid gap-4 md:grid-cols-2">
         {email && roster && <section className={`${panel} md:col-span-2`}><div className="flex justify-between"><strong>รายชื่อที่อนุมัติ · {roster.school}</strong><button onClick={()=>setRoster(null)}>ปิด</button></div><p>{roster.coach}</p><ol className="list-decimal pl-6">{roster.players.map((name,i)=><li key={i}>{name}</li>)}</ol></section>}
         {currentGroups.map(group => <div className={`${panel} space-y-3`} key={group.id}>
-          <div className="flex items-center justify-between"><h2 className="text-lg font-black">กลุ่ม {group.group_code}</h2><span className="rounded-full bg-blue-50 px-3 py-1 text-xs font-bold text-blue-800">{currentTeams.filter(team => team.group_id === group.id).length} ทีม</span></div>
-          <ol className="space-y-2">{currentTeams.filter(team => team.group_id === group.id).sort((a,b)=>a.seed_order-b.seed_order).map((team,index) => <li className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={team.id}><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-slate-500">{index+1}</span><span className="font-semibold">{team.school_name}</span>{email && <button type="button" className="ml-auto text-xs font-bold text-blue-700" disabled={!!busyId} onClick={()=>void showApprovedRoster(team)}>ดูรายชื่อ</button>}</li>)}</ol>
+          <div className="flex items-center justify-between"><h2 className="text-lg font-black">กลุ่ม {group.group_code}</h2><span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-red-800">{currentTeams.filter(team => team.group_id === group.id).length} ทีม</span></div>
+          <ol className="space-y-2">{currentTeams.filter(team => team.group_id === group.id).sort((a,b)=>a.seed_order-b.seed_order).map((team,index) => <li className="flex items-center gap-3 rounded-lg bg-slate-50 px-3 py-2 text-sm" key={team.id}><span className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-xs font-black text-slate-500">{index+1}</span><span className="font-semibold">{team.school_name}</span>{email && <button type="button" className="ml-auto text-xs font-bold text-red-700" disabled={!!busyId} onClick={()=>void showApprovedRoster(team)}>ดูรายชื่อ</button>}</li>)}</ol>
         </div>)}
         <div className="md:col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
           <p className="font-bold">ข้อกำหนดก่อนจัดรอบ Knockout</p>
@@ -609,10 +609,10 @@ export default function EsportsPage() {
           const rows = buildStandings(group,currentTeams,currentMatches);
           return <div className={`${panel} space-y-3`} key={group.id}>
             <h2 className="text-lg font-black">ตารางคะแนน · กลุ่ม {group.group_code}</h2>
-            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-xs text-slate-600">{["อันดับ","โรงเรียน","แข่ง","ชนะ","แพ้","ได้–เสียเกม","คะแนน","เวลา (นาที)","Kill"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr className="border-b border-slate-100" key={row.team.id}><td className="p-2 font-bold">{index+1}</td><td className="p-2 font-semibold">{row.team.school_name}</td><td className="p-2">{row.played}</td><td className="p-2">{row.wins}</td><td className="p-2">{row.losses}</td><td className="p-2">{row.gamesFor}–{row.gamesAgainst}</td><td className="p-2 font-black text-blue-800">{row.points}</td><td className="p-2">{row.played > 0 && row.timeRecordedMatches === row.played ? row.time.toFixed(2) : "—"}</td><td className="p-2">{row.played > 0 && row.killRecordedMatches === row.played ? row.kills : "—"}</td></tr>)}</tbody></table></div>
+            <div className="overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="border-b bg-slate-50 text-xs text-slate-600">{["อันดับ","โรงเรียน","แข่ง","ชนะ","แพ้","ได้–เสียเกม","คะแนน","เวลา (นาที)","Kill"].map(label=><th className="p-2" key={label}>{label}</th>)}</tr></thead><tbody>{rows.map((row,index)=><tr className="border-b border-slate-100" key={row.team.id}><td className="p-2 font-bold">{index+1}</td><td className="p-2 font-semibold">{row.team.school_name}</td><td className="p-2">{row.played}</td><td className="p-2">{row.wins}</td><td className="p-2">{row.losses}</td><td className="p-2">{row.gamesFor}–{row.gamesAgainst}</td><td className="p-2 font-black text-red-800">{row.points}</td><td className="p-2">{row.played > 0 && row.timeRecordedMatches === row.played ? row.time.toFixed(2) : "—"}</td><td className="p-2">{row.played > 0 && row.killRecordedMatches === row.played ? row.kills : "—"}</td></tr>)}</tbody></table></div>
           </div>;
         })}
-        <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-blue-900"><p className="font-bold">หลักเกณฑ์คะแนนและจัดอันดับทีมชาย</p><p className="mt-1">แข่งขันแบบ BO3: ชนะ 2–0 ได้ 3 คะแนน, ชนะ 2–1 ได้ 2 คะแนน และทีมแพ้ได้ 1 คะแนน</p><p className="mt-1">เมื่อคะแนนเท่ากัน ใช้เวลาแข่งขันรวมสะสมน้อยกว่าเป็นเกณฑ์ก่อน และหากเวลาเท่ากันจึงพิจารณา Kill รวมมากกว่า</p><p className="mt-1 text-xs">ระบบจะใช้เวลาและ Kill จัดอันดับเมื่อบันทึกข้อมูลครบทุกแมตช์ที่ทีมลงแข่งขัน หากข้อมูลยังไม่ครบ จะแสดงลำดับชั่วคราวตามลำดับทีมในสาย</p></div>
+        <div className="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-red-900"><p className="font-bold">หลักเกณฑ์คะแนนและจัดอันดับทีมชาย</p><p className="mt-1">แข่งขันแบบ BO3: ชนะ 2–0 ได้ 3 คะแนน, ชนะ 2–1 ได้ 2 คะแนน และทีมแพ้ได้ 1 คะแนน</p><p className="mt-1">เมื่อคะแนนเท่ากัน ใช้เวลาแข่งขันรวมสะสมน้อยกว่าเป็นเกณฑ์ก่อน และหากเวลาเท่ากันจึงพิจารณา Kill รวมมากกว่า</p><p className="mt-1 text-xs">ระบบจะใช้เวลาและ Kill จัดอันดับเมื่อบันทึกข้อมูลครบทุกแมตช์ที่ทีมลงแข่งขัน หากข้อมูลยังไม่ครบ จะแสดงลำดับชั่วคราวตามลำดับทีมในสาย</p></div>
       </section>}
 
       {currentEvent && tab === "knockout" && <section className={`${panel} space-y-4`}>
@@ -623,12 +623,12 @@ export default function EsportsPage() {
         {gender === "หญิง" ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">ยังไม่เปิดสร้างสาย Knockout สำหรับทีมหญิง เนื่องจากต้องยืนยันจำนวนทีมที่ผ่านเข้ารอบจาก 2 กลุ่มก่อน เพื่อไม่ให้ระบบสร้างผังผิดจากระเบียบการแข่งขัน</div> : <>
           {currentKnockoutMatches.length === 0 && <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-sm text-slate-600">{admin ? "ยังไม่มีผัง Knockout กดปุ่มสร้างสายเพื่อเตรียมคู่แข่งขัน 8 ทีม" : "ยังไม่มีการเผยแพร่ผัง Knockout"}</div>}
           {currentKnockoutMatches.length > 0 && <>
-            <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm text-blue-900">ระบบเตรียมคู่รอบ 8 ทีม 4 คู่ รอบรองชนะเลิศ 2 คู่ รอบชิงชนะเลิศ และชิงอันดับ 3 ให้แล้ว การจับคู่เริ่มต้นยังเว้นว่างเพื่อให้ผู้ดูแลใส่ทีมตามผังที่คณะกรรมการยืนยัน</div>
+            <div className="rounded-xl border border-rose-100 bg-rose-50 p-3 text-sm text-red-900">ระบบเตรียมคู่รอบ 8 ทีม 4 คู่ รอบรองชนะเลิศ 2 คู่ รอบชิงชนะเลิศ และชิงอันดับ 3 ให้แล้ว การจับคู่เริ่มต้นยังเว้นว่างเพื่อให้ผู้ดูแลใส่ทีมตามผังที่คณะกรรมการยืนยัน</div>
             <div className="grid gap-4 xl:grid-cols-2">
               <div className="space-y-3 rounded-2xl border border-amber-200 bg-amber-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-100 px-4 py-2.5 text-base font-black text-amber-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" aria-hidden="true" />รอบ 8 ทีมสุดท้าย</h3>{currentKnockoutMatches.filter(match => match.stage === "knockout").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอทีมเข้ารอบ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอทีมเข้ารอบ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
-              <div className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-violet-300 bg-violet-100 px-4 py-2.5 text-base font-black text-violet-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-violet-500" aria-hidden="true" />รอบรองชนะเลิศ</h3>{currentKnockoutMatches.filter(match => match.stage === "semifinal").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+              <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-100 px-4 py-2.5 text-base font-black text-red-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />รอบรองชนะเลิศ</h3>{currentKnockoutMatches.filter(match => match.stage === "semifinal").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้ชนะจากรอบ 8 ทีม"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
               <div className="space-y-3 rounded-2xl border border-emerald-200 bg-emerald-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-emerald-300 bg-emerald-100 px-4 py-2.5 text-base font-black text-emerald-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" aria-hidden="true" />รอบชิงชนะเลิศ</h3>{currentKnockoutMatches.filter(match => match.stage === "final").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้ชนะรอบรองฯ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้ชนะรอบรองฯ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
-              <div className="space-y-3 rounded-2xl border border-sky-200 bg-sky-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-sky-300 bg-sky-100 px-4 py-2.5 text-base font-black text-sky-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-sky-500" aria-hidden="true" />ชิงอันดับ 3</h3>{currentKnockoutMatches.filter(match => match.stage === "third_place").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
+              <div className="space-y-3 rounded-2xl border border-rose-200 bg-rose-50/40 p-3 sm:p-4"><h3 className="inline-flex items-center gap-2 rounded-xl border border-rose-300 bg-rose-100 px-4 py-2.5 text-base font-black text-red-950 shadow-sm"><span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden="true" />ชิงอันดับ 3</h3>{currentKnockoutMatches.filter(match => match.stage === "third_place").map(match => <KnockoutPairingEditor key={match.id} match={match} teams={currentTeams} groups={groupById} team1Name={teamById.get(match.team1_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} team2Name={teamById.get(match.team2_id || "")?.school_name || "รอผู้แพ้รอบรองฯ"} admin={admin} saving={busyId === match.id} onRequestEdit={requestBracketEdit} onSave={saveMatch}/>)}</div>
             </div>
           </>}
         </>}

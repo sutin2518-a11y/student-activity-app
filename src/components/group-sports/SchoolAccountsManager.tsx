@@ -137,8 +137,8 @@ export default function SchoolAccountsManager() {
   }
 
   return <section className="space-y-5">
-    <div className="rounded-2xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-pink-50 p-5 shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">จัดการบัญชีโรงเรียน</h2><p className="mt-1 text-sm text-slate-600">สร้าง Username และรหัสผ่านสำหรับโรงเรียนที่เข้าร่วม โดยไม่ต้องใช้ Gmail</p></div><span className="rounded-full bg-indigo-700 px-3 py-1.5 text-xs font-bold text-white">เฉพาะผู้ดูแล</span></div>
+    <div className="rounded-2xl border border-rose-100 bg-gradient-to-r from-rose-50 via-white to-pink-50 p-5 shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">จัดการบัญชีโรงเรียน</h2><p className="mt-1 text-sm text-slate-600">สร้าง Username และรหัสผ่านสำหรับโรงเรียนที่เข้าร่วม โดยไม่ต้องใช้ Gmail</p></div><span className="rounded-full bg-red-700 px-3 py-1.5 text-xs font-bold text-white">เฉพาะผู้ดูแล</span></div>
       <p className="mt-3 text-xs text-slate-500">โรงเรียนหนึ่งแห่งมีบัญชีประจำการแข่งขันหนึ่งบัญชี · รหัสผ่านเก็บแบบเข้ารหัสให้ Admin เปิดดูย้อนหลังได้ (เฉพาะบัญชีที่สร้าง/รีเซ็ตหลังติดตั้ง v10) · โรงเรียนจัดการได้เฉพาะข้อมูลตนเอง</p>
     </div>
     {configError && <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900"><strong>ยังสร้างบัญชีไม่ได้:</strong> {configError}<p className="mt-2">ตรวจสอบตัวแปร <code>SPORTS_ACCOUNT_EMAIL_DOMAIN</code> และ <code>SPORTS_ACCOUNT_VAULT_KEY</code> ใน Vercel → Environment Variables แล้ว Redeploy ก่อนทดลองสุ่มบัญชี</p></div>}
@@ -155,21 +155,21 @@ export default function SchoolAccountsManager() {
       </div>
       <p className="mt-2 text-xs text-amber-900">ควรส่งรหัสผ่านทางช่องทางส่วนตัวเท่านั้น และปิดการแสดงรหัสหลังใช้งาน ผู้ดูแลสามารถเปิดดูย้อนหลังได้เฉพาะบัญชีที่มีรหัสเข้ารหัสในระบบ</p>
     </div>}
-    <div className="rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 via-white to-sky-50 p-5 shadow-sm">
+    <div className="rounded-2xl border border-rose-200 bg-gradient-to-r from-rose-50 via-white to-rose-50 p-5 shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h3 className="text-lg font-black text-indigo-950">สร้างบัญชีให้ทุกโรงเรียนอัตโนมัติ</h3>
+          <h3 className="text-lg font-black text-red-950">สร้างบัญชีให้ทุกโรงเรียนอัตโนมัติ</h3>
           <p className="mt-1 text-sm text-slate-700">สุ่ม Username รูปแบบ py001, py002… และรหัสผ่าน 8 ตัวอักษรที่ประกอบด้วยตัวอักษรและตัวเลขให้โรงเรียนที่เข้าร่วมการแข่งขัน</p>
           <p className="mt-1 text-xs text-slate-600">โรงเรียนเข้าร่วม {schools.length} แห่ง · มีบัญชีแล้ว {accounts.length} แห่ง · ยังไม่มีบัญชี {unregistered.length} แห่ง</p>
         </div>
         <button type="button" disabled={busy||loading||!unregistered.length||Boolean(configError)} onClick={()=>void createBulk()}
-          className="rounded-xl bg-gradient-to-r from-violet-600 to-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
+          className="rounded-xl bg-gradient-to-r from-red-600 to-red-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-50">
           {busy&&bulkProgress?`กำลังสร้าง ${bulkProgress.completed}/${bulkProgress.total}…`:unregistered.length?`＋ สุ่มบัญชี ${unregistered.length} โรงเรียน`:"ทุกโรงเรียนมีบัญชีแล้ว"}
         </button>
       </div>
       {busy&&bulkProgress&&<div className="mt-4" role="status" aria-live="polite">
-        <div className="h-2 overflow-hidden rounded-full bg-indigo-100"><div className="h-full bg-indigo-600 transition-all" style={{width:`${Math.round(100*bulkProgress.completed/bulkProgress.total)}%`}}/></div>
-        <p className="mt-1 text-xs text-indigo-700">ตรวจสอบแล้ว {bulkProgress.completed} จาก {bulkProgress.total} โรงเรียน</p>
+        <div className="h-2 overflow-hidden rounded-full bg-rose-100"><div className="h-full bg-red-600 transition-all" style={{width:`${Math.round(100*bulkProgress.completed/bulkProgress.total)}%`}}/></div>
+        <p className="mt-1 text-xs text-red-700">ตรวจสอบแล้ว {bulkProgress.completed} จาก {bulkProgress.total} โรงเรียน</p>
       </div>}
       <p className="mt-3 text-xs text-amber-800">ระบบข้ามบัญชีที่มีอยู่แล้วโดยอัตโนมัติและไม่เปลี่ยนรหัสผ่านเดิม ควรดาวน์โหลดข้อมูลสำหรับแจกโรงเรียน และ Admin สามารถเปิดดูรหัสที่จัดเก็บไว้ภายหลังได้</p>
     </div>
@@ -188,11 +188,11 @@ export default function SchoolAccountsManager() {
       </div>
       {!!bulkCredentials.length&&<div className="mt-4 max-h-80 overflow-auto rounded-lg border border-amber-200 bg-white">
         <table className="w-full min-w-[620px] text-left text-sm">
-          <thead className="sticky top-0 bg-indigo-50 text-indigo-950"><tr><th className="p-3">โรงเรียน</th><th className="p-3">Username</th><th className="p-3">Password</th><th className="p-3">ส่งข้อมูล</th></tr></thead>
+          <thead className="sticky top-0 bg-rose-50 text-red-950"><tr><th className="p-3">โรงเรียน</th><th className="p-3">Username</th><th className="p-3">Password</th><th className="p-3">ส่งข้อมูล</th></tr></thead>
           <tbody className="divide-y divide-slate-100">{bulkCredentials.map(item=><tr key={item.school_id}>
             <td className="p-3 font-medium">{item.school_name}</td><td className="p-3 font-mono">{item.username}</td>
             <td className="p-3 font-mono">{item.one_time_password}</td>
-            <td className="p-3"><button type="button" className="rounded-lg bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-700" onClick={()=>copyCredential(item)}>คัดลอกเฉพาะโรงเรียนนี้</button></td>
+            <td className="p-3"><button type="button" className="rounded-lg bg-rose-50 px-3 py-2 text-xs font-semibold text-red-700" onClick={()=>copyCredential(item)}>คัดลอกเฉพาะโรงเรียนนี้</button></td>
           </tr>)}</tbody>
         </table>
       </div>}
@@ -214,16 +214,16 @@ export default function SchoolAccountsManager() {
         <label className="block text-sm font-bold text-slate-700">รหัสผ่านเริ่มต้น (ไม่กรอก = สุ่ม 8 ตัวอักษรให้)
           <input value={password} onChange={e=>setPassword(e.target.value)} minLength={8} maxLength={8} autoComplete="new-password" type="password" placeholder="เว้นว่างเพื่อสุ่มรหัส 8 ตัวอักษร" pattern="[A-Za-z0-9]{8}" className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white p-3 text-sm" />
         </label>
-        <button disabled={busy||loading||Boolean(configError)} type="submit" className="w-full rounded-xl bg-gradient-to-r from-indigo-600 to-blue-600 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-50">{busy?"กำลังบันทึก...":"＋ สร้างบัญชีโรงเรียน"}</button>
+        <button disabled={busy||loading||Boolean(configError)} type="submit" className="w-full rounded-xl bg-gradient-to-r from-red-600 to-red-600 px-4 py-3 text-sm font-extrabold text-white disabled:opacity-50">{busy?"กำลังบันทึก...":"＋ สร้างบัญชีโรงเรียน"}</button>
       </form>
       <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4"><h3 className="font-black text-slate-900">บัญชีที่สร้างแล้ว ({accounts.length})</h3><button type="button" disabled={busy} onClick={()=>void load()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-blue-700">รีเฟรช</button></div>
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 px-5 py-4"><h3 className="font-black text-slate-900">บัญชีที่สร้างแล้ว ({accounts.length})</h3><button type="button" disabled={busy} onClick={()=>void load()} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold text-red-700">รีเฟรช</button></div>
         <div className="max-h-[550px] overflow-auto">
           {loading?<p className="p-5 text-sm text-slate-500">กำลังโหลด...</p>:!accounts.length?<p className="p-5 text-sm text-slate-500">ยังไม่มีบัญชีโรงเรียน</p>:<div className="divide-y divide-slate-100">{accounts.map(a=><div key={a.id} className="p-4">
             <div className="flex flex-wrap items-center justify-between gap-2"><div><p className="font-bold text-slate-900">{schools.find(s=>s.id===a.school_id)?.name||"โรงเรียน"}</p><p className="mt-1 text-xs text-slate-500">Username: <span className="font-mono font-bold">{a.username}</span></p></div><span className={`rounded-full px-3 py-1 text-xs font-bold ${a.is_active?"bg-emerald-100 text-emerald-800":"bg-slate-200 text-slate-600"}`}>{a.is_active?"ใช้งาน":"ปิดใช้งาน"}</span></div>
             <div className="mt-3 flex flex-wrap gap-2">
-              <button type="button" disabled={busy||!a.has_saved_password||Boolean(configError)} onClick={()=>void modify(a,"reveal_password")} className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-900 disabled:opacity-40" title={a.has_saved_password?"เปิดดูรหัสผ่านที่เก็บแบบเข้ารหัส (ระบบบันทึกประวัติการเปิดดู)":"บัญชีเดิมไม่มีรหัสผ่านจัดเก็บ กรุณารีเซ็ตก่อน"}>ดูรหัสผ่าน</button>
-              <button type="button" disabled={busy||!a.is_active||Boolean(configError)} onClick={()=>void modify(a,"reset_password")} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-semibold text-blue-800 disabled:opacity-40">รีเซ็ตรหัสผ่าน</button>
+              <button type="button" disabled={busy||!a.has_saved_password||Boolean(configError)} onClick={()=>void modify(a,"reveal_password")} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-red-900 disabled:opacity-40" title={a.has_saved_password?"เปิดดูรหัสผ่านที่เก็บแบบเข้ารหัส (ระบบบันทึกประวัติการเปิดดู)":"บัญชีเดิมไม่มีรหัสผ่านจัดเก็บ กรุณารีเซ็ตก่อน"}>ดูรหัสผ่าน</button>
+              <button type="button" disabled={busy||!a.is_active||Boolean(configError)} onClick={()=>void modify(a,"reset_password")} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-semibold text-red-800 disabled:opacity-40">รีเซ็ตรหัสผ่าน</button>
               <button type="button" disabled={busy} onClick={()=>void modify(a,a.is_active?"disable":"enable")} className={`rounded-lg border px-3 py-2 text-xs font-semibold disabled:opacity-40 ${a.is_active?"border-rose-200 bg-rose-50 text-rose-700":"border-emerald-200 bg-emerald-50 text-emerald-800"}`}>{a.is_active?"ปิดบัญชี":"เปิดบัญชี"}</button>
               {!a.has_saved_password && <span className="self-center text-xs text-slate-500">ยังไม่มีรหัสเก็บไว้ (รีเซ็ตเพื่อเริ่มจัดเก็บ)</span>}
             </div>
