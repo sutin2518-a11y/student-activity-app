@@ -4,11 +4,44 @@ import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState, type SVGProps } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
 
 const SPORTS_COMPETITION_SLUG = "phayao-secondary-group-sports-2569";
+
+type IconProps = SVGProps<SVGSVGElement>;
+
+function HomeIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M3 10.5 12 3l9 7.5" /><path d="M5 9.5V20h5.5v-5.5h3V20H19V9.5" /></svg>;
+}
+function FileUploadIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M12 17V10"/><path d="m9.5 12.5 2.5-2.5 2.5 2.5"/></svg>;
+}
+function CalendarGearIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><rect x="3" y="5" width="14" height="14" rx="2"/><path d="M7 3v4M13 3v4M3 10h14"/><circle cx="19" cy="17" r="3"/><path d="M19 12.8v1.2M19 20v1.2M15.8 17H17M21 17h1.2M16.8 14.8l.8.8M20.4 18.4l.8.8M16.8 19.2l.8-.8M20.4 15.6l.8-.8"/></svg>;
+}
+function SchoolIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M3 21h18"/><path d="M5 21V9l7-4 7 4v12"/><path d="M9 21v-5h6v5"/><path d="M8 12h.01M12 12h.01M16 12h.01"/></svg>;
+}
+function TrophyIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v4a5 5 0 0 1-10 0z"/><path d="M5 6H3a2 2 0 0 0 2 5h2"/><path d="M19 6h2a2 2 0 0 1-2 5h-2"/></svg>;
+}
+function ClipboardCheckIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><rect x="5" y="4" width="14" height="17" rx="2"/><path d="M9 4.5h6a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1Z"/><path d="m9 13 2 2 4-4"/></svg>;
+}
+function CalendarCheckIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/><path d="m9 15 2 2 4-4"/></svg>;
+}
+function BarChartIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20V8"/></svg>;
+}
+function MedalIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="m8 3 4 5 4-5"/><path d="M9.5 8 7 12"/><path d="M14.5 8 17 12"/><circle cx="12" cy="16" r="5"/><path d="m10.8 16 1 1 1.8-2"/></svg>;
+}
+function UserShieldIcon(props: IconProps) {
+  return <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...props}><path d="M15 21a8 8 0 1 0-6 0"/><path d="M12 13a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M18.5 11.5 21 12.7v3.1c0 2-1.2 3.8-3 4.5-1.8-.7-3-2.5-3-4.5v-3.1z"/></svg>;
+}
 
 type Competition = {
   id: string;
@@ -168,20 +201,19 @@ const DEMO_MEDALS: Medal[] = [
   { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
 ];
 
-// Sport-inspired navigation: each text-only button has its own vivid colour.
-// Keep these as complete Tailwind class strings so the compiler can detect them.
-const sportsMenuItem = "group relative isolate flex min-h-[54px] w-full min-w-0 items-center justify-center overflow-hidden rounded-2xl border px-2.5 py-3 text-center text-[13px] font-extrabold leading-snug tracking-tight text-white shadow-sm transition-all duration-200 hover:brightness-110 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none sm:min-h-[60px] sm:px-3 sm:text-sm";
-const tabs: { key: TabKey; label: string; colorClass: string; activeRing: string }[] = [
-  { key: "overview", label: "หน้าหลัก", colorClass: "border-blue-600 bg-gradient-to-br from-sky-500 via-blue-600 to-indigo-700", activeRing: "ring-sky-200" },
-  { key: "submissions", label: "ส่งข้อมูลโรงเรียน", colorClass: "border-rose-600 bg-gradient-to-br from-rose-500 via-pink-600 to-fuchsia-700", activeRing: "ring-rose-200" },
-  { key: "schedule", label: "จัดการ / ดูโปรแกรม", colorClass: "border-violet-600 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-700", activeRing: "ring-violet-200" },
-  { key: "schools", label: "โรงเรียน", colorClass: "border-teal-600 bg-gradient-to-br from-emerald-500 via-teal-600 to-teal-800", activeRing: "ring-emerald-200" },
-  { key: "events", label: "รายการแข่งขัน", colorClass: "border-orange-600 bg-gradient-to-br from-amber-500 via-orange-600 to-red-700", activeRing: "ring-orange-200" },
-  { key: "entries", label: "ลงทะเบียน", colorClass: "border-indigo-600 bg-gradient-to-br from-indigo-500 via-blue-600 to-blue-800", activeRing: "ring-indigo-200" },
-  { key: "matches", label: "โปรแกรม / ผล", colorClass: "border-cyan-700 bg-gradient-to-br from-cyan-600 via-sky-700 to-blue-900", activeRing: "ring-cyan-200" },
-  { key: "standings", label: "ตารางคะแนน", colorClass: "border-lime-700 bg-gradient-to-br from-lime-600 via-green-700 to-emerald-900", activeRing: "ring-lime-200" },
-  { key: "medals", label: "เหรียญรางวัล", colorClass: "border-amber-600 bg-gradient-to-br from-yellow-500 via-amber-600 to-orange-800", activeRing: "ring-amber-200" },
-  { key: "accounts", label: "บัญชีโรงเรียน", colorClass: "border-fuchsia-700 bg-gradient-to-br from-fuchsia-500 via-pink-600 to-rose-700", activeRing: "ring-fuchsia-200" },
+// Card-style sports navigation with large colourful icons.
+const sportsMenuItem = "group relative flex min-h-[112px] w-full min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 py-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none";
+const tabs: { key: TabKey; label: string; icon: (props: IconProps) => JSX.Element; iconClass: string; activeClass: string; badgeClass: string }[] = [
+  { key: "overview", label: "หน้าหลัก", icon: HomeIcon, iconClass: "text-sky-600", activeClass: "border-sky-300 bg-sky-950 text-white shadow-[0_14px_28px_-18px_rgba(3,105,161,0.85)]", badgeClass: "bg-sky-100 text-sky-700 group-hover:bg-sky-200" },
+  { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon, iconClass: "text-rose-600", activeClass: "border-rose-300 bg-rose-950 text-white shadow-[0_14px_28px_-18px_rgba(190,24,93,0.85)]", badgeClass: "bg-rose-100 text-rose-700 group-hover:bg-rose-200" },
+  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon, iconClass: "text-violet-600", activeClass: "border-violet-300 bg-violet-950 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.85)]", badgeClass: "bg-violet-100 text-violet-700 group-hover:bg-violet-200" },
+  { key: "schools", label: "โรงเรียน", icon: SchoolIcon, iconClass: "text-cyan-700", activeClass: "border-cyan-300 bg-cyan-950 text-white shadow-[0_14px_28px_-18px_rgba(14,116,144,0.85)]", badgeClass: "bg-cyan-100 text-cyan-700 group-hover:bg-cyan-200" },
+  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon, iconClass: "text-amber-600", activeClass: "border-amber-300 bg-amber-950 text-white shadow-[0_14px_28px_-18px_rgba(180,83,9,0.85)]", badgeClass: "bg-amber-100 text-amber-700 group-hover:bg-amber-200" },
+  { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon, iconClass: "text-blue-700", activeClass: "border-blue-300 bg-blue-950 text-white shadow-[0_14px_28px_-18px_rgba(29,78,216,0.85)]", badgeClass: "bg-blue-100 text-blue-700 group-hover:bg-blue-200" },
+  { key: "matches", label: "โปรแกรม / ผล", icon: CalendarCheckIcon, iconClass: "text-indigo-700", activeClass: "border-indigo-300 bg-indigo-950 text-white shadow-[0_14px_28px_-18px_rgba(67,56,202,0.85)]", badgeClass: "bg-indigo-100 text-indigo-700 group-hover:bg-indigo-200" },
+  { key: "standings", label: "ตารางคะแนน", icon: BarChartIcon, iconClass: "text-emerald-700", activeClass: "border-emerald-300 bg-emerald-950 text-white shadow-[0_14px_28px_-18px_rgba(4,120,87,0.85)]", badgeClass: "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-200" },
+  { key: "medals", label: "เหรียญรางวัล", icon: MedalIcon, iconClass: "text-orange-600", activeClass: "border-orange-300 bg-orange-950 text-white shadow-[0_14px_28px_-18px_rgba(194,65,12,0.85)]", badgeClass: "bg-orange-100 text-orange-700 group-hover:bg-orange-200" },
+  { key: "accounts", label: "บัญชีโรงเรียน", icon: UserShieldIcon, iconClass: "text-fuchsia-700", activeClass: "border-fuchsia-300 bg-[#0f2e67] text-white shadow-[0_14px_28px_-18px_rgba(30,64,175,0.85)]", badgeClass: "bg-fuchsia-100 text-fuchsia-700 group-hover:bg-fuchsia-200" },
 ];
 
 function makeId(prefix: string) {
@@ -1017,10 +1049,11 @@ export default function GroupSportsDashboard() {
       </header>
 
       <div className="w-full px-4 pb-12 md:px-8">
-        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-5 grid grid-cols-2 gap-2.5 overflow-hidden rounded-[24px] border border-white/90 bg-gradient-to-r from-rose-50 via-sky-50 to-violet-50 px-3 pb-3 pt-4 shadow-[0_10px_28px_-16px_rgba(15,23,42,0.35)] sm:grid-cols-3 sm:gap-3 sm:px-4 sm:pb-4 sm:pt-5 lg:grid-cols-5 2xl:grid-cols-10">
-          <div aria-hidden="true" className="pointer-events-none absolute inset-x-5 top-0 h-1 rounded-b-full bg-gradient-to-r from-pink-500 via-amber-400 via-emerald-400 via-sky-500 to-violet-500" />
-          {tabs.filter(item => item.key !== "accounts" || canManageAccounts).map((item) => {
+        <nav aria-label="เมนูกีฬากลุ่ม" className="relative my-5 overflow-hidden rounded-[24px] border border-[#d8e2f0] bg-[#eef5ff] px-3 py-4 shadow-[0_10px_28px_-16px_rgba(15,23,42,0.35)]">
+          <div className="flex gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden xl:grid xl:grid-cols-10 xl:overflow-visible">
+          {tabs.map((item) => {
             const isActive = tab === item.key;
+            const Icon = item.icon;
             return (
               <button
                 key={item.key}
@@ -1033,15 +1066,17 @@ export default function GroupSportsDashboard() {
                   setFormOpen(false);
                   setError("");
                 }}
-                className={`${sportsMenuItem} ${item.colorClass} ${isActive
-                  ? `z-10 -translate-y-0.5 ring-[3px] ${item.activeRing} shadow-[0_10px_18px_-7px_rgba(15,23,42,0.55)]`
-                  : "hover:-translate-y-1 hover:shadow-[0_10px_20px_-7px_rgba(15,23,42,0.35)]"}`}
+                className={`${sportsMenuItem} min-w-[132px] xl:min-w-0 ${isActive ? item.activeClass : "text-slate-900 hover:border-slate-300"}`}
               >
-                <span className="relative z-10">{item.label}</span>
-                {isActive && <span aria-hidden="true" className="absolute bottom-1.5 left-1/2 h-0.5 w-7 -translate-x-1/2 rounded-full bg-white/90" />}
+                <div className={`flex h-14 w-14 items-center justify-center rounded-2xl ${isActive ? "bg-white/10" : item.badgeClass}`}>
+                  <Icon className={`h-9 w-9 ${isActive ? "text-white" : item.iconClass}`} />
+                </div>
+                <span className={`line-clamp-2 text-[13px] font-black leading-tight sm:text-[15px] ${isActive ? "text-white" : "text-slate-900"}`}>{item.label}</span>
+                {isActive && <span aria-hidden="true" className="absolute bottom-2 left-1/2 h-1 w-12 -translate-x-1/2 rounded-full bg-yellow-300" />}
               </button>
             );
           })}
+          </div>
         </nav>
 
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
@@ -1053,7 +1088,21 @@ export default function GroupSportsDashboard() {
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
         ) : (
           <>
-            {tab === "accounts" && canManageAccounts && <SchoolAccountsManager />}
+            {tab === "accounts" && (canManageAccounts ? <SchoolAccountsManager /> : (
+              <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="mx-auto max-w-3xl text-center">
+                  <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-100 via-indigo-100 to-fuchsia-100 text-blue-700">
+                    <UserShieldIcon className="h-10 w-10" />
+                  </div>
+                  <h2 className="text-2xl font-black text-slate-900">เมนูบัญชีโรงเรียน</h2>
+                  <p className="mt-3 text-sm leading-7 text-slate-600">เมนูนี้ใช้สำหรับผู้ดูแลระบบในการสร้าง Username และ Password ให้โรงเรียนที่เข้าร่วมการแข่งขัน หากต้องการใช้งาน กรุณาเข้าสู่ระบบด้วยบัญชีผู้ดูแลหรือบัญชีกรรมการที่มีสิทธิ์จัดการการแข่งขัน</p>
+                  <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+                    {userEmail ? <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">ออกจากระบบแล้วเข้าสู่ระบบใหม่</button> : <Link href="/group-sports/login" className="rounded-xl bg-gradient-to-r from-blue-600 to-indigo-700 px-5 py-2.5 text-sm font-extrabold text-white shadow-sm hover:brightness-110">เข้าสู่ระบบผู้ดูแล</Link>}
+                    <button type="button" onClick={() => setTab("overview")} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-700 hover:bg-slate-50">กลับหน้าหลัก</button>
+                  </div>
+                </div>
+              </section>
+            ))}
             {tab === "submissions" && <SchoolSubmissionsContent embedded />}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && (
