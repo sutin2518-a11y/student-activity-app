@@ -4,7 +4,7 @@ import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
-import { FormEvent, useCallback, useEffect, useMemo, useState, type SVGProps } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState, type ReactElement, type SVGProps } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
 
@@ -203,7 +203,7 @@ const DEMO_MEDALS: Medal[] = [
 
 // Card-style sports navigation with large colourful icons.
 const sportsMenuItem = "group relative flex min-h-[112px] w-full min-w-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-slate-200 bg-gradient-to-b from-white to-slate-50 px-3 py-4 text-center shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900 active:scale-[0.99] motion-reduce:transform-none motion-reduce:transition-none";
-const tabs: { key: TabKey; label: string; icon: (props: IconProps) => JSX.Element; iconClass: string; activeClass: string; badgeClass: string }[] = [
+const tabs: { key: TabKey; label: string; icon: (props: IconProps) => ReactElement; iconClass: string; activeClass: string; badgeClass: string }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon, iconClass: "text-sky-600", activeClass: "border-sky-300 bg-sky-950 text-white shadow-[0_14px_28px_-18px_rgba(3,105,161,0.85)]", badgeClass: "bg-sky-100 text-sky-700 group-hover:bg-sky-200" },
   { key: "submissions", label: "ส่งข้อมูลโรงเรียน", icon: FileUploadIcon, iconClass: "text-rose-600", activeClass: "border-rose-300 bg-rose-950 text-white shadow-[0_14px_28px_-18px_rgba(190,24,93,0.85)]", badgeClass: "bg-rose-100 text-rose-700 group-hover:bg-rose-200" },
   { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon, iconClass: "text-violet-600", activeClass: "border-violet-300 bg-violet-950 text-white shadow-[0_14px_28px_-18px_rgba(109,40,217,0.85)]", badgeClass: "bg-violet-100 text-violet-700 group-hover:bg-violet-200" },
