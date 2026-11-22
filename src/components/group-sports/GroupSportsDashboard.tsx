@@ -3,6 +3,7 @@
 import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
+import ParadeRouteShortcut from "@/components/group-sports/ParadeRouteShortcut";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
 import SchoolDirectorEditor from "@/components/group-sports/SchoolDirectorEditor";
@@ -1225,7 +1226,7 @@ export default function GroupSportsDashboard() {
     <main className="min-h-screen bg-[#faf7f7] text-slate-800">
       {/* Responsive, accessible hero using the artwork from the red-white sports banner.
           The image is decorative only: navigation and login stay real controls. */}
-      <header className="relative isolate overflow-hidden bg-gradient-to-r from-[#68000b] via-[#9d001b] to-[#dc1534] text-white">
+      <header className="relative z-40 isolate overflow-visible bg-gradient-to-r from-[#68000b] via-[#9d001b] to-[#dc1534] text-white">
         <div
           aria-hidden="true"
           className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] bg-right-bottom bg-no-repeat lg:block"
@@ -1255,7 +1256,10 @@ export default function GroupSportsDashboard() {
               <p className="mt-3 text-sm leading-relaxed text-white/95 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
               <p className="mt-4 inline-flex max-w-full items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white backdrop-blur-sm"><span aria-hidden="true">🏆</span><span>{competition?.name || "การแข่งขันกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</span></p>
             </div>
-            {headerAction() && <div className="flex flex-wrap gap-2">{headerAction()}</div>}
+            <div className="flex w-full flex-col items-end justify-end gap-3 md:w-auto md:min-w-[280px]">
+              {headerAction() && <div className="flex flex-wrap gap-2">{headerAction()}</div>}
+              <ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts} />
+            </div>
           </div>
         </div>
       </header>
