@@ -3,6 +3,7 @@
 import Link from "next/link";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
+import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
 import ParadeRouteShortcut from "@/components/group-sports/ParadeRouteShortcut";
 import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
 import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
@@ -1464,7 +1465,9 @@ export default function GroupSportsDashboard() {
             ))}
             {(tab === "submissions" || (tab === "school_info" && schoolInfoSection === "submission")) && <SchoolSubmissionsContent embedded />}
             {tab === "school_info" && schoolInfoSection !== "submission" && (isDemo
-              ? <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">โหมดสาธิตยังไม่มีข้อมูลประชาสัมพันธ์จริง กรุณาเชื่อมต่อ Supabase</div>
+              ? (hasSchoolParadeReference(schoolInfoSection)
+                  ? <section className="rounded-2xl border border-rose-100 bg-white p-4 sm:p-6"><SchoolParadeReference section={schoolInfoSection} /></section>
+                  : <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">โหมดสาธิตยังไม่มีข้อมูลประชาสัมพันธ์จริง กรุณาเชื่อมต่อ Supabase</div>)
               : <SchoolInformationHub competitionId={competition?.id ?? null} section={schoolInfoSection}
                   canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}

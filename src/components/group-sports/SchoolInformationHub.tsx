@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
+import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
 
 export const SCHOOL_INFORMATION_SECTIONS = [
   { key: "parade_map", label: "แผนผังการยืนขบวนในสนาม", hint: "แผนผังตำแหน่งแถวและจุดยืนในพิธีเปิด" },
@@ -183,6 +184,11 @@ export default function SchoolInformationHub({ competitionId, section, canManage
   };
 
   const visibleRows = rows.filter(item => !canManage || filter === "all" || (filter === "published" ? item.is_published : !item.is_published));
+  // The provided 2569 images are immediately visible with no database upload.
+  // Publishing an updated image in this section replaces the built-in reference
+  // automatically, so schools are not shown two conflicting official diagrams.
+  const hasUpdatedPublishedImage = rows.some(item => item.is_published && item.attachment_path && item.attachment_mime?.startsWith("image/"));
+  const showBuiltinReference = hasSchoolParadeReference(section) && !hasUpdatedPublishedImage;
 
   return <section className="rounded-2xl border border-rose-100 bg-white p-4 shadow-sm sm:p-6">
     <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
@@ -219,7 +225,9 @@ export default function SchoolInformationHub({ competitionId, section, canManage
         <option value="all">ทั้งหมด</option><option value="published">เผยแพร่แล้ว</option><option value="draft">ฉบับร่าง</option>
       </select>
     </div>}
+    {showBuiltinReference && <SchoolParadeReference section={section} />}
     {loading ? <div className="rounded-xl bg-slate-50 p-8 text-center text-sm text-slate-500">กำลังโหลดข้อมูล...</div>
+      : visibleRows.length === 0 && showBuiltinReference ? null
       : visibleRows.length === 0 ? <div className="rounded-xl border border-dashed border-rose-200 bg-[#fffafa] p-8 text-center">
           <div className="text-3xl">📋</div><p className="mt-2 font-semibold text-rose-900">ยังไม่มีข้อมูลเผยแพร่ในหัวข้อนี้</p>
           <p className="mt-1 text-sm text-slate-500">ผู้ดูแลจะเพิ่มข้อมูลและเผยแพร่เมื่อได้รับการยืนยันจากคณะกรรมการ</p>
