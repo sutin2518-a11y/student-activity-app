@@ -177,7 +177,7 @@ const DEMO_EVENTS: SportEvent[] = [
 const DEMO_ENTRIES: Entry[] = [
   { id: "demo-entry-a", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-a", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน A", status: "approved", athlete_count: 18 },
   { id: "demo-entry-b", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-b", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน B", status: "approved", athlete_count: 18 },
-  { id: "demo-entry-c", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-c", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน C", status: "submitted", athlete_count: 16 },
+  { id: "demo-entry-c", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-football", school_id: "demo-school-c", entry_type: "team", entry_name: "ทีมฟุตบอลชาย", coach_name: "ครูผู้ฝึกสอน C", status: "approved", athlete_count: 16 },
   { id: "demo-entry-d", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-volleyball", school_id: "demo-school-a", entry_type: "team", entry_name: "ทีมวอลเลย์บอลหญิง", status: "approved", athlete_count: 10 },
   { id: "demo-entry-e", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-volleyball", school_id: "demo-school-d", entry_type: "team", entry_name: "ทีมวอลเลย์บอลหญิง", status: "approved", athlete_count: 11 },
   { id: "demo-entry-run-a", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-a", entry_type: "individual", entry_name: "นักกีฬาตัวอย่าง A", status: "approved", athlete_count: 1 },
@@ -251,9 +251,9 @@ function statusLabel(value: string) {
   const labels: Record<string, string> = {
     draft: "ฉบับร่าง",
     registration: "เปิดรับสมัคร",
-    submitted: "ส่งข้อมูลแล้ว",
-    approved: "อนุมัติแล้ว",
-    rejected: "ส่งคืนให้แก้ไข",
+    submitted: "รับข้อมูลแล้ว · ตรวจที่สนาม",
+    approved: "รับข้อมูลแล้ว · ตรวจที่สนาม",
+    rejected: "รับข้อมูลแล้ว · ตรวจที่สนาม",
     withdrawn: "ถอนรายการ",
     scheduled: "รอแข่งขัน",
     live: "กำลังแข่งขัน",
@@ -346,8 +346,6 @@ export default function GroupSportsDashboard() {
   const [demoRosters,setDemoRosters] = useState<Record<string,AthleteInput[]>>({});
   const [schoolFilter,setSchoolFilter] = useState("");
   const [eventFilter,setEventFilter] = useState("");
-  const [statusFilter,setStatusFilter] = useState("");
-  const [reason,setReason] = useState("");
   const chosenEvent = events.find(e => e.id === eventChoice);
   const rosterAdmin = isDemo || roles.some(r => (r.role==="super_admin" && (!r.competition_id || r.competition_id===competition?.id)) || (r.role==="competition_admin" && r.competition_id===competition?.id));
   const canManageCompetition = isDemo || isAdmin || roles.some((role) => role.role === "competition_admin" && (!role.competition_id || role.competition_id === competition?.id));
@@ -476,8 +474,8 @@ export default function GroupSportsDashboard() {
   const completedMatches = useMemo(() => matches.filter((match) => match.status === "completed"), [matches]);
   const totalMedals = medals.length;
   const schoolEntries = entries.filter(e=>entrySchools.some(s=>s.id===e.school_id));
-  const registrationRows = schoolEntries.filter(e=>(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter)&&(!statusFilter||e.status===statusFilter));
-  const approvedEntries = schoolEntries.filter((entry) => entry.status === "approved").length;
+  const registrationRows = schoolEntries.filter(e=>(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter));
+  const receivedEntries = schoolEntries.filter((entry) => ["submitted", "approved", "rejected"].includes(entry.status)).length;
 
   const schoolById = useMemo(() => new Map(schools.map((school) => [school.id, school])), [schools]);
   const eventById = useMemo(() => new Map(events.map((event) => [event.id, event])), [events]);
@@ -671,7 +669,8 @@ export default function GroupSportsDashboard() {
       entry_type: sportEvent.event_type === "team" ? "team" : "individual",
       entry_name: entryName,
       coach_name: normalizedCoaches[0].name,
-      status: "submitted",
+      // Database migration 0020 automatically treats submitted registrations as received.
+      status: "approved",
     };
     setBusy(true); setError(""); setRegistrationError("");
     try {
@@ -729,7 +728,7 @@ export default function GroupSportsDashboard() {
       setPhotoFiles({});
       setEditEntry(null); setDetail(null); setRosterImportPreview(null);
       if (failedPhotos.length) setError(`บันทึกใบสมัครสำเร็จ แต่ยังแนบรูปบางคนไม่ได้ (${failedPhotos.join("; ")}) กรุณาเปิด “ดูรายชื่อ” เพื่อแนบรูปอีกครั้ง`);
-      setNotice(individualBatch ? `${isDemo ? "นำเข้าในโหมดสาธิต" : "ส่งข้อมูลลงทะเบียน"}กีฬาเดี่ยว ${batchSaved.length} คน (แยกใบสมัครรายคน) เรียบร้อยแล้ว` : isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "ส่งข้อมูลลงทะเบียนเรียบร้อยแล้ว");
+      setNotice(individualBatch ? `${isDemo ? "นำเข้าในโหมดสาธิต" : "รับข้อมูลลงทะเบียน"}กีฬาเดี่ยว ${batchSaved.length} คน (แยกใบสมัครรายคน) เรียบร้อยแล้ว · ตรวจตัวจริงที่สนามแข่งขัน` : isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "รับข้อมูลลงทะเบียนแล้ว · ตรวจตัวนักกีฬาและหลักฐานที่สนามแข่งขันในวันแข่งขันจริง");
       setFormOpen(false);
     } catch (err) {
       const reason = err instanceof Error ? err.message : "ลงทะเบียนไม่สำเร็จ";
@@ -752,7 +751,6 @@ export default function GroupSportsDashboard() {
     setRosterError("");
     setError("");
     setDetail(null);
-    setReason("");
     setFormOpen(false); // Existing applications must never open a blank NEW registration form.
     try {
       let list: AthleteInput[] = demoRosters[entry.id] || [];
@@ -795,23 +793,6 @@ export default function GroupSportsDashboard() {
     } finally {
       setBusy(false);
     }
-  }
-
-  async function updateEntryStatus(entryId: string, status: "approved" | "rejected") {
-    if (!rosterAdmin || busy) return;
-    if (status==="rejected" && !reason.trim()) return setError("ระบุเหตุผลก่อนส่งคืน");
-    setBusy(true); setError("");
-    try {
-      if (!isDemo) {
-        const {error} = await supabase.rpc("sports_review_roster",{p_entry:entryId,p_status:status,p_reason:reason});
-        if(error) throw new Error(error.message);
-      }
-      setEntries(current=>current.map(e=>e.id===entryId?{...e,status,return_reason:status==="rejected"?reason:""}:e));
-      setDetail(null);setReason("");
-      setNotice(isDemo ? "ปรับสถานะการลงทะเบียนในโหมดสาธิตแล้ว" : "ปรับสถานะการลงทะเบียนเรียบร้อยแล้ว");
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "ปรับสถานะไม่สำเร็จ");
-    } finally { setBusy(false); }
   }
 
   async function addMatch(event: FormEvent<HTMLFormElement>) {
@@ -889,7 +870,7 @@ export default function GroupSportsDashboard() {
     const eventId = String(form.get("event_id") || "");
     const entryId = String(form.get("entry_id") || "");
     const entry = entries.find((item) => item.id === entryId);
-    if (!eventId || !entry || entry.event_id !== eventId || entry.status !== "approved") return setError("กรุณาเลือกรายการแข่งขันและผู้เข้าแข่งขันที่ได้รับอนุมัติแล้วให้ตรงกัน");
+    if (!eventId || !entry || entry.event_id !== eventId || entry.status !== "approved") return setError("กรุณาเลือกรายการแข่งขันและใบสมัครที่รับข้อมูลแล้วให้ตรงกัน");
     const rankValue = String(form.get("rank") || "").trim();
     const performanceValue = String(form.get("performance_value") || "").trim();
     const payload = {
@@ -1435,21 +1416,20 @@ export default function GroupSportsDashboard() {
             {tab === "entries" && (
               <section id="sports-saved-entries-list" className="scroll-mt-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
-                  <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">ตรวจสอบรายชื่อที่แต่ละโรงเรียนส่งเข้าร่วมการแข่งขัน</p></div>
+                  <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">รับข้อมูลลงทะเบียนทันทีหลังส่งสำเร็จ · ตรวจตัวนักกีฬาและเอกสารหลักฐานที่สนามในวันแข่งขันจริง</p></div>
                   <div className="flex flex-wrap items-center gap-2">
                     {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
-                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">อนุมัติแล้ว {approvedEntries} / {schoolEntries.length}</span>
+                    <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">รับข้อมูลแล้ว {receivedEntries} / {schoolEntries.length}</span>
                   </div>
                 </div>
                 {!canManageSchool && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">หากต้องการลงทะเบียนนักกีฬา กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนที่มีสิทธิ์การแข่งขันนี้ <Link href="/group-sports/login" className="font-bold underline">เข้าสู่ระบบโรงเรียน</Link></div>}
-                <div className="mb-4 grid gap-2 sm:grid-cols-3">
+                <div className="mb-4 grid gap-2 sm:grid-cols-2">
                   <select aria-label="โรงเรียน" className="rounded-lg border p-2" value={schoolFilter} onChange={e=>setSchoolFilter(e.target.value)}><option value="">ทุกโรงเรียนที่ดูแล</option>{entrySchools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select>
                   <select aria-label="รายการแข่งขัน" className="rounded-lg border p-2" value={eventFilter} onChange={e=>setEventFilter(e.target.value)}><option value="">ทุกรายการแข่งขัน</option>{events.map(e=><option key={e.id} value={e.id}>{e.sport_name}</option>)}</select>
-                  <select aria-label="สถานะใบสมัคร" className="rounded-lg border p-2" value={statusFilter} onChange={e=>setStatusFilter(e.target.value)}><option value="">ทุกสถานะ</option>{["submitted","approved","rejected"].map(s=><option key={s} value={s}>{statusLabel(s)}</option>)}</select>
                 </div>
                 {registrationRows.map(entry=><article key={entry.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
                   <div><strong>{schoolById.get(entry.school_id)?.name} · {entry.entry_name}</strong><p className="text-sm">{eventById.get(entry.event_id)?.sport_name} · {entry.coach_name||"ไม่ระบุครูผู้ควบคุม"} · {entry.athlete_count} คน</p>
-                    <p className="text-sm font-bold text-red-800">{statusLabel(entry.status)} {entry.return_reason && `· ${entry.return_reason}`}</p></div>
+                    <p className="text-sm font-bold text-emerald-800">{statusLabel(entry.status)}</p></div>
                   <div className="flex flex-wrap items-center gap-3">
                     <button type="button" disabled={busy} onClick={()=>void openRoster(entry)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50">{busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
                     {!isDemo && canManageSchool &&
@@ -1457,7 +1437,6 @@ export default function GroupSportsDashboard() {
                         {busy && rosterTargetId===entry.id ? "กำลังดึงนักกีฬา..." : "แนบรูปใบสมัครเดิม"}
                       </button>}
                     {!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-rose-100">พิมพ์ใบสมัคร PDF</Link>}
-                    {entry.status==="rejected" && canManageSchool && <button className="text-red-700" disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขและส่งใหม่</button>}
                   </div>
                 </article>)}
                 {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5">ยังไม่มีใบสมัครตามเงื่อนไขนี้</p>}
@@ -1469,12 +1448,12 @@ export default function GroupSportsDashboard() {
                 </div>}
                 {detail && <section id="sports-saved-roster-response" tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border bg-rose-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><strong>รายชื่อจากใบสมัครเดิม · {detail.entry.entry_name}</strong><div className="flex items-center gap-3">{!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(detail.entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800">พิมพ์ / บันทึก PDF</Link>}<button onClick={()=>setDetail(null)}>ปิด</button></div></div>
                   {detail.entry.coaches?.length ? detail.entry.coaches.map((c,i)=><p key={i}>ครูผู้ควบคุมทีม {i+1} · {c.name} {c.phone}</p>) : <p>ผู้ฝึกสอน {detail.entry.coach_name||"—"} {detail.entry.assistant_coach && ` · ผู้ช่วย ${detail.entry.assistant_coach}`}</p>}
+                  <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">รับข้อมูลการสมัครแล้ว · กรรมการจะตรวจตัวนักกีฬาและเอกสารหลักฐาน ณ สนามแข่งขันในวันแข่งขันจริง</p>
                   <ol className="my-3 list-decimal pl-6">{detail.players.map((p,i)=><li key={i}>{[p.student_code,p.full_name,...(isRov(eventById.get(detail.entry.event_id)) ? [p.team_role,p.ign,p.play_position] : [])].filter(Boolean).join(" · ")}</li>)}</ol>
                   {!isDemo && canManageSchool &&
                     <div id="sports-saved-roster-photos" className="scroll-mt-4">
                       <AthletePhotoManager entryId={detail.entry.id} athletes={detail.players} />
                     </div>}
-                  {rosterAdmin && detail.entry.status==="submitted" && <div className="flex flex-wrap gap-2"><input className="rounded-lg border bg-white p-2" aria-label="เหตุผลที่ส่งคืน" placeholder="เหตุผลที่ส่งคืน" value={reason} onChange={e=>setReason(e.target.value)}/><button className="rounded-lg bg-amber-100 p-2" disabled={busy||!reason.trim()} onClick={()=>void updateEntryStatus(detail.entry.id,"rejected")}>ส่งคืนให้แก้ไข</button><button className="rounded-lg bg-emerald-700 p-2 text-white" disabled={busy} onClick={()=>void updateEntryStatus(detail.entry.id,"approved")}>อนุมัติ</button></div>}
                 </section>}
               </section>
             )}
