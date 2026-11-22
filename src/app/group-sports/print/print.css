@@ -1,0 +1,135 @@
+.gs-print-shell {
+  min-height: 100vh;
+  padding: 24px 16px 64px;
+  background: #f6f7fa;
+  color: #182232;
+  font-family: "Sarabun", "Noto Sans Thai", "TH Sarabun New", Tahoma, sans-serif;
+}
+.gs-print-toolbar {
+  max-width: 210mm;
+  margin: 0 auto 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.gs-print-back { color: #991b1b; font-size: 14px; font-weight: 700; text-decoration: none; }
+.gs-print-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.gs-print-instruction { font-size: 12px; color: #64748b; }
+.gs-print-button {
+  border: 0;
+  border-radius: 12px;
+  background: #b91c1c;
+  color: white;
+  padding: 11px 20px;
+  font: inherit;
+  font-weight: 750;
+  cursor: pointer;
+}
+.gs-print-button:hover { background: #991b1b; }
+.gs-print-button:disabled { opacity: 0.45; cursor: not-allowed; }
+.gs-print-message, .gs-print-error {
+  max-width: 760px;
+  margin: 40px auto;
+  border-radius: 16px;
+  padding: 24px;
+  background: white;
+  font-size: 15px;
+}
+.gs-print-error { border: 1px solid #fecaca; color: #991b1b; }
+.gs-print-error a { text-decoration: underline; }
+.gs-application {
+  width: 100%;
+  max-width: 210mm;
+  margin: 0 auto;
+  padding: 16mm 15mm 14mm;
+  background: white;
+  box-shadow: 0 12px 32px #0f172a1a;
+  border: 1px solid #f0d9da;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.gs-application-accent { height: 5px; margin-bottom: 17px; background: linear-gradient(90deg, #7f1d1d, #dc2626 65%, #fecaca); }
+.gs-application-header { text-align: center; margin-bottom: 18px; }
+.gs-application-kicker { color: #991b1b; font-size: 11px; font-weight: 700; margin-bottom: 1px; }
+.gs-application-header h1 { margin: 0; font-size: 23px; line-height: 1.4; color: #7f1d1d; font-weight: 800; }
+.gs-application-competition { margin: 4px 0 0; font-size: 12px; color: #475569; }
+/* Tables keep metadata together across page/print renderers. */
+.gs-application-summary { padding: 10px 12px; border: 1px solid #e9d5d6; background: #fff9f9; border-radius: 10px; }
+.gs-summary-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.gs-summary-table th { width: 17%; text-align: left; color: #64748b; font-size: 10px; font-weight: 700; vertical-align: top; padding: 4px 6px 4px 0; }
+.gs-summary-table td { width: 33%; color: #1f2937; font-size: 11px; font-weight: 650; vertical-align: top; padding: 4px 6px 4px 0; overflow-wrap: anywhere; }
+.gs-application-warning { margin-top: 12px; border: 1px solid #fecaca; padding: 10px 12px; border-radius: 8px; color: #991b1b; }
+.gs-application-section { margin-top: 18px; }
+.gs-application-section h2, .gs-application-declaration h2 { font-size: 14px; color: #7f1d1d; margin: 0 0 9px; font-weight: 800; }
+.gs-application-section h2 span { font-size: 11px; color: #475569; }
+.gs-application-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.gs-application-table th, .gs-application-table td { border: 1px solid #d2d8e1; padding: 7px 6px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.gs-application-table thead th { background: #fff0f0 !important; color: #7f1d1d !important; font-weight: 800; }
+.gs-application-table .gs-number { text-align: center; width: 35px; }
+.gs-application-table .gs-code { width: 84px; }
+.gs-application-table tbody tr:nth-child(even) { background: #fcfcfd; }
+.gs-application-declaration { padding-top: 14px; margin-top: 18px; border-top: 1px solid #ead1d3; }
+.gs-application-declaration p { line-height: 1.8; margin: 0 0 18px; text-indent: 1.6em; }
+.gs-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; text-align: center; line-height: 1.9; }
+.gs-signatures strong { display: block; font-weight: 700; }
+.gs-sign-line { margin: 12px 0 2px; }
+.gs-application-footer { margin-top: 24px; padding-top: 7px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; font-size: 9px; color: #64748b; }
+
+@media print {
+  @page { size: A4 portrait; margin: 12mm; }
+  html, body, .sports-red-theme { background: #fff !important; color: #111827 !important; }
+  .gs-print-shell { padding: 0 !important; background: #fff !important; min-height: auto !important; }
+  .gs-print-toolbar, .gs-print-message, .gs-print-error { display: none !important; }
+  .gs-application { max-width: none; width: 100%; padding: 0; margin: 0; border: 0; box-shadow: none; }
+  .gs-application-accent { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+  .gs-application-summary, .gs-application-header, .gs-application-warning,
+  .gs-application-declaration, .gs-signatures, .gs-application-footer { break-inside: avoid; page-break-inside: avoid; }
+  .gs-application-table { break-inside: auto; }
+  .gs-application-table thead { display: table-header-group; }
+  .gs-application-table tr { break-inside: avoid; page-break-inside: avoid; }
+  .gs-application-section h2 { break-after: avoid; page-break-after: avoid; }
+  .gs-application-table thead th { background: #fff0f0 !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}
+@media screen and (max-width: 650px) {
+  .gs-application { padding: 20px 15px; font-size: 11px; }
+  .gs-application-header h1 { font-size: 20px; }
+  .gs-application-table th, .gs-application-table td { padding: 5px 3px; font-size: 10px; }
+  .gs-signatures { gap: 6px; }
+}
+
+/* Simple, one-page RoV paper application. Internal evidence stays in Supabase. */
+.gs-rov-simple { color: #111827; font-size: 13px; line-height: 1.55; }
+.gs-rov-header { text-align: center; border-bottom: 2px solid #9f1239; padding-bottom: 14px; margin-bottom: 19px; }
+.gs-rov-header p { margin: 0; font-size: 12px; }
+.gs-rov-header h1 { color: #7f1d1d; font-size: 21px; font-weight: 800; margin: 6px 0; }
+.gs-rov-info { margin-bottom: 16px; }
+.gs-rov-info p { margin: 6px 0; display: flex; gap: 14px; align-items: baseline; }
+.gs-rov-info strong { flex: 0 0 97px; }
+.gs-rov-section { margin-top: 17px; }
+.gs-rov-section h2 { font-size: 14px; margin: 0 0 8px; color: #7f1d1d; font-weight: 800; }
+.gs-rov-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+.gs-rov-table th, .gs-rov-table td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; }
+.gs-rov-table th { background: #fff1f2; color: #7f1d1d; font-weight: 800; }
+.gs-rov-number { width: 68px; text-align: center !important; }
+.gs-rov-role { width: 155px; }
+.gs-rov-coaches { break-inside: avoid; page-break-inside: avoid; }
+.gs-rov-coach-list { display: grid; grid-template-columns: 1fr 1fr; gap: 5px 24px; padding: 2px 0 9px; }
+.gs-rov-certification { margin-top: 22px; font-size: 12px; break-inside: avoid; }
+.gs-rov-signatures { margin-top: 30px; display: grid; grid-template-columns: 1fr 1fr; text-align: center; gap: 20px; break-inside: avoid; page-break-inside: avoid; font-size: 12px; }
+.gs-rov-signatures p { margin: 3px 0; }
+.gs-rov-signatures strong { display: block; margin-top: 7px; }
+.gs-rov-footer { margin-top: 28px; padding-top: 7px; font-size: 9px; text-align: center; border-top: 1px solid #e5e7eb; color: #64748b; }
+@media print {
+  .gs-rov-simple { font-size: 12px; }
+  .gs-rov-table th, .gs-rov-table td { padding: 7px 9px; }
+  .gs-rov-table th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .gs-rov-info, .gs-rov-header, .gs-rov-coaches, .gs-rov-signatures { break-inside: avoid; }
+  .gs-rov-table tr { break-inside: avoid; page-break-inside: avoid; }
+}
+@media screen and (max-width: 650px) {
+  .gs-rov-header h1 { font-size: 18px; }
+  .gs-rov-role { width: 105px; }
+  .gs-rov-coach-list { grid-template-columns: 1fr; }
+}
