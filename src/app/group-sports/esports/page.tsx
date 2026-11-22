@@ -15,7 +15,7 @@ const secondary = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
 const danger = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
 
 type Gender = "ชาย" | "หญิง";
-type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history";
+type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history" | "prelaunch";
 
 // แยกสีเมนูแต่ละส่วนให้เห็นชัดทั้งสถานะที่เลือกและยังไม่เลือก
 const tabPalette: Record<Tab, { active: string; idle: string }> = {
@@ -40,6 +40,10 @@ const tabPalette: Record<Tab, { active: string; idle: string }> = {
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   history: {
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
+  },
+  prelaunch: {
     active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   }
@@ -286,6 +290,113 @@ function KnockoutPairingEditor({
       onSave={onSave}
     />
   </div>;
+}
+
+type ResetPreview = {
+  matches: number; group_matches: number; knockout_matches: number;
+  cancelled: number; completed: number; scheduled: number; draft: number;
+  male_matches: number; female_matches: number;
+  history_entries: number; fingerprint: string;
+};
+
+/** Admin-only pre-competition cleanup: preview, archive and reset RoV test state. */
+function PrelaunchResetPanel({ onReset }: { onReset: () => Promise<void> }) {
+  const confirmationText = "รีเซต ROV 2569";
+  const [preview, setPreview] = useState<ResetPreview | null>(null);
+  const [confirmation, setConfirmation] = useState("");
+  const [acknowledged, setAcknowledged] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [problem, setProblem] = useState("");
+  const [archiveId, setArchiveId] = useState("");
+
+  async function inspect() {
+    setBusy(true); setProblem(""); setArchiveId(""); setPreview(null);
+    setConfirmation(""); setAcknowledged(false);
+    try {
+      const { data, error } = await supabase.rpc("sports_esports_prelaunch_reset", {
+        p_action: "preview", p_confirmation: null, p_expected_fingerprint: null
+      });
+      if (error) throw error;
+      if (!data || typeof data !== "object" || typeof data.fingerprint !== "string") {
+        throw new Error("ไม่ได้รับข้อมูลตรวจสอบจาก Supabase กรุณาตรวจสอบว่าได้รัน SQL 0024 แล้ว");
+      }
+      setPreview(data as ResetPreview);
+    } catch (e) { setProblem(errorText(e)); }
+    finally { setBusy(false); }
+  }
+
+  async function reset() {
+    if (busy || !preview || !acknowledged || confirmation !== confirmationText) return;
+    if (!window.confirm("ยืนยันรีเซตข้อมูลทดสอบ RoV ทั้งทีมชายและทีมหญิง?\n\nระบบจะสำรองก่อนล้างคะแนน ผลแข่งขัน สถานะยกเลิก และประวัติทดสอบ โดยเก็บรายชื่อทีม กลุ่ม และโปรแกรมวันเวลาเดิมไว้ และเปลี่ยนโปรแกรมเป็นฉบับร่างที่ยังไม่เผยแพร่")) return;
+    setBusy(true); setProblem("");
+    try {
+      const { data, error } = await supabase.rpc("sports_esports_prelaunch_reset", {
+        p_action: "reset", p_confirmation: confirmationText,
+        p_expected_fingerprint: preview.fingerprint
+      });
+      if (error) throw error;
+      if (!data || data.reset_complete !== true || typeof data.archive_id !== "string") {
+        throw new Error("ระบบไม่ยืนยันการสำรองและรีเซต กรุณาตรวจสอบฐานข้อมูลก่อนทำซ้ำ");
+      }
+      setArchiveId(data.archive_id);
+      setPreview(null); setConfirmation(""); setAcknowledged(false);
+      await onReset();
+    } catch (e) {
+      setProblem(errorText(e));
+      setPreview(null); // A changed database must be inspected again; do not retry blind.
+    } finally { setBusy(false); }
+  }
+
+  return <section className="space-y-4 rounded-2xl border border-rose-200 bg-white p-4 shadow-sm sm:p-6">
+    <div>
+      <h2 className="text-xl font-black text-red-900">เตรียมระบบ RoV ก่อนแข่งขันจริง</h2>
+      <p className="mt-2 text-sm text-slate-700">ล้างเฉพาะข้อมูลทดสอบการแข่งขัน ทั้งทีมชายและทีมหญิง ไม่ลบโรงเรียน ทีม นักกีฬา การแบ่งกลุ่ม หรือคู่แข่งขันเดิม</p>
+    </div>
+    <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-950">
+      <p className="font-extrabold">ข้อควรระวังก่อนรีเซต</p>
+      <p className="mt-1">ระบบจะสำรองข้อมูลเดิมไว้ในคลังข้อมูลผู้ดูแลก่อนทุกครั้ง แล้วล้างคะแนน ผลแพ้–ชนะ เวลาที่ใช้แข่งขัน Kill สถานะยกเลิก ผลรอบ Knockout และประวัติทดลองที่แสดงในหน้าเว็บ</p>
+      <p className="mt-1">วันเวลาและคู่แข่งขันรอบแบ่งกลุ่มยังอยู่ แต่โปรแกรมทั้งหมดจะกลับเป็น <strong>ฉบับร่าง</strong> เพื่อไม่ให้เผยแพร่ข้อมูลโดยไม่ตั้งใจ หลังตรวจสอบแล้วให้กด “เผยแพร่โปรแกรม” อีกครั้ง</p>
+      <p className="mt-1 font-bold">เพื่อความปลอดภัย คำสั่งนี้จะหยุดทำงานตั้งแต่วันที่ 5 ธันวาคม 2569</p>
+    </div>
+    <div className="flex flex-wrap items-center gap-3">
+      <button type="button" className="rounded-xl border border-red-300 bg-white px-4 py-2.5 text-sm font-bold text-red-900 hover:bg-rose-50 disabled:opacity-50" onClick={() => void inspect()} disabled={busy}>
+        {busy ? "กำลังตรวจสอบ…" : "1. ตรวจสอบข้อมูลที่จะรีเซต"}
+      </button>
+      <span className="text-xs text-slate-500">ไม่ล้างข้อมูลจนกว่าจะยืนยันขั้นสุดท้าย</span>
+    </div>
+    {problem && <p role="alert" className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">{problem}</p>}
+    {archiveId && <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900" role="status">
+      <p className="font-black">รีเซตเรียบร้อยแล้ว และสร้างสำเนาข้อมูลทดสอบก่อนรีเซตแล้ว</p>
+      <p className="mt-1 break-all text-xs">รหัสชุดสำรอง: {archiveId}</p>
+      <p className="mt-1 text-xs">กรุณาเปิดแท็บตารางโปรแกรม ตรวจสอบคู่แข่งขัน แล้วจึงเผยแพร่ตามที่ยืนยันจริง</p>
+    </div>}
+    {preview && <div className="space-y-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
+      <h3 className="font-black">ผลการตรวจสอบข้อมูล RoV ทั้ง 2 ประเภท</h3>
+      <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
+        {([
+          ["คู่ทั้งหมด",preview.matches], ["ทีมชาย",preview.male_matches],
+          ["ทีมหญิง",preview.female_matches], ["คู่ยกเลิก",preview.cancelled],
+          ["คู่บันทึกผลแล้ว",preview.completed], ["คู่เผยแพร่แล้ว",preview.scheduled],
+          ["คู่ Knockout",preview.knockout_matches], ["ประวัติทดสอบ",preview.history_entries]
+        ] as [string, number][]).map(([title,value]) => <div key={title} className="rounded-lg bg-white p-3">
+          <div className="text-xs text-slate-600">{title}</div><strong className="text-xl text-red-900">{value}</strong>
+        </div>)}
+      </div>
+      <label className="flex items-start gap-2 text-sm font-medium text-slate-800">
+        <input type="checkbox" checked={acknowledged} onChange={e => setAcknowledged(e.target.checked)} className="mt-1 accent-red-800" />
+        <span>รับทราบว่าจะรีเซตข้อมูลแข่งขันทั้งสองประเภท และระบบจะเก็บสำเนาก่อนล้าง แต่ไม่สามารถย้อนกลับได้ด้วยปุ่มเดียว</span>
+      </label>
+      <label className="block text-sm font-bold text-slate-800">
+        <span>2. พิมพ์ <code className="rounded bg-rose-100 px-2 py-1 text-red-900">{confirmationText}</code> เพื่อยืนยัน</span>
+        <input className="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 outline-none focus:border-red-700 sm:max-w-md" value={confirmation}
+          onChange={e => setConfirmation(e.target.value)} placeholder="พิมพ์ข้อความยืนยันตามตัวอย่าง" autoComplete="off" />
+      </label>
+      <button type="button" className="rounded-xl bg-red-800 px-5 py-3 text-sm font-black text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-40"
+        onClick={() => void reset()} disabled={busy || !acknowledged || confirmation !== confirmationText}>
+        {busy ? "กำลังสำรองและรีเซต…" : "3. สำรองข้อมูลและรีเซต RoV ทั้งระบบการแข่งขัน"}
+      </button>
+    </div>}
+  </section>;
 }
 
 export default function EsportsPage() {
@@ -665,6 +776,7 @@ export default function EsportsPage() {
         <button type="button" className={tabButtonClass("standings", tab)} aria-pressed={tab === "standings"} onClick={() => setTab("standings")}>ตารางคะแนน</button>
         <button type="button" className={tabButtonClass("knockout", tab)} aria-pressed={tab === "knockout"} onClick={() => setTab("knockout")}>สาย Knockout</button>
         {admin && <button type="button" className={tabButtonClass("history", tab)} aria-pressed={tab === "history"} onClick={() => setTab("history")}>ประวัติการแก้ไข</button>}
+        {admin && <button type="button" className={tabButtonClass("prelaunch", tab)} aria-pressed={tab === "prelaunch"} onClick={() => setTab("prelaunch")}>เตรียมใช้จริง / รีเซตทดสอบ</button>}
         <div className="flex-1" />
         <button type="button" className={secondary} disabled={loading || !!busyId} onClick={() => void load()}>รีเฟรชข้อมูล</button>
       </div>
@@ -742,6 +854,8 @@ export default function EsportsPage() {
           </>}
         </>}
       </section>}
+
+      {admin && tab === "prelaunch" && <PrelaunchResetPanel onReset={load} />}
 
       {admin && currentEvent && tab === "history" && <section className={`${panel} space-y-3`}>
         <div><h2 className="text-lg font-black">ประวัติการแก้ไขผลและสายการแข่งขัน</h2><p className="mt-1 text-xs text-slate-500">แสดงประวัติ 150 รายการล่าสุดของประเภทการแข่งขันที่เลือก พร้อมข้อมูลก่อนและหลังแก้ไข</p></div>
