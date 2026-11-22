@@ -1,6 +1,6 @@
 "use client";
 
-import EsportsSessionSchedule from "@/components/group-sports/EsportsSessionSchedule";
+import EsportsSessionSchedule, { makePlan } from "@/components/group-sports/EsportsSessionSchedule";
 import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -416,6 +416,8 @@ export default function EsportsPage() {
   const [notice, setNotice] = useState("");
   const [pendingEdit, setPendingEdit] = useState<PendingBracketEdit | null>(null);
   const [pendingResult, setPendingResult] = useState<PendingResultSave | null>(null);
+  const [scheduleSyncOpen, setScheduleSyncOpen] = useState(false);
+  const [scheduleSyncConfirmed, setScheduleSyncConfirmed] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true); setError("");
@@ -486,6 +488,72 @@ export default function EsportsPage() {
 
   const unpublishedGroupMatches = currentMatches.filter(match => match.stage === "group" && match.match_status === "draft");
 
+  // IMPORTANT: The timetable shown in the "ตารางโปรแกรม" tab is a computed proposal
+  // (makePlan), not persisted scheduled_date/start_time values. Keep those distinct.
+  const generatedSchedulePlan = useMemo(
+    () => makePlan({ events, groups, teams, matches }),
+    [events, groups, teams, matches]
+  );
+  const missingDatabaseSchedule = unpublishedGroupMatches.filter(match => !match.scheduled_date || !match.start_time);
+  const pendingScheduleSync = generatedSchedulePlan.rows.filter(row =>
+    row.match.event_id === currentEvent?.id &&
+    row.match.stage === "group" &&
+    row.match.match_status === "draft" &&
+    (!row.match.scheduled_date || !row.match.start_time)
+  );
+
+  async function syncMissingScheduleFromPlan() {
+    if (!admin || !competitionId || !currentEvent || busyId || !scheduleSyncConfirmed) return;
+    setError(""); setNotice("");
+    if (generatedSchedulePlan.errors.length > 0 || pendingScheduleSync.length !== missingDatabaseSchedule.length || !pendingScheduleSync.length) {
+      setError("แผนการแข่งขันยังไม่ครบถ้วนหรือจำนวนคู่ที่ต้องเติมไม่ตรงกัน กรุณาตรวจข้อมูลก่อนบันทึก");
+      return;
+    }
+    if (!window.confirm(`ยืนยันวันและเวลาในแผนที่แสดงสำหรับทีม${gender} ${pendingScheduleSync.length} คู่แล้วใช่หรือไม่?\n\nระบบจะเติมเฉพาะช่องวันที่/เวลาที่ว่างในฐานข้อมูล ไม่เปลี่ยนค่าเดิม ไม่แก้คะแนน ไม่เปลี่ยนสถานะ และยังไม่เผยแพร่โปรแกรม`)) return;
+    setBusyId("sync-group-schedule");
+    let updated = 0;
+    const failed: string[] = [];
+    try {
+      // Conditional updates protect against overwriting a date or time that another
+      // admin may have populated since the preview was displayed.
+      for (const row of pendingScheduleSync) {
+        const needsDate = !row.match.scheduled_date;
+        const needsTime = !row.match.start_time;
+        const payload: { scheduled_date?: string; start_time?: string } = {};
+        if (needsDate) payload.scheduled_date = row.date;
+        if (needsTime) payload.start_time = row.start;
+        let query = supabase.from("sports_esports_matches")
+          .update(payload)
+          .eq("id", row.match.id)
+          .eq("competition_id", competitionId)
+          .eq("event_id", currentEvent.id)
+          .eq("stage", "group")
+          .eq("match_status", "draft");
+        if (needsDate) query = query.is("scheduled_date", null);
+        if (needsTime) query = query.is("start_time", null);
+        const result = await query.select("id");
+        if (result.error || (result.data || []).length !== 1) {
+          failed.push(`${row.match.match_no}${result.error ? ` (${result.error.message})` : " (ข้อมูลถูกเปลี่ยนระหว่างบันทึก)"}`);
+          continue;
+        }
+        updated += 1;
+      }
+      await load();
+      setScheduleSyncConfirmed(false);
+      setScheduleSyncOpen(false);
+      if (failed.length) {
+        setError(`บันทึกวันเวลาได้ ${updated}/${pendingScheduleSync.length} คู่ ยังไม่สำเร็จ ${failed.length} คู่: ${failed.slice(0,5).join(", ")}${failed.length > 5 ? " …" : ""} กรุณาตรวจข้อมูลอีกครั้งและกดบันทึกเฉพาะคู่ที่ยังขาด`);
+      } else {
+        setNotice(`บันทึกวันเวลาเข้าฐานข้อมูลแล้ว ${updated} คู่ (ทีม${gender}) โดยไม่แก้ค่าเดิมและยังไม่เผยแพร่ โปรดตรวจตารางอีกครั้งก่อนกดเผยแพร่โปรแกรม`);
+      }
+    } catch (error) {
+      await load();
+      setError(`บันทึกวันเวลาได้ ${updated} คู่ก่อนพบข้อผิดพลาด: ${errorText(error)} กรุณารีเฟรชและตรวจคู่ที่ยังขาด ก่อนลองอีกครั้ง`);
+    } finally {
+      setBusyId("");
+    }
+  }
+
   // RLS hides draft fixtures from public readers. Publishing a confirmed group
   // schedule must update match_status rather than relaxing the read policy.
   async function publishGroupSchedule() {
@@ -521,7 +589,7 @@ export default function EsportsPage() {
     if (!drafts.length) { setNotice("โปรแกรมประเภทนี้ไม่มีคู่ฉบับร่างที่รอเผยแพร่แล้ว"); return; }
     const missingSchedule = drafts.filter(match => !match.scheduled_date || !match.start_time);
     if (missingSchedule.length) {
-      setError(`ยังเผยแพร่ไม่ได้: มี ${missingSchedule.length} คู่ที่ไม่ได้กำหนดวันหรือเวลา กรุณากำหนดให้ครบก่อน`);
+      setError(`ยังเผยแพร่ไม่ได้: มี ${missingSchedule.length} คู่ฉบับร่างที่ช่องวันหรือเวลาในฐานข้อมูลยังว่าง แม้ใน “ตารางโปรแกรม” จะมีเวลาแสดงจากแผนก็ตาม กรุณาใช้ปุ่ม “ตรวจและบันทึกวันเวลาจากแผน” หรือบันทึกแต่ละคู่ให้ครบก่อน`);
       return;
     }
     if (!window.confirm(`ยืนยันเผยแพร่คู่แข่งขันรอบแบ่งกลุ่ม ${drafts.length} คู่ (ทีม${gender}) ให้โรงเรียนและผู้ชมทั่วไปเห็น?\n\nระบบจะเปลี่ยนเฉพาะคู่ฉบับร่างเป็น “กำหนดการแข่งขันแล้ว” โดยไม่แก้คู่ที่ยกเลิกหรือบันทึกผลแล้ว`)) return;
@@ -754,7 +822,7 @@ export default function EsportsPage() {
 
       <section className={`${panel} no-print flex flex-wrap items-center justify-between gap-3`}>
         <div><p className="text-sm font-black">ประเภทการแข่งขัน</p><p className="mt-1 text-xs text-slate-500">{groupSummary}</p></div>
-        <div className="flex gap-2"><button className={gender === "ชาย" ? primary : secondary} onClick={() => { setGender("ชาย"); }}>ทีมชาย</button><button className={gender === "หญิง" ? primary : secondary} onClick={() => { setGender("หญิง"); }}>ทีมหญิง</button></div>
+        <div className="flex gap-2"><button className={gender === "ชาย" ? primary : secondary} onClick={() => { setGender("ชาย"); setScheduleSyncOpen(false); setScheduleSyncConfirmed(false); }}>ทีมชาย</button><button className={gender === "หญิง" ? primary : secondary} onClick={() => { setGender("หญิง"); setScheduleSyncOpen(false); setScheduleSyncConfirmed(false); }}>ทีมหญิง</button></div>
       </section>
 
       <section className="no-print grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -802,6 +870,56 @@ export default function EsportsPage() {
 
 
       {events.length > 0 && tab === "schedule" && <div className="space-y-3">
+        {admin && currentEvent && (
+          <section className="no-print space-y-3 rounded-2xl border border-amber-200 bg-amber-50 p-4">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="font-black text-amber-950">ตรวจและบันทึกวันเวลาจากแผนเข้าสู่ฐานข้อมูล</h2>
+                <p className="mt-1 text-sm text-amber-950">ตารางด้านล่างเป็นแผนที่ระบบคำนวณเพื่อแสดงผล ไม่ได้แปลว่าทุกคู่มีวันเวลาเก็บอยู่ในฐานข้อมูลจริง</p>
+                <p className="mt-1 text-sm font-semibold text-amber-900">ทีม{gender}: คู่ฉบับร่างที่ยังขาดวันหรือเวลาในฐานข้อมูล {missingDatabaseSchedule.length} คู่</p>
+                <p className="mt-1 text-xs text-amber-800">ใช้เฉพาะเมื่อคณะกรรมการตรวจและยืนยันวันเวลาในแผนแล้ว ไม่เขียนทับคู่ที่กรอกแล้ว ไม่เปลี่ยนสถานะ และไม่เผยแพร่อัตโนมัติ</p>
+              </div>
+              {missingDatabaseSchedule.length > 0 && (
+                <button type="button" className={secondary} disabled={loading || !!busyId} onClick={() => { setScheduleSyncOpen(open => !open); setScheduleSyncConfirmed(false); }}>
+                  {scheduleSyncOpen ? "ปิดรายการตรวจสอบ" : `ตรวจและบันทึกวันเวลาจากแผน (${missingDatabaseSchedule.length} คู่)`}
+                </button>
+              )}
+            </div>
+            {missingDatabaseSchedule.length === 0 && <p className="text-sm font-bold text-emerald-800">คู่ฉบับร่างของทีม{gender}มีวันและเวลาในฐานข้อมูลครบแล้ว สามารถตรวจสอบและเผยแพร่เมื่อพร้อม</p>}
+            {scheduleSyncOpen && missingDatabaseSchedule.length > 0 && (
+              <div className="space-y-3 rounded-xl border border-amber-300 bg-white p-3">
+                {generatedSchedulePlan.errors.length > 0 || pendingScheduleSync.length !== missingDatabaseSchedule.length ? (
+                  <div className="text-sm text-red-800">
+                    <p className="font-bold">ยังไม่สามารถบันทึกอัตโนมัติ: แผนและข้อมูลคู่แข่งขันไม่ตรงกัน</p>
+                    <p>แผนพบข้อผิดพลาด {generatedSchedulePlan.errors.length} รายการ และจับคู่กับรายการที่ยังขาดได้ {pendingScheduleSync.length}/{missingDatabaseSchedule.length} คู่ กรุณาตรวจสอบก่อนดำเนินการ</p>
+                    {generatedSchedulePlan.errors.slice(0, 5).map((item, i) => <p key={i} className="mt-1">{item}</p>)}
+                  </div>
+                ) : <>
+                  <p className="font-bold text-slate-900">รายการที่จะเติมเฉพาะวันและ/หรือเวลาที่ยังว่าง ({pendingScheduleSync.length} คู่)</p>
+                  <div className="max-h-64 overflow-auto rounded-lg border border-slate-200">
+                    <table className="w-full min-w-[720px] text-left text-xs">
+                      <thead className="sticky top-0 bg-slate-100 text-slate-800"><tr><th className="p-2">คู่</th><th className="p-2">โรงเรียน</th><th className="p-2">ข้อมูลที่มีในฐานข้อมูล</th><th className="p-2">วันที่ · เวลาตามแผน</th></tr></thead>
+                      <tbody>{pendingScheduleSync.map(row => <tr key={row.match.id} className="border-t border-slate-100 align-top">
+                        <td className="p-2 font-bold">{row.match.match_no}</td>
+                        <td className="p-2">{row.school1} พบ {row.school2}</td>
+                        <td className="p-2">{row.match.scheduled_date || "ยังไม่มีวัน"} · {row.match.start_time?.slice(0,5) || "ยังไม่มีเวลา"}</td>
+                        <td className="p-2 font-semibold">{thaiDate(row.date)} · {row.start} น.</td>
+                      </tr>)}</tbody>
+                    </table>
+                  </div>
+                  {generatedSchedulePlan.warnings.length > 0 && <p className="text-xs text-amber-800">หมายเหตุ: มี {generatedSchedulePlan.warnings.length} คู่ที่วันเวลาซึ่งบันทึกไว้แล้วต่างจากแผน ระบบจะไม่แก้ค่าเดิม</p>}
+                  <label className="flex items-start gap-2 text-sm font-semibold text-slate-800">
+                    <input type="checkbox" className="mt-1 accent-red-800" checked={scheduleSyncConfirmed} onChange={e => setScheduleSyncConfirmed(e.target.checked)}/>
+                    <span>ตรวจสอบแล้วว่าวัน เวลา และคู่แข่งขันตามแผนนี้ถูกต้องสำหรับใช้งานจริง และอนุญาตให้เติมเฉพาะข้อมูลที่ยังว่าง</span>
+                  </label>
+                  <button type="button" className={primary} disabled={!!busyId || !scheduleSyncConfirmed} onClick={() => void syncMissingScheduleFromPlan()}>
+                    {busyId === "sync-group-schedule" ? "กำลังบันทึกข้อมูล…" : `ยืนยันบันทึกวันเวลาที่ขาด ${pendingScheduleSync.length} คู่ (ไม่เผยแพร่)`}
+                  </button>
+                </>}
+              </div>
+            )}
+          </section>
+        )}
         {admin && currentEvent && (
           <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
             <div>
