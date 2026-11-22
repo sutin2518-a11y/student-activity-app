@@ -373,6 +373,67 @@ export default function EsportsPage() {
     actual: groupSchedule(currentMatches, group.id)
   })), [currentGroups, currentMatches]);
 
+  const unpublishedGroupMatches = currentMatches.filter(match => match.stage === "group" && match.match_status === "draft");
+
+  // RLS hides draft fixtures from public readers. Publishing a confirmed group
+  // schedule must update match_status rather than relaxing the read policy.
+  async function publishGroupSchedule() {
+    if (!admin || !competitionId || !currentEvent || busyId) return;
+    setError(""); setNotice("");
+    if (currentEvent.status === "draft") {
+      setError("ต้องเผยแพร่รายการกีฬา E-Sport จากหน้าจัดการรายการแข่งขันก่อน จึงจะให้ผู้ชมทั่วไปเห็นโปรแกรมได้");
+      return;
+    }
+    const groupMatches = currentMatches.filter(match => match.stage === "group");
+    const expectedPairs = currentGroups.reduce((total, group) => {
+      const count = currentTeams.filter(team => team.group_id === group.id).length;
+      return total + count * (count - 1) / 2;
+    }, 0);
+    if (groupMatches.length !== expectedPairs || expectedPairs === 0) {
+      setError(`จำนวนคู่รอบแบ่งกลุ่มไม่ครบ: มี ${groupMatches.length} คู่ จากที่ควรมี ${expectedPairs} คู่ กรุณาตรวจข้อมูลก่อนเผยแพร่`);
+      return;
+    }
+    const seen = new Set<string>();
+    for (const match of groupMatches) {
+      if (!match.group_id || !match.team1_id || !match.team2_id || match.team1_id === match.team2_id) {
+        setError(`คู่ ${match.match_no} มีข้อมูลกลุ่มหรือทีมไม่ครบ กรุณาตรวจสอบก่อนเผยแพร่`);
+        return;
+      }
+      const pair = `${match.group_id}|${[match.team1_id, match.team2_id].sort().join("|")}`;
+      if (seen.has(pair)) {
+        setError(`พบคู่แข่งขันซ้ำที่ ${match.match_no} กรุณาตรวจสอบก่อนเผยแพร่`);
+        return;
+      }
+      seen.add(pair);
+    }
+    const drafts = groupMatches.filter(match => match.match_status === "draft");
+    if (!drafts.length) { setNotice("โปรแกรมประเภทนี้ไม่มีคู่ฉบับร่างที่รอเผยแพร่แล้ว"); return; }
+    const missingSchedule = drafts.filter(match => !match.scheduled_date || !match.start_time);
+    if (missingSchedule.length) {
+      setError(`ยังเผยแพร่ไม่ได้: มี ${missingSchedule.length} คู่ที่ไม่ได้กำหนดวันหรือเวลา กรุณากำหนดให้ครบก่อน`);
+      return;
+    }
+    if (!window.confirm(`ยืนยันเผยแพร่คู่แข่งขันรอบแบ่งกลุ่ม ${drafts.length} คู่ (ทีม${gender}) ให้โรงเรียนและผู้ชมทั่วไปเห็น?\n\nระบบจะเปลี่ยนเฉพาะคู่ฉบับร่างเป็น “กำหนดการแข่งขันแล้ว” โดยไม่แก้คู่ที่ยกเลิกหรือบันทึกผลแล้ว`)) return;
+    setBusyId("publish-group-schedule");
+    try {
+      const result = await supabase.from("sports_esports_matches")
+        .update({ match_status: "scheduled" })
+        .eq("competition_id", competitionId)
+        .eq("event_id", currentEvent.id)
+        .eq("stage", "group")
+        .eq("match_status", "draft")
+        .in("id", drafts.map(match => match.id))
+        .select("id");
+      if (result.error) throw result.error;
+      if ((result.data || []).length !== drafts.length) {
+        throw new Error(`เผยแพร่ได้ ${(result.data || []).length}/${drafts.length} คู่ กรุณารีเฟรชและตรวจสถานะทุกคู่`);
+      }
+      await load();
+      setNotice(`เผยแพร่โปรแกรมทีม${gender}สำเร็จ ${drafts.length} คู่ ผู้ชมทั่วไปสามารถเห็นคู่เหล่านี้ได้แล้ว`);
+    } catch (e) { setError(errorText(e)); }
+    finally { setBusyId(""); }
+  }
+
   async function generateKnockout() {
     if (!admin || !currentEvent || currentEvent.event_code !== "GS3-ES-SM" || busyId) return;
     setError(""); setNotice(""); setBusyId("generate-knockout");
@@ -636,9 +697,21 @@ export default function EsportsPage() {
       </section>}
 
 
-      {events.length > 0 && tab === "schedule" && (
-        <EsportsSessionSchedule events={events} groups={groups} teams={teams} matches={matches} />
-      )}
+      {events.length > 0 && tab === "schedule" && <div className="space-y-3">
+        {admin && currentEvent && (
+          <div className="no-print flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4">
+            <div>
+              <p className="font-black text-red-900">เผยแพร่ตารางโปรแกรมให้โรงเรียนและผู้ชมทั่วไป</p>
+              <p className="mt-1 text-sm text-slate-700">ทีม{gender}: มีคู่ฉบับร่าง {unpublishedGroupMatches.length} คู่ · เมื่อยืนยันวันและเวลาแล้วจึงกดเผยแพร่ได้</p>
+              <p className="mt-1 text-xs text-slate-500">ระบบไม่แก้คู่ที่ยกเลิกหรือบันทึกผลแล้ว และไม่เปิดสิทธิ์แก้ไขให้ผู้ชม</p>
+            </div>
+            <button type="button" className={primary} disabled={loading || !!busyId || unpublishedGroupMatches.length === 0} onClick={() => void publishGroupSchedule()}>
+              {busyId === "publish-group-schedule" ? "กำลังเผยแพร่…" : unpublishedGroupMatches.length ? `เผยแพร่โปรแกรมทีม${gender} (${unpublishedGroupMatches.length} คู่)` : "เผยแพร่ครบแล้ว"}
+            </button>
+          </div>
+        )}
+        <EsportsSessionSchedule events={events} groups={groups} teams={teams} matches={matches} publicView={!admin} />
+      </div>}
 
       {currentEvent && tab === "standings" && <section className="space-y-4">
         {currentGroups.map(group => {

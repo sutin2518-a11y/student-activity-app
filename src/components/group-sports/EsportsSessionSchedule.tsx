@@ -335,7 +335,7 @@ async function exportExcel(rows: Fixture[]) {
   XLSX.writeFile(workbook, "โปรแกรมการแข่งขัน-E-Sport.xlsx");
 }
 
-export default function EsportsSessionSchedule({ events, groups, teams, matches, showSummary = false }: Bundle & { showSummary?: boolean }) {
+export default function EsportsSessionSchedule({ events, groups, teams, matches, showSummary = false, publicView = false }: Bundle & { showSummary?: boolean; publicView?: boolean }) {
   const plan = useMemo(() => makePlan({ events, groups, teams, matches }), [events, groups, teams, matches]);
   const [error, setError] = useState("");
   const [dateFilter, setDateFilter] = useState("all");
@@ -367,7 +367,12 @@ export default function EsportsSessionSchedule({ events, groups, teams, matches,
           ))}
         </div>
       )}
-      {plan.errors.length > 0 && (
+      {plan.errors.length > 0 && (publicView ? (
+        <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900" role="status">
+          <h3 className="font-bold">โปรแกรมบางคู่ยังไม่เผยแพร่</h3>
+          <p className="mt-1">ระบบแสดงเฉพาะคู่ที่คณะกรรมการเผยแพร่แล้ว หากยังไม่ครบทุกกลุ่ม กรุณากลับมาตรวจสอบภายหลัง</p>
+        </section>
+      ) : (
         <section className="rounded-xl border border-red-300 bg-red-50 p-4">
           <h3 className="font-black text-red-800">
             ข้อผิดพลาดในแผน
@@ -376,7 +381,7 @@ export default function EsportsSessionSchedule({ events, groups, teams, matches,
             <p key={i} className="mt-1 text-sm">{v}</p>
           ))}
         </section>
-      )}
+      ))}
 
       <section className={panel}>
         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
