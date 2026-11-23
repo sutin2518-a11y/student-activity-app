@@ -73,6 +73,16 @@ export default function AuthCompletePage() {
           throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleError.message);
         }
 
+        // A sports official may be assigned directly to one or more events by email
+        // in sports_certificate_officials. Check the certificate context after Google
+        // has verified the identity so external judges do not also need a broad
+        // competition-wide sports_user_roles entry.
+        const certificateAccess = await supabase.rpc("sports_cert_context");
+        const certificateRole = !certificateAccess.error
+          ? (certificateAccess.data as { role?: string } | null)?.role
+          : undefined;
+        const hasCertificateOfficialAccess = certificateRole === "official";
+
         // RoV-only administrators are pre-approved by email in an E-Sport-specific
         // roster, not given competition-wide roles in sports_user_roles.
         const esportsCheck = await supabase.rpc("sports_esports_my_access");
@@ -80,7 +90,7 @@ export default function AuthCompletePage() {
           throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
         }
         const hasEsportsAccess = esportsCheck.data === true;
-        const hasSportsAccess = (sportsRoles || []).some((item: { role: string }) =>
+        const hasSportsAccess = hasCertificateOfficialAccess || (sportsRoles || []).some((item: { role: string }) =>
           ["super_admin", "competition_admin", "school_manager", "referee", "viewer"].includes(String(item.role))
         );
         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
@@ -93,6 +103,12 @@ export default function AuthCompletePage() {
         // prefer the E-Sport dashboard unless they are already a principal admin.
         if (hasEsportsAccess && !isPrincipalSportsAdmin) {
           if (mounted) router.replace("/group-sports/esports");
+          return;
+        }
+        // Assigned judges land directly on the result-entry page, including CKW
+        // accounts that would otherwise be redirected to their teacher/student home.
+        if (hasCertificateOfficialAccess) {
+          if (mounted) router.replace("/group-sports/results");
           return;
         }
         if (isCkwAccount && destination) {

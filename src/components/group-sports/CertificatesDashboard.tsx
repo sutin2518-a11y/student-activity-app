@@ -177,6 +177,7 @@ export default function CertificatesDashboard({mode="print",view="all"}:{mode?:"
           {mode==="manage"?<>
             <Link href="/group-sports/results" className="hover:underline">บันทึกผล</Link>
             {context?.role==="admin"&&<Link href="/group-sports/officials" className="hover:underline">มอบหมายกรรมการ</Link>}
+            {context?.role==="admin"&&<Link href="/group-sports/results/corrections" className="font-bold text-amber-200 hover:underline">แก้ไขผลหลังประกาศ</Link>}
             <Link href="/group-sports/certificates" className="hover:underline">พิมพ์เกียรติบัตร</Link>
           </>:<Link href="/group-sports/login" className="hover:underline">เข้าสู่ระบบโรงเรียน</Link>}
           {mode==="print"&&(context?.role==="admin"||context?.role==="official")&&<Link href="/group-sports/results" className="font-semibold hover:underline">บันทึกผลสำหรับกรรมการ</Link>}
