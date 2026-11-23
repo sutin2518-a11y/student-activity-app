@@ -1,0 +1,40 @@
+.cert-v33-print-pages{display:none}
+@media screen{
+  .cert-v33-print-pages.cert-v33-screen-preview{display:block}
+}
+@page{size:A4 landscape;margin:0}
+@media print{
+  html,body{margin:0!important;padding:0!important;background:white!important}
+  body *{visibility:hidden!important}
+  .cert-v33-print-pages,.cert-v33-print-pages *{visibility:visible!important}
+  .cert-v33-print-pages{display:block!important;position:absolute;top:0;left:0;width:297mm!important}
+  .cert-v33-sheet{break-after:page;page-break-after:always;page-break-inside:avoid}
+  .cert-v33-sheet:last-child{break-after:auto;page-break-after:auto}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
+}
+.cert-v33-sheet{width:297mm;height:210mm;background:#fff;box-sizing:border-box;padding:9mm 11mm;color:#522007;font-family:Arial,"Sarabun",sans-serif}
+.cert-v33-frame{width:100%;height:100%;box-sizing:border-box;border:2.4mm solid #9a1422;outline:0.6mm solid #b89546;outline-offset:-3.4mm;position:relative;text-align:center;overflow:hidden;background:radial-gradient(ellipse at 50% 43%,#fffdf7 5%,#fff 65%)}
+.cert-v33-frame:before{content:"";position:absolute;inset:5mm;border:0.35mm solid #d6b569;pointer-events:none}
+.cert-v33-corner{position:absolute;width:56mm;height:35mm;background:linear-gradient(135deg,rgba(175,32,45,.12),rgba(233,198,116,.15),transparent);z-index:0}
+.cert-v33-top-left{top:0;left:0}
+.cert-v33-bottom-right{bottom:0;right:0;transform:rotate(180deg)}
+.cert-v33-header{position:absolute;left:15mm;right:15mm;top:12mm;z-index:1}
+.cert-v33-eyebrow{font-size:10pt;font-weight:800;letter-spacing:3px;color:#a88124}
+.cert-v33-title{font-size:34pt;font-weight:800;color:#960c25;margin:0;line-height:1.5}
+.cert-v33-accent{height:2px;width:78mm;background:linear-gradient(to right,transparent,#c59f44,transparent);margin:0 auto 3mm}
+.cert-v33-header p{font-size:14pt;line-height:1.4;margin:0}
+.cert-v33-body{position:absolute;top:69mm;left:18mm;right:18mm;z-index:1}
+.cert-v33-body p{font-size:15pt;margin:2mm 0}
+.cert-v33-body h2{font-size:27pt;font-weight:800;color:#920d1d;line-height:1.35;margin:3mm 0}
+.cert-v33-body strong{color:#850e20}
+.cert-v33-body .cert-v33-role{font-size:12pt;color:#8b7348;margin-top:3mm}
+.cert-v33-bottom{position:absolute;bottom:13mm;left:14mm;right:14mm;display:grid;grid-template-columns:1fr 1.5fr 1fr;align-items:end;gap:6mm;z-index:1}
+.cert-v33-code{text-align:left;font-size:10pt;color:#715627}
+.cert-v33-code img{display:block;width:24mm;height:24mm;object-fit:contain;mix-blend-mode:multiply}
+.cert-v33-tiny{font-size:8pt}
+.cert-v33-qr-pending{font-size:8pt;height:24mm;display:grid;place-items:center}
+.cert-v33-sign{font-size:12pt;line-height:1.6;min-height:24mm}
+.cert-v33-sign-line{margin-bottom:2mm}
+.cert-v33-issued{font-size:10pt;display:flex;flex-direction:column;text-align:right;line-height:1.6}
+
+.cert-v33-replacement-note{margin-top:2mm!important;font-size:9pt!important;color:#7c2d12!important;font-weight:700!important}
