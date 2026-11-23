@@ -2,9 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-type ParadeReferenceSection = "parade_order" | "parade_map" | "cheer_stands" | "assembly_points";
+export type ParadeReferenceSection = "parade_order" | "parade_map" | "cheer_stands" | "assembly_points";
 
-type ReferenceImage = {
+export type ReferenceImage = {
   title: string;
   subtitle: string;
   file: string;
@@ -16,44 +16,51 @@ type ReferenceImage = {
 };
 
 const paradeOrder: ReferenceImage = {
-  title: "ลำดับขบวนพาเหรด ประจำปี 2569",
-  subtitle: "รายชื่อและลำดับขบวนของโรงเรียนตามภาพที่คณะผู้จัดส่งมา",
-  file: "/images/group-sports/parade-order-2569.png",
-  preview: "/images/group-sports/parade-order-2569-preview.webp",
+  title: "ลำดับขบวนพาเหรด ครั้งที่ 30 ประจำปี 2569",
+  subtitle: "ลำดับขบวนเขตภูลังกา 01–10 และเขตภูกามยาว 11–20",
+  file: "/images/group-sports/parade-order-2569-v33-13.png",
+  preview: "/images/group-sports/parade-order-2569-v33-13-preview.webp",
   alt: "โปสเตอร์ลำดับขบวนพาเหรดกีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ประจำปี 2569 มีรายชื่อโรงเรียนลำดับที่ 1 ถึง 20",
-  width: 1024,
-  height: 1536,
+  width: 1355,
+  height: 2048,
   note: "ภาพรายชื่อขบวนที่ 1–20 ตามไฟล์ต้นฉบับ หากมีประกาศปรับลำดับภายหลัง ให้ยึดประกาศฉบับล่าสุดของคณะกรรมการ",
 };
 
 const ceremonyMap: ReferenceImage = {
-  title: "ผังพิธีเปิดและการจัดพื้นที่ในสนาม",
-  subtitle: "แสดงจุดยืนของขบวนพาเหรด ลู่วิ่ง อัฒจันทร์ และตำแหน่งกองเชียร์",
-  file: "/images/group-sports/opening-ceremony-and-cheer-stands-2569.png",
-  preview: "/images/group-sports/opening-ceremony-and-cheer-stands-2569-preview.webp",
-  alt: "แผนผังสนามพิธีเปิดภูลังกาเกมส์ 2569 แสดงลู่วิ่ง จุดตั้งขบวนในสนาม และตำแหน่งอัฒจันทร์กองเชียร์พร้อมชื่อโรงเรียน",
-  width: 1495,
-  height: 1052,
+  title: "แผนผังการยืนขบวนในสนามและอัฒจันทร์กองเชียร์",
+  subtitle: "ผังสนามสีเขียวพร้อมลู่วิ่ง การจัดแถวโรงเรียน 2 เขต และอัฒจันทร์กองเชียร์",
+  file: "/images/group-sports/opening-ceremony-and-cheer-stands-2569-v33-13.png",
+  preview: "/images/group-sports/opening-ceremony-and-cheer-stands-2569-v33-13-preview.webp",
+  alt: "ผังพิธีเปิดกีฬากลุ่มมัธยมภูลังกาเกมส์ครั้งที่ 30 แสดงตำแหน่งยืนขบวนโรงเรียนเขตภูลังกาและเขตภูกามยาว ลู่วิ่งและที่นั่งกองเชียร์",
+  width: 2048,
+  height: 1442,
   note: "ผังเดียวกันแสดงทั้งตำแหน่งขบวนในสนามและสแตนเชียร์ด้านบนของภาพ กรุณาขยายภาพเพื่ออ่านชื่อโรงเรียนและพื้นที่ที่ได้รับจัดสรร",
 };
 
 const assemblyLocation: ReferenceImage = {
-  title: "สถานที่ตั้งขบวนพาเหรด ประจำปี 2569",
-  subtitle: "ภาพถ่ายแผนที่แสดงแนวถนนและจุดกำหนดพื้นที่ตั้งขบวนพาเหรด",
-  file: "/images/group-sports/parade-assembly-location-2569.png",
-  preview: "/images/group-sports/parade-assembly-location-2569-preview.webp",
-  alt: "ภาพสถานที่ตั้งขบวนพาเหรดบริเวณถนนหมายเลข 1148 ในพื้นที่เชียงคำ แสดงแนวถนนและจุดสีเหลืองที่ระบุบนภาพต้นฉบับ",
-  width: 1452,
-  height: 821,
-  note: "ใช้ภาพนี้ตรวจตำแหน่งพื้นที่ตั้งขบวนและแนวถนนก่อนวันงาน จุดสีเหลืองและเส้นระยะทางเป็นข้อมูลตามภาพที่คณะกรรมการส่งมา ภาพนี้ไม่ใช่ลิงก์นำทาง Google Maps",
+  title: "จุดตั้งขบวนพาเหรด ประจำปี 2569",
+  subtitle: "แผนที่ภาพถ่ายมุมสูง แสดงจุดตั้งขบวนทั้งสองเขต พร้อมทางเข้าและทางออก",
+  file: "/images/group-sports/parade-assembly-location-2569-v33-13.png",
+  preview: "/images/group-sports/parade-assembly-location-2569-v33-13-preview.webp",
+  alt: "ภาพถ่ายทางอากาศพร้อมกรอบสีเหลืองแสดงตำแหน่งตั้งขบวนของโรงเรียน 20 แห่ง และลูกศรทางเข้า ทางออก",
+  width: 1664,
+  height: 945,
+  note: "ตรวจหมายเลขพื้นที่ตั้งขบวน 01–20 ในภาพก่อนเดินทาง โดยเขตภูลังกาและภูกามยาวแสดงคนละแถว ภาพประกอบไม่ใช่ลิงก์นำทาง Google Maps",
 };
+
+export type ParadeReferenceOverride = Partial<Pick<ReferenceImage, "title" | "subtitle" | "note" | "file" | "preview">>;
+
+export function getSchoolParadeReference(section: ParadeReferenceSection): ReferenceImage {
+  return section === "parade_order" ? paradeOrder : section === "assembly_points" ? assemblyLocation : ceremonyMap;
+}
 
 export function hasSchoolParadeReference(section: string): section is ParadeReferenceSection {
   return section === "parade_order" || section === "parade_map" || section === "cheer_stands" || section === "assembly_points";
 }
 
-export default function SchoolParadeReference({ section }: { section: ParadeReferenceSection }) {
-  const content = section === "parade_order" ? paradeOrder : section === "assembly_points" ? assemblyLocation : ceremonyMap;
+export default function SchoolParadeReference({ section, override }: { section: ParadeReferenceSection; override?: ParadeReferenceOverride }) {
+  const base = getSchoolParadeReference(section);
+  const content: ReferenceImage = { ...base, ...override, file: override?.file || base.file, preview: override?.preview || override?.file || base.preview };
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(1);
 
@@ -79,9 +86,9 @@ export default function SchoolParadeReference({ section }: { section: ParadeRefe
             <span aria-hidden="true" className="text-xl">🗺️</span>
             <h3 className="text-base font-extrabold text-[#7f1d1d] sm:text-lg">{content.title}</h3>
           </div>
-          <p className="text-sm leading-6 text-slate-600">{section === "cheer_stands" ? "ตำแหน่งสแตนเชียร์อยู่บริเวณด้านบนของผังพิธีเปิด" : content.subtitle}</p>
+          <p className="text-sm leading-6 text-slate-600">{override?.subtitle ?? (section === "cheer_stands" ? "ตำแหน่งอัฒจันทร์กองเชียร์อยู่ด้านบนของภาพผังสนาม" : content.subtitle)}</p>
         </div>
-        <span className="shrink-0 rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-bold text-rose-800">ภาพประกอบปี 2569</span>
+        <span className="shrink-0 rounded-full border border-rose-200 bg-white px-3 py-1 text-xs font-bold text-rose-800">{override?.file ? "ภาพล่าสุดจากผู้ดูแล" : "ภาพต้นแบบปี 2569"}</span>
       </div>
       <div className="grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1fr)_245px] lg:items-start">
         <button

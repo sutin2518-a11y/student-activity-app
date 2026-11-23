@@ -1571,6 +1571,11 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
+                  {canManageAccounts && <Link href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                    onClick={() => { setSchoolInfoMenuOpen(false); setSportsMenuOpen(false); }}
+                    className="flex min-h-12 w-full items-center justify-between rounded-xl border-t border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100">
+                    <span>จัดการภาพและข้อความ (Admin)</span>
+                  </Link>}
                   <button type="button" tabIndex={schoolInfoMenuOpen ? 0 : -1}
                     onClick={()=>goToSportsSection("about")}
                     className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-900">
@@ -1610,6 +1615,7 @@ export default function GroupSportsDashboard() {
                 {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
                 {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
                 {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
+                {canManageAccounts && <Link href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
                 {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลทดสอบ</Link>}
                 <Link href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
                 <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
@@ -1666,7 +1672,7 @@ export default function GroupSportsDashboard() {
               ? (hasSchoolParadeReference(schoolInfoSection)
                   ? <section className="rounded-2xl border border-rose-100 bg-white p-4 sm:p-6"><SchoolParadeReference section={schoolInfoSection} /></section>
                   : <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">โหมดสาธิตยังไม่มีข้อมูลประชาสัมพันธ์จริง กรุณาเชื่อมต่อ Supabase</div>)
-              : <SchoolInformationHub competitionId={competition?.id ?? null} section={schoolInfoSection}
+              : <SchoolInformationHub key={schoolInfoSection} competitionId={competition?.id ?? null} section={schoolInfoSection}
                   canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && <SportsGamesHome
