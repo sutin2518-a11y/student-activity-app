@@ -20,7 +20,7 @@ function awardLabel(rank:number,slot:number) {
   return rank===3 && slot===2 ? "รองชนะเลิศอันดับที่ 2 (ร่วม)" : certificateAward(rank,"award");
 }
 
-export default function CertificatesDashboard() {
+export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"manage"}) {
   const [context,setContext]=useState<CertificateContext|null>(null);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
@@ -28,7 +28,7 @@ export default function CertificatesDashboard() {
   const [notice,setNotice]=useState("");
   const [eventId,setEventId]=useState("");
   const [search,setSearch]=useState("");
-  const [screen,setScreen]=useState<Screen>("print");
+  const [screen,setScreen]=useState<Screen>(mode==="print"?"print":"record");
   const [entries,setEntries]=useState<CertificateEntry[]>([]);
   const [placements,setPlacements]=useState<CertificatePlacement[]>([]);
   const [result,setResult]=useState<CertificateResult>(null);
@@ -55,18 +55,18 @@ export default function CertificatesDashboard() {
     setPosition(payload.settings.signer_position);
     setTitle(payload.settings.title);
     setEventId(current => payload.events.some(e=>e.id===current)?current:(payload.events[0]?.id || ""));
-    setScreen(current => payload.role==="school"?"print":payload.role==="official"?"record":current);
+    setScreen(mode==="print"?"print":payload.role==="admin"?"review":"record");
     return payload;
-  },[]);
+  },[mode]);
 
   const loadEvent=useCallback(async (event:CertificateEvent,role:CertificateContext["role"])=>{
     // Only assigned officials and principal admins can list entries/results.
-    const canRecord=event.can_record;
+    const canRecord=mode==="manage" && role!=="school" && event.can_record;
     const requestsTyped = [
       canRecord ? supabase.rpc("sports_cert_event_entries",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
       canRecord ? supabase.rpc("sports_cert_result_details",{p_event:event.id}) : Promise.resolve({data:null,error:null}),
-      role!=="official" ? supabase.rpc("sports_cert_my_documents",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
-      role==="admin" ? supabase.rpc("sports_cert_officials",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
+      mode==="print" ? supabase.rpc("sports_cert_my_documents",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
+      mode==="manage" && role==="admin" ? supabase.rpc("sports_cert_officials",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
     ];
     const [a,b,c,d]=await Promise.all(requestsTyped);
     for(const response of [a,b,c,d]) if(response.error) throw response.error;
@@ -81,7 +81,7 @@ export default function CertificatesDashboard() {
     setDocuments(docs);
     setSelectedIds(docs.map(doc=>doc.id));
     setOfficials((d.data||[]) as Official[]);
-  },[]);
+  },[mode]);
 
   useEffect(()=>{
     let active=true;
@@ -91,13 +91,13 @@ export default function CertificatesDashboard() {
 
   const event=context?.events.find(e=>e.id===eventId);
   useEffect(()=>{
-    if(!event||!context)return;
+    if(!event||!context||(mode==="manage"&&context.role==="school"))return;
     let alive=true;
     setError("");
     loadEvent(event,context.role).catch(err=>{if(alive)setError(errorText(err));});
     return ()=>{alive=false;};
     // Selected event and role are the only dependencies needed; reload is explicit after mutations.
-  },[eventId,context?.role,loadEvent]); // eslint-disable-line react-hooks/exhaustive-deps
+  },[eventId,context?.role,loadEvent,mode]); // eslint-disable-line react-hooks/exhaustive-deps
 
   async function mutate(action:()=>PromiseLike<{error:unknown;data?:unknown}>,success:string) {
     if(busy||!event||!context)return;
@@ -151,13 +151,16 @@ export default function CertificatesDashboard() {
     <div className="print:hidden bg-[#08142e] px-4 py-2 text-xs text-white">
       <div className="mx-auto flex max-w-6xl justify-between gap-3">
         <Link href="/group-sports" className="font-bold hover:underline">← กลับหน้ากีฬากลุ่ม</Link>
-        <Link href="/group-sports/login" className="hover:underline">เข้าสู่ระบบโรงเรียน</Link>
+        <div className="flex flex-wrap gap-4">
+          {mode==="manage"?<Link href="/group-sports/certificates" className="hover:underline">พิมพ์เกียรติบัตร</Link>:<Link href="/group-sports/login" className="hover:underline">เข้าสู่ระบบโรงเรียน</Link>}
+          {mode==="print"&&(context?.role==="admin"||context?.role==="official")&&<Link href="/group-sports/certificates/manage" className="font-semibold hover:underline">สำหรับกรรมการ / ผู้ดูแล</Link>}
+        </div>
       </div>
     </div>
     <header className="print:hidden bg-gradient-to-r from-[#820d16] via-[#a90918] to-[#20274a] px-4 py-8 text-white">
-      <div className="mx-auto max-w-6xl"><p className="text-xs font-bold tracking-widest text-amber-300">PHULANGKA GAMES 2026 · CERTIFICATES V1</p>
-        <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">ระบบออกเกียรติบัตรกีฬากลุ่ม</h1>
-        <p className="mt-2 text-sm text-white/90">บันทึกผลแยกตามรายการ · อนุมัติอย่างเป็นทางการ · โรงเรียนพิมพ์ด้วยตนเอง</p>
+      <div className="mx-auto max-w-6xl"><p className="text-xs font-bold tracking-widest text-amber-300">PHULANGKA GAMES 2026 · CERTIFICATES V1.1</p>
+        <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{mode==="print"?"พิมพ์เกียรติบัตร":"จัดการผลเพื่อออกเกียรติบัตร"}</h1>
+        <p className="mt-2 text-sm text-white/90">{mode==="print"?"สำหรับโรงเรียน · เลือกรายการ ดาวน์โหลด PDF หรือพิมพ์เกียรติบัตรได้ด้วยตนเอง":"สำหรับกรรมการแต่ละกีฬาและผู้ดูแล · บันทึกผล ตรวจสอบ อนุมัติ และตั้งค่าการออกเอกสาร"}</p>
       </div>
     </header>
     <div className="print:hidden mx-auto mt-5 max-w-6xl space-y-4 px-4">
@@ -168,12 +171,17 @@ export default function CertificatesDashboard() {
         <p className="mb-3 text-sm">ใช้บัญชีโรงเรียนที่ผู้จัดออกให้ หรือบัญชี Google Workspace ของผู้ดูแลการแข่งขัน</p>
         <Link href="/group-sports/login" className={primary}>เข้าสู่ระบบโรงเรียน</Link>
       </div>}
-      {context&&<>
+      {context&&mode==="manage"&&context.role==="school"&&<section className={panel}>
+        <h2 className="font-extrabold text-red-900">หน้านี้สำหรับกรรมการและผู้ดูแลการแข่งขัน</h2>
+        <p className="mt-2 text-sm text-slate-600">บัญชีโรงเรียนมีสิทธิ์พิมพ์เกียรติบัตรของโรงเรียนตนเอง แต่ไม่มีสิทธิ์บันทึกหรืออนุมัติผลการแข่งขัน</p>
+        <Link href="/group-sports/certificates" className={`mt-4 inline-block ${primary}`}>ไปหน้าพิมพ์เกียรติบัตร</Link>
+      </section>}
+      {context&&(mode==="print"||context.role!=="school")&&<>
         <div className={panel}>
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <div><h2 className="font-extrabold text-[#89051b]">เลือกประเภทและรายการแข่งขัน</h2>
+            <div><h2 className="font-extrabold text-[#89051b]">{mode==="print"?"ค้นหาเกียรติบัตรของโรงเรียน":"เลือกกีฬาและรายการที่รับผิดชอบ"}</h2>
               <p className="mt-1 text-xs text-slate-500">สิทธิ์: {context.role==="admin"?"ผู้ดูแลการแข่งขัน":context.role==="official"?"กรรมการบันทึกผล":"บัญชีโรงเรียน"} · รายการที่เข้าถึงได้ {context.events.length} รายการ</p></div>
-            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-red-800">เกียรติบัตรรางวัล / เข้าร่วม</span>
+            <span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-red-800">{mode==="print"?"รางวัล / เข้าร่วม":"สำหรับผู้ได้รับมอบหมายเท่านั้น"}</span>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_2fr]">
             <label className="text-xs font-bold text-slate-600">ค้นหารายการ<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ชื่อกีฬา / รหัสรายการ" className={`mt-1 ${input}`}/></label>
@@ -192,14 +200,14 @@ export default function CertificatesDashboard() {
           </div>}
         </div>
         {event&&<>
-          <div className="flex flex-wrap gap-2" role="tablist" aria-label="ระบบเกียรติบัตร">
-            {(context.role==="school"?([{id:"print",label:"พิมพ์เกียรติบัตร"}] as const):context.role==="official"?([{id:"record",label:"ส่งผลการแข่งขัน"}] as const):[
-              {id:"record",label:"บันทึกผล"},{id:"review",label:"อนุมัติ / เผยแพร่"},
-              {id:"print",label:"พิมพ์เกียรติบัตร"},{id:"settings",label:"ตั้งค่าระบบ"}
+          {mode==="manage"&&<div className="flex flex-wrap gap-2" role="tablist" aria-label="จัดการผลเกียรติบัตร">
+            {(context.role==="official"?([{id:"record",label:"บันทึกผลการแข่งขัน"}] as const):[
+              {id:"review",label:"ตรวจสอบ / อนุมัติผล"},
+              {id:"settings",label:"ตั้งค่าและมอบหมายกรรมการ"}
             ] as const).map(tab=><button key={tab.id} role="tab" aria-selected={screen===tab.id} onClick={()=>setScreen(tab.id)}
               className={screen===tab.id?primary:secondary}>{tab.label}</button>)}
-          </div>
-          {screen==="record" && event.can_record && <section className={panel}>
+          </div>}
+          {mode==="manage"&&screen==="record"&&context.role==="official"&&event.can_record&& <section className={panel}>
             <h2 className="text-lg font-extrabold text-red-900">ฟอร์มส่งผลรายการ {event.sport_name}</h2>
             <p className="mt-1 text-sm text-slate-600">เลือกจากทีม/นักกีฬาที่โรงเรียนลงทะเบียนไว้แล้ว โดยไม่มีการเปลี่ยนผลการแข่งขันส่วนกลาง</p>
             {event.result_status==="rejected"&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">เหตุผลที่ส่งกลับ: {event.rejection_reason}</p>}
@@ -218,7 +226,7 @@ export default function CertificatesDashboard() {
               {event.result_status==="published"&&<p className="text-xs font-semibold text-green-800">ผลนี้เผยแพร่แล้ว หากต้องแก้ไขต้องใช้กระบวนการแก้ผลอย่างเป็นทางการในเวอร์ชันถัดไป</p>}
             </form>
           </section>}
-          {screen==="review"&&context.role==="admin"&&<section className={panel}>
+          {mode==="manage"&&screen==="review"&&context.role==="admin"&&<section className={panel}>
             <h2 className="text-lg font-extrabold text-red-900">ตรวจสอบผลก่อนออกเกียรติบัตร</h2>
             <p className="mt-1 text-sm text-slate-500">สถานะ: {resultStatusLabel(event.result_status)}</p>
             {result?<div className="mt-4 space-y-2">
@@ -238,7 +246,7 @@ export default function CertificatesDashboard() {
               </div>}
             </div>:<p className="mt-4 text-sm text-slate-500">ยังไม่มีการส่งผลสำหรับรายการนี้</p>}
           </section>}
-          {screen==="print"&&context.role!=="official"&&<section className={panel}>
+          {mode==="print"&&screen==="print"&&<section className={panel}>
             <h2 className="text-lg font-extrabold text-red-900">พิมพ์เกียรติบัตร — {event.sport_name}</h2>
             <p className="mt-1 text-sm text-slate-600">แสดงเฉพาะเอกสารที่ผู้ดูแลเปิดเผยแพร่แล้ว และสำหรับบัญชีโรงเรียนจะแสดงเฉพาะโรงเรียนของตนเอง</p>
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -269,7 +277,7 @@ export default function CertificatesDashboard() {
             </div>:<p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">ยังไม่มีเกียรติบัตรในเงื่อนไขนี้ — โปรดตรวจว่าผู้ดูแลอนุมัติและเปิดเผยแพร่ผล/การเข้าร่วมแล้ว</p>}
             <p className="mt-3 text-xs text-slate-500">เมื่อเปิดหน้าพิมพ์ ให้เลือกกระดาษ A4 แนวนอน แล้วเลือก “บันทึกเป็น PDF” หรือพิมพ์กระดาษจริง · เกียรติบัตรมีเลขที่และ QR สำหรับตรวจสอบ</p>
           </section>}
-          {screen==="settings"&&context.role==="admin"&&<div className="space-y-4">
+          {mode==="manage"&&screen==="settings"&&context.role==="admin"&&<div className="space-y-4">
             <section className={panel}>
               <h2 className="text-lg font-extrabold text-red-900">เปิดพิมพ์เกียรติบัตรเข้าร่วมการแข่งขัน</h2>
               <p className="mt-2 text-sm text-slate-600">เมื่อตรวจว่ารายชื่อนักกีฬาได้รับการรับสมัครถูกต้องแล้ว ให้เปิดพิมพ์สำหรับทุกรายชื่อในรายการนี้ การเปิดหรือปิดจะไม่แก้ไขฐานข้อมูลผลการแข่งขัน</p>
@@ -307,8 +315,8 @@ export default function CertificatesDashboard() {
           </div>}
         </>}
       </>}
-      <div className="pt-3 text-xs text-slate-500">ระบบกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา · เกียรติบัตร V1 ใช้ผลบันทึกแยก ไม่แก้ผลกีฬาในระบบกลาง</div>
+      <div className="pt-3 text-xs text-slate-500">{mode==="print"?"โรงเรียนพิมพ์ได้เฉพาะเอกสารที่ออกแล้วตามสิทธิ์บัญชีของตนเอง":"ผลที่กรรมการส่งต้องผ่านการตรวจสอบและเผยแพร่โดยผู้ดูแลก่อนออกเกียรติบัตร"} · เกียรติบัตร V1.1 ไม่แก้ผลกีฬาในระบบกลาง</div>
     </div>
-    <CertificatePrintSheets documents={printing}/>
+    {mode==="print"&&<CertificatePrintSheets documents={printing}/>}
   </main>;
 }

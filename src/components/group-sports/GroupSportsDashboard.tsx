@@ -224,7 +224,7 @@ const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: Ic
 ];
 const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
-  { key: "school_info", label: "ข้อมูลสำหรับโรงเรียน", icon: FileUploadIcon },
+  { key: "school_info", label: "ข้อมูลทั่วไป", icon: FileUploadIcon },
   { key: "sports", label: "จัดการแข่งขัน", icon: CalendarGearIcon },
   { key: "schools", label: "โรงเรียน", icon: SchoolIcon },
   { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon },
@@ -385,6 +385,7 @@ export default function GroupSportsDashboard() {
   const [medals, setMedals] = useState<Medal[]>([]);
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [canManageCertificates, setCanManageCertificates] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -445,6 +446,15 @@ export default function GroupSportsDashboard() {
       }
       setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
       setRoles(roleRows);
+      // Management entry is shown only to appointed certificate officials and administrators.
+      // The certificate RPC checks the authenticated account; a school-only user never sees it.
+      if (user) {
+        const certificateResponse = await supabase.rpc("sports_cert_context");
+        const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
+        setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+      } else {
+        setCanManageCertificates(false);
+      }
 
       const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
         supabase.from("sports_competitions").select("*").eq("slug", SPORTS_COMPETITION_SLUG).maybeSingle(),
@@ -1439,6 +1449,15 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
+                  {canManageCertificates && <Link
+                    href="/group-sports/certificates/manage"
+                    tabIndex={sportsMenuOpen ? 0 : -1}
+                    onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                    className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
+                  >
+                    <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>จัดการผลเกียรติบัตร (กรรมการ)</span></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                  </Link>}
                 </div>
               </div>
             </div>
@@ -1454,7 +1473,7 @@ export default function GroupSportsDashboard() {
                 className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
               >
                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
-                <div role="group" aria-label="ข้อมูลสำหรับโรงเรียนและพิธีเปิด" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
+                <div role="group" aria-label="เมนูข้อมูลทั่วไป" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
                   {[{key:"submission" as const,label:"ส่งข้อมูลโรงเรียน (พิธีเปิด)"},...SCHOOL_INFORMATION_SECTIONS].map(option => {
                     const selected = schoolInfoSection === option.key && (tab === "school_info" || tab === "submissions");
                     return (
@@ -1482,15 +1501,24 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
+                  {/* School printing is separate from the official management route. */}
+                  <Link
+                    href="/group-sports/certificates"
+                    tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                    onClick={() => {
+                      setSchoolInfoMenuOpen(false);
+                      setSportsMenuOpen(false);
+                    }}
+                    className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none"
+                  >
+                    <span className="flex min-w-0 items-center gap-2"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                  </Link>
                 </div>
               </div>
             </div>
           </div>
         </nav>
-        <Link href="/group-sports/certificates" className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-white to-amber-50 px-4 py-3 text-red-900 shadow-sm transition hover:border-amber-400 hover:shadow-md">
-          <span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-2xl">🏅</span><span><span className="block text-sm font-extrabold">ระบบออกเกียรติบัตร · V1</span><span className="mt-1 block text-xs text-slate-600">ส่งผลอันดับ 1–3 · ตรวจอนุมัติ · พิมพ์เกียรติบัตรรางวัลและเข้าร่วมสำหรับทุกโรงเรียน</span></span></span>
-          <span className="shrink-0 rounded-lg bg-red-800 px-3 py-2 text-xs font-bold text-white">เข้าสู่ระบบเกียรติบัตร →</span>
-        </Link>
 
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
