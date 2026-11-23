@@ -1,0 +1,68 @@
+/* PHAYAO GAMES 2026 stadium theme v33.11.
+   Scoped to /group-sports so student/teacher activity areas are unaffected.
+   Destructive actions and warning/red alert badges intentionally retain semantic colors. */
+.sports-stadium-theme { --sports-primary:#0457eb;--sports-primary-hover:#003cb7;--sports-deep:#08184e;--sports-soft:#eaf4ff;--sports-border:#b9d7ff;--sports-surface:#f8fbff;color:#061846;background:#eaf3ff; min-height:100vh;}
+.sports-stadium-theme :is(input,select,textarea):focus-visible{border-color:#035af0;box-shadow:0 0 0 3px #00b2ff39;outline:none;}
+.sports-stadium-theme :is(button,a):focus-visible{outline-color:#04bfff;}
+.sports-stadium-theme table thead{background:#e8f1ff;}
+.sports-stadium-theme table thead th{color:#09266b;}
+.sports-stadium-theme table tbody tr:hover{background-color:#f3f8ff;}
+.sports-stadium-theme ::selection{background:#c2fbff;color:#09205d;}
+/* Existing inner pages: vibrant surroundings, white panels, electric blue primary navigation. */
+.sports-stadium-theme main.bg-\[\#faf7f7\]{background:linear-gradient(180deg,#e9f3ff,#f4f8ff 44%,#eef4ff)!important;}
+.sports-stadium-theme :is(section,article)[class*="bg-white"]{box-shadow:0 3px 15px #1260bb17;}
+.sports-stadium-theme :is(section,article)[class*="border-slate-200"]{border-color:#d4e4fa;}
+.sports-stadium-theme header[class*="bg-gradient"], .sports-stadium-theme div[class*="from-[#8b0011]"] {background-image:linear-gradient(110deg,#071449,#064be2,#01a4ea)!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"]{background:linear-gradient(130deg,#ffffff,#eef5ff);border:1px solid #b7d4ff;box-shadow:0 7px 20px #003dd11f;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [data-selected="true"]{background:#063fb9!important;color:#fff!important;border-color:#0c62e9!important;box-shadow:0 2px 12px #0357db50!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [data-selected="true"] :is(span,svg){color:#fff!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [data-selected="false"]{background:#f5faff!important;color:#102c70!important;border-color:#c6daf8!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [data-selected="false"] :is(span,svg){color:#103c90!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [data-selected="false"]:hover{background:#e1f0ff!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [role="group"]{border-color:#c4dafa!important;box-shadow:0 8px 18px #164cb51c!important;}
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [role="group"] button:hover,
+.sports-stadium-theme nav[aria-label="เมนูกีฬากลุ่ม"] [role="group"] a:hover {background:#e7f2ff!important;color:#003dc1!important;}
+/* Keep destructive red controls, but tint generic form surfaces and neutral cards a light cyan/blue. */
+.sports-stadium-theme :is(input,select,textarea){border-radius:10px;}
+.sports-stadium-theme :is(section,article)[class*="bg-white"] h2{color:#061b62;}
+.sports-stadium-theme :is(section,article)[class*="bg-white"] h3{color:#133678;}
+.sports-stadium-theme .sports-games-topbar :is(button,a),
+.sports-stadium-theme .sports-games-masthead :is(button,a) {outline-offset:3px;}
+
+/* Exact composition as supplied reference: slim navy topbar, cropped original hero, full-width dashboard. */
+.sports-games-masthead{isolation:isolate;position:relative;z-index:50;background:#001047;color:#fff;}
+.sports-games-topbar{height:56px;width:100%;display:flex;align-items:center;gap:26px;justify-content:space-between;background:linear-gradient(100deg,#030d30,#040f46 70%,#00114c);padding:0 max(16px,3.6vw);border-bottom:1px solid #1974e867;}
+.sports-games-logo{position:relative;display:flex;flex-direction:column;flex:0 0 252px;align-items:center;justify-content:center;line-height:.7;background:none;border:0;color:#fff;font-style:italic;font-family:Arial,sans-serif;font-weight:1000;transform:skew(-10deg);text-shadow:1px 2px 2px #050a33;}
+.sports-games-logo span{letter-spacing:-2px;font-size:28px;}.sports-games-logo em{color:#e7ff00;font-size:27px;letter-spacing:-1px;text-shadow:1px 2px 1px #083f74;font-style:italic;padding-left:55px;}
+.sports-games-logo:after{content:"";position:absolute;bottom:-3px;left:15px;width:200px;height:3px;transform:rotate(-6deg);background:#e6f900;}
+.sports-games-navlinks{height:100%;display:flex;flex:1;align-items:stretch;justify-content:space-around;gap:4px;min-width:0;border-left:2px solid #29c9ff;padding-left:24px;}
+.sports-games-toplink{position:relative;min-width:0;border:0;background:none;color:#f7fbff;font-family:Tahoma,Arial,sans-serif;font-size:clamp(13px,1.08vw,18px);font-weight:750;white-space:nowrap;padding:0 7px;cursor:pointer;}
+.sports-games-toplink:hover{color:#f5ff19}.sports-games-toplink.is-current{color:#eaff00;}
+.sports-games-toplink.is-current:after{content:"";position:absolute;height:5px;background:#e6ff00;bottom:6px;left:14%;width:72%;}
+.sports-games-more{position:relative;flex:none;z-index:70}.sports-games-more>summary{display:flex;align-items:center;gap:5px;cursor:pointer;font-weight:850;color:#e6ff00;list-style:none;font-size:18px;border-left:1px solid #437ddd;padding-left:12px}.sports-games-more>summary::-webkit-details-marker{display:none}.sports-games-more>summary span{font-size:11px;white-space:nowrap}
+.sports-games-more-list{position:absolute;right:0;top:36px;display:flex;flex-direction:column;width:min(310px,85vw);background:#fff;color:#122362;box-shadow:0 12px 35px #02135465;border:1px solid #a9cffd;border-radius:15px;overflow:hidden;padding:5px;max-height:76vh;overflow-y:auto;}
+.sports-games-more-list :is(a,button){display:block;width:100%;text-align:left;padding:11px 14px;border:0;background:#fff;color:#152d70!important;font-size:13px;font-weight:800;text-decoration:none;border-radius:9px;}
+.sports-games-more-list :is(a,button):hover{background:#e6f1ff;color:#0039c2!important;}
+.sports-games-banner{position:relative;width:100%;background:#072b8f;overflow:hidden;line-height:0;}.sports-games-banner img{display:block;width:100%;height:auto;max-height:280px;object-fit:cover;}
+.sports-games-banner-hit{position:absolute;left:6.2%;top:69%;width:21.8%;height:24%;background:transparent;border:0;cursor:pointer;border-radius:30px;z-index:2;}
+.sports-games-banner-hit:focus-visible{outline:4px solid #f7ff00;outline-offset:2px;}
+.sports-games-mobile-banner{display:none;}
+.sports-games-inner-banner{min-height:125px;background:linear-gradient(106deg,#07144a,#093cd0 67%,#00b6f3);padding:20px max(16px,3vw);display:flex;align-items:center;justify-content:space-between;gap:15px;border-bottom:5px solid #e7fb00;}
+.sports-games-inner-banner h1{font-size:clamp(19px,2vw,29px);font-style:italic;font-weight:1000;margin:4px 0;}.sports-games-inner-banner small{font-weight:900;letter-spacing:2px;color:#ddff00;}.sports-games-inner-banner p{font-size:12px;opacity:.92}.sports-games-inner-actions{display:flex;gap:10px;align-items:center;}
+@media(max-width:1300px){.sports-games-topbar{gap:14px;padding:0 18px}.sports-games-logo{flex-basis:190px}.sports-games-logo span{font-size:25px}.sports-games-logo em{font-size:24px}.sports-games-logo:after{width:175px}.sports-games-navlinks{padding-left:12px}.sports-games-toplink{font-size:13px;padding:0 3px}}
+@media(max-width:950px){.sports-games-navlinks{overflow-x:auto;justify-content:start;scrollbar-width:none;gap:12px}.sports-games-navlinks::-webkit-scrollbar{display:none}.sports-games-toplink{flex:none}.sports-games-topbar{gap:12px}.sports-games-logo{flex-basis:144px}.sports-games-logo span{font-size:19px}.sports-games-logo em{font-size:19px;padding-left:35px}.sports-games-logo:after{width:130px}.sports-games-more>summary span{display:none}}
+@media(max-width:690px){.sports-games-topbar{height:60px;padding:0 10px}.sports-games-logo{flex-basis:100px}.sports-games-logo span{font-size:14px;letter-spacing:-1px}.sports-games-logo em{font-size:15px;padding-left:20px}.sports-games-logo:after{width:90px;left:5px}.sports-games-navlinks{border-left:1px solid #29c9ff;padding-left:9px;gap:9px}.sports-games-toplink{font-size:12px}.sports-games-toplink.is-current:after{height:3px;bottom:8px}.sports-games-banner>img{display:none}.sports-games-banner-hit{display:none}.sports-games-mobile-banner{min-height:190px;display:flex;flex-direction:column;justify-content:center;align-items:flex-start;gap:6px;line-height:1.2;padding:18px;background:linear-gradient(90deg,#001959eb,#054ac5d5),url('/images/group-sports/phayao-games-hero-reference.webp') center / cover}.sports-games-mobile-banner span{font-size:17px;font-weight:900;color:#fff}.sports-games-mobile-banner strong{font-size:36px;color:#eaff00;font-weight:1000;font-style:italic}.sports-games-mobile-banner em{font-size:17px;font-weight:900;font-style:normal;color:white}.sports-games-mobile-banner button{margin-top:8px;background:#e8ff00;border:0;border-radius:30px;padding:10px 20px;color:#041747;font-size:16px;font-weight:1000;}.sports-games-inner-banner{align-items:flex-start;flex-direction:column}.sports-games-inner-actions{flex-wrap:wrap}}
+/* Colorful inner tools: preserve red specifically for destructive/warning actions. */
+.sports-stadium-theme :is(button,a)[class~="bg-red-700"]:not([data-danger]) {background-color:#0755db;}
+.sports-stadium-theme :is(button,a)[class~="bg-red-700"]:not([data-danger]):hover {background-color:#03399f;}
+.sports-stadium-theme :is(button,a)[class~="bg-rose-50"]:not([data-danger]) {background-color:#e6f3ff;}
+.sports-stadium-theme :is(button,a)[class~="bg-rose-100"]:not([data-danger]) {background-color:#d8ecff;}
+.sports-stadium-theme :is(button,a)[data-danger],
+.sports-stadium-theme :is(button,a)[data-danger]:hover {background-color:#b91c1c!important;color:#fff!important;}
+@media(prefers-reduced-motion:reduce){.sports-games-topbar *, .sports-stadium-theme :is(button,a){transition:none!important;}}
+.sports-games-logo{background:transparent;transform:none;}
+.sports-games-logo img{display:block;width:100%;height:54px;max-height:100%;object-fit:contain;}
+.sports-games-logo:after{display:none;}
+.sports-games-topbar{position:relative;}
+.sports-games-topbar:after{content:"";position:absolute;right:2px;top:0;width:17px;height:100%;background:#edff00;transform:skew(-25deg);pointer-events:none;}
+@media(max-width:690px){.sports-games-logo img{height:37px;}.sports-games-topbar:after{width:5px;}}
