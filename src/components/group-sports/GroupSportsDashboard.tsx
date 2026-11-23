@@ -1489,6 +1489,12 @@ export default function GroupSportsDashboard() {
                       <span className="flex min-w-0 items-center gap-3"><UserShieldIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>มอบหมายกรรมการกีฬา</span></span>
                       <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
                     </Link>
+                    <Link href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><UserShieldIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
                     <Link href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
@@ -1687,6 +1693,7 @@ export default function GroupSportsDashboard() {
                         {busy && rosterTargetId===entry.id ? "กำลังดึงนักกีฬา..." : "แนบรูปใบสมัครเดิม"}
                       </button>}
                     {!isDemo && <Link href={`${isFootball(eventById.get(entry.event_id))?"/group-sports/football/print":"/group-sports/print"}?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-rose-100">พิมพ์ใบสมัคร PDF</Link>}
+                    {canManageAccounts && <Link href={`/group-sports/admin?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100">Admin แก้ไขใบสมัคร</Link>}
                     {canManageAccounts && <Link href={`/group-sports/reset?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50">ลบใบสมัคร</Link>}
                   </div>
                 </article>)}
