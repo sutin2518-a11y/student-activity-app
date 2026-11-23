@@ -3,7 +3,7 @@ import CertificatesDashboard from "@/components/group-sports/CertificatesDashboa
 
 export const metadata: Metadata = {
   title: "บันทึกผลการแข่งขัน · ภูลังกาเกมส์ 2569",
-  description: "สำหรับกรรมการที่ได้รับมอบหมาย บันทึกอันดับและส่งผลให้ผู้ดูแลตรวจสอบ",
+  description: "สำหรับกรรมการที่ได้รับมอบหมาย บันทึกอันดับและประกาศผลทันที พร้อมออกเกียรติบัตรรางวัลอัตโนมัติ",
 };
 
 export default function SportsResultsPage() {
