@@ -209,13 +209,7 @@ const DEMO_MEDALS: Medal[] = [
   { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
 ];
 
-// Compact monochrome navigation. The three competition views share one animated menu.
-// Red/white branding is intentionally local to the sports app.
-// Keep the active/inactive background colours in exclusive class branches so Tailwind
-// does not accidentally put white text on a light background.
-const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border px-1.5 py-2 text-center transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none";
-const sportsMenuActive = "border-[#7f1d1d] bg-[#991b1b] text-white ring-[3px] ring-rose-200 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(127,29,29,0.18),0_0_16px_rgba(220,38,38,0.20)]";
-const sportsMenuInactive = "border-rose-100 bg-[#fff9f9] text-[#7f1d1d] shadow-[0_2px_7px_rgba(127,29,29,0.05)] hover:border-rose-300 hover:bg-rose-50 hover:shadow-md";
+// Unified stadium navigation: original tabs and handlers, now rendered text-only in the navy masthead.
 type SportsManagementTab = "schedule" | "events" | "matches";
 type NavKey = Exclude<TabKey, SportsManagementTab | "submissions"> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
@@ -333,6 +327,7 @@ export default function GroupSportsDashboard() {
   const [schoolInfoMenuOpen, setSchoolInfoMenuOpen] = useState(false);
   const [schoolInfoSection, setSchoolInfoSection] = useState<SchoolInformationSection>("submission");
   const schoolInfoNavRef = useRef<HTMLElement | null>(null);
+  const systemMenuRef = useRef<HTMLDetailsElement | null>(null);
   const schoolInfoTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sportsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [sportsDropdownLeft, setSportsDropdownLeft] = useState(8);
@@ -432,6 +427,7 @@ export default function GroupSportsDashboard() {
   const canManageSchool = rosterAdmin || roles.some((role) => role.role === "school_manager" && (!role.competition_id || role.competition_id === competition?.id));
   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
   const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
+  const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canManageCompetition || canRecordResults || canManageSchool);
   const entrySchools = rosterAdmin
     ? schools
     : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
@@ -1391,61 +1387,13 @@ export default function GroupSportsDashboard() {
   return (
     <main className="sports-games-shell min-h-screen text-slate-900">
       <header className="sports-games-masthead">
-        <nav className="sports-games-topbar" aria-label="เมนูหลักภูลังกาเกมส์">
+        <div className="sports-games-topbar" aria-label="เมนูหลักภูลังกาเกมส์">
           <button type="button" className="sports-games-logo" onClick={()=>goToSportsSection("overview")} aria-label="ภูลังกาเกมส์ — หน้าหลัก">
             <img src="/images/group-sports/phayao-games-logo-reference.webp" alt="PHAYAO GAMES" />
           </button>
-          <div className="sports-games-navlinks">
-            {([
-              ["overview","หน้าแรก"], ["program","โปรแกรมแข่งขัน"], ["matches","ผลการแข่งขัน"],
-              ["medals","สรุปเหรียญ"], ["schools","โรงเรียนที่เข้าร่วม"], ["news","ข่าวสาร"], ["about","เกี่ยวกับงาน"],
-            ] as [string,string][]).map(([key,label]) =>
-              <button key={key} type="button" className={`sports-games-toplink ${
-                (key === "overview" && tab === "overview") ||
-                (key === "matches" && tab === "matches") ||
-                (key === "medals" && tab === "medals") ||
-                (key === "schools" && tab === "schools") ||
-                (key === "program" && tab === "schedule") ||
-                (key === "news" && tab === "school_info" && schoolInfoSection === "announcements") ||
-                (key === "about" && tab === "about") ? "is-current" : ""
-              }`} onClick={()=>goToSportsSection(key)}>{label}</button>
-            )}
-          </div>
-          <details className="sports-games-more">
-            <summary aria-label="เปิดเมนูระบบเพิ่มเติม">☰ <span>เมนูระบบ</span></summary>
-            <div className="sports-games-more-list">
-              <button onClick={()=>goToSportsSection("general")}>ข้อมูลทั่วไป / พิธีเปิด</button>
-              <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน</button>
-              <button onClick={()=>goToSportsSection("register")}>ลงทะเบียนนักกีฬา</button>
-              <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน</button>
-              <Link href="/group-sports/football">ระบบฟุตบอล</Link>
-              <Link href="/group-sports/esports">ระบบ E-Sport (RoV)</Link>
-              <Link href="/group-sports/certificates">พิมพ์เกียรติบัตร</Link>
-              {canManageCertificates && <Link href="/group-sports/results">กรรมการบันทึกผล</Link>}
-              {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
-              {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
-              {userEmail ? <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button> : <Link href="/group-sports/login">เข้าสู่ระบบโรงเรียน</Link>}
-            </div>
-          </details>
-        </nav>
-        {tab === "overview" ? <div className="sports-games-banner">
-          <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
-          <img src="/images/group-sports/phayao-games-hero-reference.webp" alt="ภูลังกาเกมส์ 2569 สนามกรีฑาและนักวิ่ง ภูเขาพะเยา" />
-          <button type="button" className="sports-games-banner-hit" aria-label="ดูโปรแกรมวันนี้" onClick={()=>goToSportsSection("program")} />
-          <div className="sports-games-mobile-banner">
-            <span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><em>ครั้งที่ 30 • ประจำปี 2569</em>
-            <button type="button" onClick={()=>goToSportsSection("program")}>ดูโปรแกรมวันนี้ ❯</button>
-          </div>
-        </div> : <div className="sports-games-inner-banner">
-          <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
-          <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>
-        </div>}
-      </header>
-
-      <div className="w-full px-4 pb-12 md:px-8">
-        {tab !== "overview" && <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="26.2-flowing-pastel-dropdowns" onKeyDown={(event) => { if (event.key === "Escape") { if (sportsMenuOpen) sportsTriggerRef.current?.focus(); else if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="relative z-30 my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
-          <div data-sports-nav-items className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
-            {tabs.map((item) => {
+          <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="33.12-text-only-existing-tabs" onKeyDown={(event) => { if (event.key === "Escape") { if (sportsMenuOpen) sportsTriggerRef.current?.focus(); else if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="sports-games-unified-nav">
+          <div data-sports-nav-items className="sports-games-unified-items">
+            {tabs.filter((item) => item.key !== "accounts" || canManageAccounts).map((item) => {
               const isSportsGroup = item.key === "sports";
               const isSchoolInfoGroup = item.key === "school_info";
               const isActive = isSportsGroup
@@ -1453,7 +1401,6 @@ export default function GroupSportsDashboard() {
                 : isSchoolInfoGroup
                   ? schoolInfoMenuOpen || (!sportsMenuOpen && (tab === "school_info" || tab === "submissions"))
                   : !sportsMenuOpen && !schoolInfoMenuOpen && tab === item.key;
-              const Icon = item.icon;
               return (
                 <button
                   key={item.key}
@@ -1509,27 +1456,15 @@ export default function GroupSportsDashboard() {
                     setTab(item.key as TabKey);
                     setError("");
                   }}
-                  className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
-                  // Use a direct background style as a resilient fallback: the open
-                  // parent must turn deep red immediately even if cached styles load late.
-                  style={isActive ? { backgroundColor: "#991b1b", borderColor: "#7f1d1d", color: "#ffffff" } : undefined}
+                  className={`sports-games-main-item ${isActive ? "is-current" : ""}`}
                 >
-                  {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />}
-                  <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#7f1d1d]"}`} />
-                  <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#7f1d1d]"}`}>{item.label}</span>
-                  {(isSportsGroup || isSchoolInfoGroup) && (
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${(isSportsGroup ? sportsMenuOpen : schoolInfoMenuOpen) ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  )}
-                  {isActive && <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-[3px] w-10 -translate-x-1/2 rounded-full bg-amber-300 shadow-[0_0_9px_rgba(253,230,138,0.85)]" />}
+                  <span className="sports-games-main-label">{item.label}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Both submenus take up real height in the page. The expanding grid gently pushes
-              the dashboard below it down; there is never content behind an open menu. */}
+          {/* Submenus open below the unified topbar without a second card-menu strip. */}
           <div
             id="sports-management-submenu"
             aria-hidden={!sportsMenuOpen}
@@ -1543,7 +1478,6 @@ export default function GroupSportsDashboard() {
                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
                 <div role="group" aria-label="เลือกเมนูจัดการแข่งขัน" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
                   {sportsSubTabs.map((sub) => {
-                    const SubIcon = sub.icon;
                     const selected = tab === sub.key;
                     return (
                       <button
@@ -1562,8 +1496,7 @@ export default function GroupSportsDashboard() {
                         }}
                         className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition-[background-color,color,transform,box-shadow] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none ${selected ? "bg-rose-100 font-extrabold text-[#7f1d1d]" : "bg-white font-semibold text-slate-800 hover:bg-rose-50 hover:text-[#7f1d1d]"}`}
                       >
-                        <span className="flex min-w-0 items-center gap-3"><SubIcon className="h-5 w-5 shrink-0 text-[#991b1b]" /><span>{sub.label}</span></span>
-                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                        <span className="flex min-w-0 items-center gap-3"><span>{sub.label}</span></span>
                       </button>
                     );
                   })}
@@ -1571,34 +1504,29 @@ export default function GroupSportsDashboard() {
                     <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>บันทึกผลและประกาศผลทันที (กรรมการ)</span></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                      <span className="flex min-w-0 items-center gap-3"><span>บันทึกผลและประกาศผลทันที (กรรมการ)</span></span>
                     </Link>
                   </>}
                   {canAdminCertificates && <>
                     <Link href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><UserShieldIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>มอบหมายกรรมการกีฬา</span></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                      <span className="flex min-w-0 items-center gap-3"><span>มอบหมายกรรมการกีฬา</span></span>
                     </Link>
                     <Link href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><UserShieldIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                      <span className="flex min-w-0 items-center gap-3"><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
                     </Link>
                     <Link href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                      <span className="flex min-w-0 items-center gap-3"><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
                     </Link>
                     <Link href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
-                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                      <span className="flex min-w-0 items-center gap-3"><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
                     </Link>
                   </>}
                 </div>
@@ -1640,10 +1568,14 @@ export default function GroupSportsDashboard() {
                           {selected && <span aria-hidden="true" className="h-5 w-[3px] rounded-full bg-rose-600" />}
                           <span>{option.label}</span>
                         </span>
-                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
                       </button>
                     );
                   })}
+                  <button type="button" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                    onClick={()=>goToSportsSection("about")}
+                    className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-900">
+                    <span>เกี่ยวกับงานและรายละเอียดการแข่งขัน</span>
+                  </button>
                   {/* School printing is separate from the official management route. */}
                   <Link
                     href="/group-sports/certificates"
@@ -1654,14 +1586,56 @@ export default function GroupSportsDashboard() {
                     }}
                     className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none"
                   >
-                    <span className="flex min-w-0 items-center gap-2"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                    <span className="flex min-w-0 items-center gap-2"><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
                   </Link>
                 </div>
               </div>
             </div>
           </div>
-        </nav>}
+          </nav>
+          <details ref={systemMenuRef} className="sports-games-more">
+            <summary aria-label={canAccessSystemMenu ? "เมนูระบบสำหรับผู้ได้รับสิทธิ์" : "เข้าสู่ระบบ"}>
+              {canAccessSystemMenu ? <span>เมนูระบบ</span> : <span>เข้าสู่ระบบ</span>}
+            </summary>
+            <div className="sports-games-more-list" onClick={()=>{ if (systemMenuRef.current) systemMenuRef.current.open = false; }}>
+              {canAccessSystemMenu ? <>
+                {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
+                {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
+                {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
+                {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}
+                {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
+                {canManageCertificates && <Link href="/group-sports/results">กรรมการบันทึกและประกาศผล</Link>}
+                {canAdminCertificates && <Link href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
+                {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
+                {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
+                {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
+                {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
+                {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลทดสอบ</Link>}
+                <Link href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
+                <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
+              </> : <>
+                <Link href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
+                <Link href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
+              </>}
+            </div>
+          </details>
+        </div>
+        {tab === "overview" ? <div className="sports-games-banner">
+          <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
+          <img src="/images/group-sports/phayao-games-hero-reference.webp" alt="ภูลังกาเกมส์ 2569 สนามกรีฑาและนักวิ่ง ภูเขาพะเยา" />
+          <button type="button" className="sports-games-banner-hit" aria-label="ดูโปรแกรมวันนี้" onClick={()=>goToSportsSection("program")} />
+          <div className="sports-games-mobile-banner">
+            <span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><em>ครั้งที่ 30 • ประจำปี 2569</em>
+            <button type="button" onClick={()=>goToSportsSection("program")}>ดูโปรแกรมวันนี้ ❯</button>
+          </div>
+        </div> : <div className="sports-games-inner-banner">
+          <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
+          <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>
+        </div>}
+      </header>
+
+      <div className="w-full px-4 pb-12 md:px-8">
+
 
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
