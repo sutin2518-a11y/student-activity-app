@@ -1487,6 +1487,10 @@ export default function GroupSportsDashboard() {
             </div>
           </div>
         </nav>
+        <Link href="/group-sports/certificates" className="mb-4 flex items-center justify-between gap-4 rounded-2xl border border-amber-200 bg-gradient-to-r from-white to-amber-50 px-4 py-3 text-red-900 shadow-sm transition hover:border-amber-400 hover:shadow-md">
+          <span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-2xl">🏅</span><span><span className="block text-sm font-extrabold">ระบบออกเกียรติบัตร · V1</span><span className="mt-1 block text-xs text-slate-600">ส่งผลอันดับ 1–3 · ตรวจอนุมัติ · พิมพ์เกียรติบัตรรางวัลและเข้าร่วมสำหรับทุกโรงเรียน</span></span></span>
+          <span className="shrink-0 rounded-lg bg-red-800 px-3 py-2 text-xs font-bold text-white">เข้าสู่ระบบเกียรติบัตร →</span>
+        </Link>
 
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
