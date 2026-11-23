@@ -1163,13 +1163,6 @@ export default function GroupSportsDashboard() {
     if (tab === "entries" && canManageSchool) return (
       <form key={editEntry?.id || "new-roster"} className={formShell} onSubmit={addEntry} noValidate>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">ลงทะเบียนทีม / นักกีฬา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-amber-950">
-          <strong>หากลงทะเบียน RoV ไว้แล้ว ไม่ต้องสร้างใบสมัครใหม่:</strong> ใช้ปุ่ม “ไปที่ใบสมัครเดิม” แล้วเลือก “แนบรูปใบสมัครเดิม” ของทีมที่ต้องการ ระบบจะดึงรายชื่อที่บันทึกไว้ให้แนบรูปทีละคน
-          <button type="button" className="mt-2 block rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100" onClick={()=>{
-            setFormOpen(false);
-            window.requestAnimationFrame(()=>document.getElementById("sports-saved-entries-list")?.scrollIntoView({behavior:"smooth",block:"start"}));
-          }}>ไปที่ใบสมัครเดิม ↓</button>
-        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required disabled={rosterImportBusy} className={inputClass} value={eventChoice} onChange={e=>{
             const id=e.target.value;
