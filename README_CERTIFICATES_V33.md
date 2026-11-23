@@ -76,3 +76,7 @@
 - ภาพตัวอย่างเกียรติบัตร A4 แนวนอน (Chromium): กล่องส่วนหัว/เนื้อหา/ล่างไม่ล้นกรอบ
 - SQL static check: ตรวจ function names, fence delimiters, ไม่ได้ drop ตารางเดิม
 - **ยังไม่ได้ทดสอบกับฐานข้อมูล Supabase จริง, ไม่สามารถรับรอง build ผ่านในสภาพแวดล้อมนี้** (npm registry ไม่สามารถเชื่อมต่อได้)
+
+## v33.1 build hotfix — certificate verification route
+
+If the Next.js 16.4.2 build reports `CLIENT_HOOK_DYNAMIC` at `verify/[token]/page.tsx` because `useParams()` is called outside Suspense, apply the v33.1 files in `README_FIX_VERIFY_PRERENDER_V33_1.md`. The route now keeps URL-hook usage inside a Client Component wrapped by a local Suspense boundary. No Supabase migration is needed.
