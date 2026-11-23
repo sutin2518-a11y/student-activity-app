@@ -36,3 +36,5 @@
 .cert-v33-sign{font-size:12pt;line-height:1.6;min-height:24mm}
 .cert-v33-sign-line{margin-bottom:2mm}
 .cert-v33-issued{font-size:10pt;display:flex;flex-direction:column;text-align:right;line-height:1.6}
+
+.cert-v33-replacement-note{margin-top:2mm!important;font-size:9pt!important;color:#7c2d12!important;font-weight:700!important}

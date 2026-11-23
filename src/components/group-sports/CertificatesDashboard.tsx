@@ -9,8 +9,14 @@ import {
   type CertificateEvent, type CertificatePlacement, type CertificateResult,
 } from "@/lib/group-sports/certificates";
 
-type Screen = "record" | "review" | "print" | "settings";
+type Screen = "record" | "review" | "print" | "settings" | "issued";
 type Official = {email:string;is_active:boolean};
+type AdminCertificateDocument = {
+  id:number; recipient_name:string; recipient_type:"athlete"|"coach"; school_name:string;
+  event_name:string; kind:"award"|"participation"; rank:number|null; issued_at:string;
+  status:"active"|"inactive"|"revoked"; revoked_at:string|null; revocation_reason:string;
+  replaced_by:number|null; replaces_id:number|null; replacement_reason:string;
+};
 const panel = "rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6";
 const primary = "rounded-xl bg-[#a00018] px-4 py-2.5 font-bold text-white hover:bg-red-900 disabled:cursor-not-allowed disabled:opacity-45";
 const secondary = "rounded-xl border border-rose-200 bg-white px-4 py-2.5 font-bold text-red-800 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-45";
@@ -33,6 +39,8 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
   const [placements,setPlacements]=useState<CertificatePlacement[]>([]);
   const [result,setResult]=useState<CertificateResult>(null);
   const [documents,setDocuments]=useState<CertificateDocument[]>([]);
+  const [issuedDocuments,setIssuedDocuments]=useState<AdminCertificateDocument[]>([]);
+  const [issuedSearch,setIssuedSearch]=useState("");
   const [selectedIds,setSelectedIds]=useState<number[]>([]);
   const [kindFilter,setKindFilter]=useState("all");
   const [personFilter,setPersonFilter]=useState("all");
@@ -55,7 +63,11 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
     setPosition(payload.settings.signer_position);
     setTitle(payload.settings.title);
     setEventId(current => payload.events.some(e=>e.id===current)?current:(payload.events[0]?.id || ""));
-    setScreen(mode==="print"?"print":payload.role==="admin"?"review":"record");
+    setScreen(current=>{
+      if(mode==="print") return "print";
+      if(payload.role==="admin") return current==="record"?"review":current;
+      return "record";
+    });
     return payload;
   },[mode]);
 
@@ -67,9 +79,10 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
       canRecord ? supabase.rpc("sports_cert_result_details",{p_event:event.id}) : Promise.resolve({data:null,error:null}),
       mode==="print" ? supabase.rpc("sports_cert_my_documents",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
       mode==="manage" && role==="admin" ? supabase.rpc("sports_cert_officials",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
+      mode==="manage" && role==="admin" ? supabase.rpc("sports_cert_admin_documents",{p_event:event.id}) : Promise.resolve({data:[],error:null}),
     ];
-    const [a,b,c,d]=await Promise.all(requestsTyped);
-    for(const response of [a,b,c,d]) if(response.error) throw response.error;
+    const [a,b,c,d,e]=await Promise.all(requestsTyped);
+    for(const response of [a,b,c,d,e]) if(response.error) throw response.error;
     setEntries((a.data||[]) as CertificateEntry[]);
     const details=(b.data||null) as CertificateResult;
     setResult(details);
@@ -81,6 +94,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
     setDocuments(docs);
     setSelectedIds(docs.map(doc=>doc.id));
     setOfficials((d.data||[]) as Official[]);
+    setIssuedDocuments((e.data||[]) as AdminCertificateDocument[]);
   },[mode]);
 
   useEffect(()=>{
@@ -139,12 +153,27 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
     &&(personFilter==="all"||doc.recipient_type===personFilter));
   const printable=eligibleDocs.filter(doc=>selectedIds.includes(doc.id));
   const printing=documents.filter(doc=>printIds.includes(doc.id));
+  const filteredIssuedDocuments=issuedDocuments.filter(doc=>
+    `${doc.recipient_name} ${doc.school_name} ${certificateNumber(doc.id)}`.toLowerCase().includes(issuedSearch.toLowerCase())
+  );
   const eventNames=context?.events.filter(e=>`${e.sport_name} ${e.event_code||""}`.toLowerCase().includes(search.toLowerCase()))||[];
   function startPrint(ids:number[]) {
     if(ids.length===0){setError("กรุณาเลือกเกียรติบัตรอย่างน้อย 1 ฉบับ");return;}
     setError("");setPrintIds(ids);
     // QR data URLs are generated client-side before printing; allow browser paint.
     window.setTimeout(()=>window.print(),1100);
+  }
+  async function revokeCertificate(doc:AdminCertificateDocument) {
+    const reasonText=window.prompt(`ระบุเหตุผลที่ยกเลิกเกียรติบัตร ${certificateNumber(doc.id)} ของ ${doc.recipient_name}`)?.trim();
+    if(!reasonText)return;
+    if(!window.confirm(`ยืนยันยกเลิกเกียรติบัตร ${certificateNumber(doc.id)}? QR Code เดิมจะตรวจพบว่าเอกสารถูกยกเลิก`))return;
+    await mutate(()=>supabase.rpc("sports_cert_revoke",{p_certificate_id:doc.id,p_reason:reasonText}),`ยกเลิกเกียรติบัตร ${certificateNumber(doc.id)} แล้ว`);
+  }
+  async function reissueCertificate(doc:AdminCertificateDocument) {
+    const reasonText=window.prompt(`ระบุเหตุผลที่ออกเกียรติบัตรฉบับใหม่แทน ${certificateNumber(doc.id)}`)?.trim();
+    if(!reasonText)return;
+    if(!window.confirm(`ยืนยันออกเกียรติบัตรฉบับใหม่แทน ${certificateNumber(doc.id)}? ระบบจะสร้างเลขที่และ QR Code ใหม่ และเชื่อมประวัติกับฉบับเดิม`))return;
+    await mutate(()=>supabase.rpc("sports_cert_reissue",{p_certificate_id:doc.id,p_reason:reasonText}),`ออกเกียรติบัตรฉบับใหม่แทน ${certificateNumber(doc.id)} แล้ว`);
   }
 
   return <main className="min-h-screen bg-[#f2f5fa] pb-12 text-slate-900">
@@ -158,7 +187,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
       </div>
     </div>
     <header className="print:hidden bg-gradient-to-r from-[#820d16] via-[#a90918] to-[#20274a] px-4 py-8 text-white">
-      <div className="mx-auto max-w-6xl"><p className="text-xs font-bold tracking-widest text-amber-300">PHULANGKA GAMES 2026 · CERTIFICATES V1.1</p>
+      <div className="mx-auto max-w-6xl"><p className="text-xs font-bold tracking-widest text-amber-300">PHULANGKA GAMES 2026 · CERTIFICATES V1.2</p>
         <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{mode==="print"?"พิมพ์เกียรติบัตร":"จัดการผลเพื่อออกเกียรติบัตร"}</h1>
         <p className="mt-2 text-sm text-white/90">{mode==="print"?"สำหรับโรงเรียน · เลือกรายการ ดาวน์โหลด PDF หรือพิมพ์เกียรติบัตรได้ด้วยตนเอง":"สำหรับกรรมการแต่ละกีฬาและผู้ดูแล · บันทึกผล ตรวจสอบ อนุมัติ และตั้งค่าการออกเอกสาร"}</p>
       </div>
@@ -203,6 +232,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
           {mode==="manage"&&<div className="flex flex-wrap gap-2" role="tablist" aria-label="จัดการผลเกียรติบัตร">
             {(context.role==="official"?([{id:"record",label:"บันทึกผลการแข่งขัน"}] as const):[
               {id:"review",label:"ตรวจสอบ / อนุมัติผล"},
+              {id:"issued",label:"จัดการเกียรติบัตร"},
               {id:"settings",label:"ตั้งค่าและมอบหมายกรรมการ"}
             ] as const).map(tab=><button key={tab.id} role="tab" aria-selected={screen===tab.id} onClick={()=>setScreen(tab.id)}
               className={screen===tab.id?primary:secondary}>{tab.label}</button>)}
@@ -245,6 +275,45 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
                 <button className={primary} disabled={busy} onClick={()=>review("publish")}>เผยแพร่ผลและสร้างเกียรติบัตรรางวัล</button>
               </div>}
             </div>:<p className="mt-4 text-sm text-slate-500">ยังไม่มีการส่งผลสำหรับรายการนี้</p>}
+          </section>}
+          {mode==="manage"&&screen==="issued"&&context.role==="admin"&&<section className={panel}>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div><h2 className="text-lg font-extrabold text-red-900">จัดการ / ยกเลิกเกียรติบัตร</h2>
+                <p className="mt-1 text-sm text-slate-600">ยกเลิกเป็นรายฉบับโดยเก็บประวัติเดิมไว้ QR ของฉบับที่ยกเลิกจะแสดงสถานะยกเลิก และสามารถออกฉบับใหม่แทนได้</p></div>
+              <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold">ทั้งหมด {issuedDocuments.length} ฉบับ</span>
+            </div>
+            <label className="mt-4 block text-xs font-bold text-slate-700">ค้นหาชื่อผู้รับ โรงเรียน หรือเลขที่เกียรติบัตร
+              <input className={`mt-1 ${input}`} value={issuedSearch} onChange={e=>setIssuedSearch(e.target.value)} placeholder="พิมพ์ชื่อหรือเลขที่ เช่น PG69-00000001"/>
+            </label>
+            <div className="mt-3 flex flex-wrap gap-2 text-xs">
+              <span className="rounded-full bg-green-100 px-3 py-1 text-green-900">ใช้งาน {issuedDocuments.filter(d=>d.status==="active").length}</span>
+              <span className="rounded-full bg-amber-100 px-3 py-1 text-amber-900">ปิดชั่วคราว {issuedDocuments.filter(d=>d.status==="inactive").length}</span>
+              <span className="rounded-full bg-red-100 px-3 py-1 text-red-900">ยกเลิก {issuedDocuments.filter(d=>d.status==="revoked").length}</span>
+            </div>
+            {filteredIssuedDocuments.length>0?<div className="mt-4 space-y-2">
+              {filteredIssuedDocuments.map(doc=><article key={doc.id} className="rounded-xl border border-slate-200 p-3 sm:p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-bold text-slate-900">{doc.recipient_name} <span className="ml-1 text-xs font-normal text-slate-500">{doc.recipient_type==="coach"?"ครูผู้ควบคุม":"นักกีฬา"}</span></div>
+                    <div className="mt-1 text-xs text-slate-600">{doc.school_name} · {certificateAward(doc.rank,doc.kind)} · {certificateNumber(doc.id)}</div>
+                    <div className="mt-1 text-xs text-slate-500">ออกเมื่อ {new Intl.DateTimeFormat("th-TH",{dateStyle:"medium",timeZone:"Asia/Bangkok"}).format(new Date(doc.issued_at))}</div>
+                    {doc.revoked_at&&<p className="mt-1 text-xs text-red-700">ยกเลิกเมื่อ {new Intl.DateTimeFormat("th-TH",{dateStyle:"medium",timeStyle:"short",timeZone:"Asia/Bangkok"}).format(new Date(doc.revoked_at))}</p>}
+                    {doc.revocation_reason&&<p className="mt-2 rounded-lg bg-red-50 p-2 text-xs text-red-800">เหตุผลยกเลิก: {doc.revocation_reason}</p>}
+                    {doc.replacement_reason&&<p className="mt-2 rounded-lg bg-blue-50 p-2 text-xs text-blue-800">เหตุผลออกฉบับใหม่: {doc.replacement_reason}</p>}
+                    {doc.replaces_id&&<p className="mt-2 text-xs font-semibold text-blue-800">ฉบับใหม่แทนเลขที่ {certificateNumber(doc.replaces_id)}</p>}
+                  </div>
+                  <div className="flex flex-col items-start gap-2 sm:items-end">
+                    <span className={`rounded-full px-3 py-1 text-xs font-bold ${doc.status==="active"?"bg-green-100 text-green-900":doc.status==="revoked"?"bg-red-100 text-red-900":"bg-amber-100 text-amber-900"}`}>
+                      {doc.status==="active"?"ใช้งานได้":doc.status==="revoked"?"ยกเลิกแล้ว":"ปิดใช้งานชั่วคราว"}
+                    </span>
+                    {doc.status!=="revoked"&&<button type="button" className={secondary} disabled={busy} onClick={()=>void revokeCertificate(doc)}>ยกเลิกเกียรติบัตร</button>}
+                    {doc.status==="revoked"&&doc.replaced_by!==null&&<span className="text-xs font-semibold text-blue-800">ออกฉบับใหม่แล้ว: {certificateNumber(doc.replaced_by)}</span>}
+                    {doc.status==="revoked"&&doc.replaced_by===null&&<button type="button" className={primary} disabled={busy} onClick={()=>void reissueCertificate(doc)}>ออกฉบับใหม่แทน</button>}
+                  </div>
+                </div>
+              </article>)}
+            </div>:<p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">ไม่พบเกียรติบัตรตามคำค้นหาในรายการนี้</p>}
+            <p className="mt-3 text-xs text-slate-500">การยกเลิกไม่ลบข้อมูลต้นฉบับ เลขที่เดิมและ QR เดิมจะคงอยู่เพื่อการตรวจสอบย้อนหลัง ฉบับใหม่จะได้รับเลขที่และ QR ใหม่</p>
           </section>}
           {mode==="print"&&screen==="print"&&<section className={panel}>
             <h2 className="text-lg font-extrabold text-red-900">พิมพ์เกียรติบัตร — {event.sport_name}</h2>
@@ -315,7 +384,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
           </div>}
         </>}
       </>}
-      <div className="pt-3 text-xs text-slate-500">{mode==="print"?"โรงเรียนพิมพ์ได้เฉพาะเอกสารที่ออกแล้วตามสิทธิ์บัญชีของตนเอง":"ผลที่กรรมการส่งต้องผ่านการตรวจสอบและเผยแพร่โดยผู้ดูแลก่อนออกเกียรติบัตร"} · เกียรติบัตร V1.1 ไม่แก้ผลกีฬาในระบบกลาง</div>
+      <div className="pt-3 text-xs text-slate-500">{mode==="print"?"โรงเรียนพิมพ์ได้เฉพาะเอกสารที่ออกแล้วตามสิทธิ์บัญชีของตนเอง":"ผลที่กรรมการส่งต้องผ่านการตรวจสอบและเผยแพร่โดยผู้ดูแลก่อนออกเกียรติบัตร"} · เกียรติบัตร V1.2 รองรับการยกเลิกและออกฉบับใหม่แทน โดยไม่แก้ผลกีฬาในระบบกลาง</div>
     </div>
     {mode==="print"&&<CertificatePrintSheets documents={printing}/>}
   </main>;

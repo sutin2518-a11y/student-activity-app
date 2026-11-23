@@ -33,6 +33,7 @@ export default function CertificatePrintSheets({documents}:Props) {
           <p>สังกัด {doc.school_name}</p>
           <p>ได้{doc.kind === "participation" ? "เข้าร่วมการแข่งขัน" : "รับรางวัล"} <strong>{certificateAward(doc.rank,doc.kind)}</strong></p>
           <p>รายการ <strong>{doc.event_name}</strong></p>
+          {doc.replaces_id&&<p className="cert-v33-replacement-note">ออกฉบับใหม่แทนเลขที่ {certificateNumber(doc.replaces_id)}</p>}
           <p className="cert-v33-role">{doc.recipient_type === "coach" ? "ครูผู้ควบคุมทีม" : "นักกีฬา"}</p>
         </div>
         <div className="cert-v33-bottom">

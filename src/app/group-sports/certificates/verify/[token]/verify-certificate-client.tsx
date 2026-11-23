@@ -5,7 +5,12 @@ import {useEffect,useState} from "react";
 import {supabase} from "@/lib/supabase";
 import {certificateAward,certificateNumber} from "@/lib/group-sports/certificates";
 
-type VerifyData = {valid:boolean;id?:number;recipient_name?:string;recipient_type?:string;school_name?:string;event_name?:string;competition_name?:string;kind?:string;rank?:number|null;issued_at?:string};
+type VerifyData = {
+  valid:boolean;status?:"valid"|"revoked"|"inactive"|"not_found";id?:number;
+  recipient_name?:string;recipient_type?:string;school_name?:string;event_name?:string;
+  competition_name?:string;kind?:string;rank?:number|null;issued_at?:string;
+  revoked_at?:string;revocation_reason?:string;replacement_id?:number|null;replaces_id?:number|null;
+};
 export default function VerifyCertificateClient(){
   const params=useParams<{token:string}>();
   const token=params.token;
@@ -32,7 +37,20 @@ export default function VerifyCertificateClient(){
       <div className="space-y-4 px-6 py-7">
         {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-red-800">{error}</p>}
         {!data&&!error&&<p>กำลังตรวจสอบเลขที่เอกสาร...</p>}
-        {data&&!data.valid&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 font-bold text-red-900">ไม่พบเกียรติบัตรที่มีผลใช้งานตาม QR Code นี้</div>}
+        {data&&!data.valid&&data.status==="revoked"&&<div className="space-y-3 rounded-xl border border-red-300 bg-red-50 p-4 text-red-950">
+          <div className="font-extrabold">✕ เกียรติบัตรฉบับนี้ถูกยกเลิกแล้ว</div>
+          <p className="text-sm">เลขที่เอกสาร {data.id?certificateNumber(data.id):"-"}</p>
+          {data.recipient_name&&<p className="text-sm">ชื่อผู้รับ: {data.recipient_name}</p>}
+          {data.school_name&&<p className="text-sm">โรงเรียน: {data.school_name}</p>}
+          {data.event_name&&<p className="text-sm">รายการ: {data.event_name}</p>}
+          {data.revocation_reason&&<p className="rounded-lg bg-white/70 p-3 text-sm">เหตุผล: {data.revocation_reason}</p>}
+          {data.replacement_id&&<p className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm font-bold text-blue-900">มีการออกฉบับใหม่แทนแล้ว เลขที่ {certificateNumber(data.replacement_id)}</p>}
+        </div>}
+        {data&&!data.valid&&data.status==="inactive"&&<div className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+          <div className="font-extrabold">เกียรติบัตรฉบับนี้ถูกระงับการใช้งานชั่วคราว</div>
+          <p className="mt-1 text-sm">กรุณาติดต่อผู้จัดการแข่งขันเพื่อตรวจสอบสถานะ</p>
+        </div>}
+        {data&&!data.valid&&(!data.status||data.status==="not_found")&&<div className="rounded-xl border border-red-200 bg-red-50 p-4 font-bold text-red-900">ไม่พบเกียรติบัตรที่มีผลใช้งานตาม QR Code นี้</div>}
         {data?.valid&&<>
           <div className="rounded-xl border border-green-200 bg-green-50 p-4 font-extrabold text-green-800">✓ เกียรติบัตรได้รับการตรวจสอบจากระบบการแข่งขัน</div>
           <dl className="grid gap-3 text-sm">
@@ -42,6 +60,7 @@ export default function VerifyCertificateClient(){
             <div><dt className="text-slate-500">รายการแข่งขัน</dt><dd>{data.event_name}</dd></div>
             <div><dt className="text-slate-500">ผลงาน</dt><dd className="font-bold text-red-900">{certificateAward(data.rank??null,data.kind||"")}</dd></div>
             <div><dt className="text-slate-500">ออกเมื่อ</dt><dd>{data.issued_at?new Intl.DateTimeFormat("th-TH",{dateStyle:"long"}).format(new Date(data.issued_at)):"-"}</dd></div>
+            {data.replaces_id&&<div className="rounded-lg border border-blue-200 bg-blue-50 p-3"><dt className="text-blue-800">สถานะฉบับเอกสาร</dt><dd className="font-semibold text-blue-900">ฉบับนี้ออกแทนเกียรติบัตรเลขที่ {certificateNumber(data.replaces_id)}</dd></div>}
           </dl>
         </>}
         <Link className="inline-block rounded-xl bg-red-900 px-4 py-2.5 font-bold text-white" href="/group-sports">กลับหน้ากีฬากลุ่ม</Link>

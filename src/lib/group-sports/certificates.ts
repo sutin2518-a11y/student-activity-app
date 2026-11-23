@@ -39,6 +39,7 @@ export type CertificateDocument = {
   signer_name: string;
   signer_position: string;
   issued_at: string;
+  replaces_id?: number | null;
 };
 export function certificateNumber(id: number): string {
   return `PG69-${String(id).padStart(8,"0")}`;
