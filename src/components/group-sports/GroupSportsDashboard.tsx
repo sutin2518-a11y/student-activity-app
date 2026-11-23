@@ -1623,6 +1623,7 @@ export default function GroupSportsDashboard() {
                   <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">รับข้อมูลลงทะเบียนทันทีหลังส่งสำเร็จ · ตรวจตัวนักกีฬาและเอกสารหลักฐานที่สนามในวันแข่งขันจริง</p></div>
                   <div className="flex flex-wrap items-center gap-2">
                     {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
+                    {canManageAccounts && <Link href="/group-sports/reset" className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-red-900 hover:bg-rose-100">จัดการข้อมูลทดสอบ / รีเซต</Link>}
                     <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">รับข้อมูลแล้ว {receivedEntries} / {schoolEntries.length}</span>
                   </div>
                 </div>
@@ -1642,6 +1643,7 @@ export default function GroupSportsDashboard() {
                         {busy && rosterTargetId===entry.id ? "กำลังดึงนักกีฬา..." : "แนบรูปใบสมัครเดิม"}
                       </button>}
                     {!isDemo && <Link href={`${isFootball(eventById.get(entry.event_id))?"/group-sports/football/print":"/group-sports/print"}?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-rose-100">พิมพ์ใบสมัคร PDF</Link>}
+                    {canManageAccounts && <Link href={`/group-sports/reset?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50">ลบใบสมัคร</Link>}
                   </div>
                 </article>)}
                 {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5">ยังไม่มีใบสมัครตามเงื่อนไขนี้</p>}
