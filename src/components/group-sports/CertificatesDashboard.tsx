@@ -9,7 +9,7 @@ import {
   type CertificateEvent, type CertificatePlacement, type CertificateResult,
 } from "@/lib/group-sports/certificates";
 
-type Screen = "record" | "review" | "print" | "settings" | "issued";
+type Screen = "record" | "review" | "print" | "settings" | "issued" | "officials";
 type Official = {email:string;is_active:boolean};
 type AdminCertificateDocument = {
   id:number; recipient_name:string; recipient_type:"athlete"|"coach"; school_name:string;
@@ -26,7 +26,7 @@ function awardLabel(rank:number,slot:number) {
   return rank===3 && slot===2 ? "รองชนะเลิศอันดับที่ 2 (ร่วม)" : certificateAward(rank,"award");
 }
 
-export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"manage"}) {
+export default function CertificatesDashboard({mode="print",view="all"}:{mode?:"print"|"manage";view?:"all"|"record"|"review"|"officials"}) {
   const [context,setContext]=useState<CertificateContext|null>(null);
   const [loading,setLoading]=useState(true);
   const [busy,setBusy]=useState(false);
@@ -34,7 +34,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
   const [notice,setNotice]=useState("");
   const [eventId,setEventId]=useState("");
   const [search,setSearch]=useState("");
-  const [screen,setScreen]=useState<Screen>(mode==="print"?"print":"record");
+  const [screen,setScreen]=useState<Screen>(mode==="print"?"print":view==="record"?"record":view==="review"?"review":view==="officials"?"officials":"record");
   const [entries,setEntries]=useState<CertificateEntry[]>([]);
   const [placements,setPlacements]=useState<CertificatePlacement[]>([]);
   const [result,setResult]=useState<CertificateResult>(null);
@@ -65,11 +65,14 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
     setEventId(current => payload.events.some(e=>e.id===current)?current:(payload.events[0]?.id || ""));
     setScreen(current=>{
       if(mode==="print") return "print";
+      if(view==="record") return "record";
+      if(view==="review") return "review";
+      if(view==="officials") return "officials";
       if(payload.role==="admin") return current==="record"?"review":current;
       return "record";
     });
     return payload;
-  },[mode]);
+  },[mode,view]);
 
   const loadEvent=useCallback(async (event:CertificateEvent,role:CertificateContext["role"])=>{
     // Only assigned officials and principal admins can list entries/results.
@@ -181,15 +184,20 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
       <div className="mx-auto flex max-w-6xl justify-between gap-3">
         <Link href="/group-sports" className="font-bold hover:underline">← กลับหน้ากีฬากลุ่ม</Link>
         <div className="flex flex-wrap gap-4">
-          {mode==="manage"?<Link href="/group-sports/certificates" className="hover:underline">พิมพ์เกียรติบัตร</Link>:<Link href="/group-sports/login" className="hover:underline">เข้าสู่ระบบโรงเรียน</Link>}
-          {mode==="print"&&(context?.role==="admin"||context?.role==="official")&&<Link href="/group-sports/certificates/manage" className="font-semibold hover:underline">สำหรับกรรมการ / ผู้ดูแล</Link>}
+          {mode==="manage"?<>
+            <Link href="/group-sports/results" className="hover:underline">บันทึกผล</Link>
+            {context?.role==="admin"&&<Link href="/group-sports/results/review" className="hover:underline">ตรวจผล</Link>}
+            {context?.role==="admin"&&<Link href="/group-sports/officials" className="hover:underline">มอบหมายกรรมการ</Link>}
+            <Link href="/group-sports/certificates" className="hover:underline">พิมพ์เกียรติบัตร</Link>
+          </>:<Link href="/group-sports/login" className="hover:underline">เข้าสู่ระบบโรงเรียน</Link>}
+          {mode==="print"&&(context?.role==="admin"||context?.role==="official")&&<Link href="/group-sports/results" className="font-semibold hover:underline">บันทึกผลสำหรับกรรมการ</Link>}
         </div>
       </div>
     </div>
     <header className="print:hidden bg-gradient-to-r from-[#820d16] via-[#a90918] to-[#20274a] px-4 py-8 text-white">
       <div className="mx-auto max-w-6xl"><p className="text-xs font-bold tracking-widest text-amber-300">PHULANGKA GAMES 2026 · CERTIFICATES V1.2</p>
-        <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{mode==="print"?"พิมพ์เกียรติบัตร":"จัดการผลเพื่อออกเกียรติบัตร"}</h1>
-        <p className="mt-2 text-sm text-white/90">{mode==="print"?"สำหรับโรงเรียน · เลือกรายการ ดาวน์โหลด PDF หรือพิมพ์เกียรติบัตรได้ด้วยตนเอง":"สำหรับกรรมการแต่ละกีฬาและผู้ดูแล · บันทึกผล ตรวจสอบ อนุมัติ และตั้งค่าการออกเอกสาร"}</p>
+        <h1 className="mt-2 text-2xl font-extrabold sm:text-3xl">{mode==="print"?"พิมพ์เกียรติบัตร":view==="record"?"บันทึกผลการแข่งขัน":view==="review"?"ตรวจสอบและอนุมัติผล":view==="officials"?"มอบหมายกรรมการกีฬา":"จัดการผลเพื่อออกเกียรติบัตร"}</h1>
+        <p className="mt-2 text-sm text-white/90">{mode==="print"?"สำหรับโรงเรียน · เลือกรายการ ดาวน์โหลด PDF หรือพิมพ์เกียรติบัตรได้ด้วยตนเอง":view==="record"?"สำหรับกรรมการที่ได้รับมอบหมาย · เลือกผู้ชนะและอันดับของรายการที่รับผิดชอบ แล้วส่งให้ Admin ตรวจสอบ":view==="review"?"สำหรับ Admin · ตรวจผลที่กรรมการส่ง อนุมัติ หรือส่งกลับแก้ไข ก่อนเผยแพร่และออกเกียรติบัตร":view==="officials"?"สำหรับ Admin · กำหนดและระงับสิทธิ์กรรมการเป็นรายรายการแข่งขัน":"สำหรับกรรมการแต่ละกีฬาและผู้ดูแล · บันทึกผล ตรวจสอบ อนุมัติ และตั้งค่าการออกเอกสาร"}</p>
       </div>
     </header>
     <div className="print:hidden mx-auto mt-5 max-w-6xl space-y-4 px-4">
@@ -205,7 +213,17 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
         <p className="mt-2 text-sm text-slate-600">บัญชีโรงเรียนมีสิทธิ์พิมพ์เกียรติบัตรของโรงเรียนตนเอง แต่ไม่มีสิทธิ์บันทึกหรืออนุมัติผลการแข่งขัน</p>
         <Link href="/group-sports/certificates" className={`mt-4 inline-block ${primary}`}>ไปหน้าพิมพ์เกียรติบัตร</Link>
       </section>}
-      {context&&(mode==="print"||context.role!=="school")&&<>
+      {context&&mode==="manage"&&view==="review"&&context.role==="official"&&<section className={panel}>
+        <h2 className="font-extrabold text-red-900">หน้านี้สำหรับผู้ดูแลการแข่งขันเท่านั้น</h2>
+        <p className="mt-2 text-sm text-slate-600">กรรมการสามารถส่งผลได้เฉพาะรายการที่ได้รับมอบหมาย แต่ไม่มีสิทธิ์อนุมัติหรือเผยแพร่ผล</p>
+        <Link href="/group-sports/results" className={`mt-4 inline-block ${primary}`}>ไปหน้าบันทึกผลการแข่งขัน</Link>
+      </section>}
+      {context&&mode==="manage"&&view==="officials"&&context.role==="official"&&<section className={panel}>
+        <h2 className="font-extrabold text-red-900">หน้านี้สำหรับผู้ดูแลการแข่งขันเท่านั้น</h2>
+        <p className="mt-2 text-sm text-slate-600">กรรมการไม่มีสิทธิ์เพิ่ม ระงับ หรือเปลี่ยนผู้รับผิดชอบรายการแข่งขัน</p>
+        <Link href="/group-sports/results" className={`mt-4 inline-block ${primary}`}>ไปหน้าบันทึกผลการแข่งขัน</Link>
+      </section>}
+      {context&&(mode==="print"||(context.role!=="school"&&(view==="all"||view==="record"||(view==="review"&&context.role==="admin")||(view==="officials"&&context.role==="admin"))))&&<>
         <div className={panel}>
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><h2 className="font-extrabold text-[#89051b]">{mode==="print"?"ค้นหาเกียรติบัตรของโรงเรียน":"เลือกกีฬาและรายการที่รับผิดชอบ"}</h2>
@@ -229,17 +247,17 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
           </div>}
         </div>
         {event&&<>
-          {mode==="manage"&&<div className="flex flex-wrap gap-2" role="tablist" aria-label="จัดการผลเกียรติบัตร">
+          {mode==="manage"&&view==="all"&&<div className="flex flex-wrap gap-2" role="tablist" aria-label="จัดการผลเกียรติบัตร">
             {(context.role==="official"?([{id:"record",label:"บันทึกผลการแข่งขัน"}] as const):[
               {id:"review",label:"ตรวจสอบ / อนุมัติผล"},
               {id:"issued",label:"จัดการเกียรติบัตร"},
-              {id:"settings",label:"ตั้งค่าและมอบหมายกรรมการ"}
+              {id:"settings",label:"ตั้งค่าเกียรติบัตร"}
             ] as const).map(tab=><button key={tab.id} role="tab" aria-selected={screen===tab.id} onClick={()=>setScreen(tab.id)}
               className={screen===tab.id?primary:secondary}>{tab.label}</button>)}
           </div>}
-          {mode==="manage"&&screen==="record"&&context.role==="official"&&event.can_record&& <section className={panel}>
+          {mode==="manage"&&screen==="record"&&context.role!=="school"&&event.can_record&& <section className={panel}>
             <h2 className="text-lg font-extrabold text-red-900">ฟอร์มส่งผลรายการ {event.sport_name}</h2>
-            <p className="mt-1 text-sm text-slate-600">เลือกจากทีม/นักกีฬาที่โรงเรียนลงทะเบียนไว้แล้ว โดยไม่มีการเปลี่ยนผลการแข่งขันส่วนกลาง</p>
+            <p className="mt-1 text-sm text-slate-600">เลือกผู้ชนะและอันดับจากใบสมัครที่ Admin อนุมัติแล้ว ระบบจะส่งผลเข้าคิวตรวจสอบ โดยไม่เขียนทับคะแนนฟุตบอลหรือ RoV</p>
             {event.result_status==="rejected"&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">เหตุผลที่ส่งกลับ: {event.rejection_reason}</p>}
             <form onSubmit={submitResults} className="mt-4 space-y-3">
               {placements.map((item,i)=><label key={`${item.rank}-${item.slot}`} className="block rounded-xl border border-rose-100 bg-rose-50/40 p-3">
@@ -370,18 +388,24 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
               </form>
             </section>
             <section className={panel}>
-              <h2 className="text-lg font-extrabold text-red-900">มอบหมายกรรมการกรอกผล — เฉพาะรายการนี้</h2>
-              <p className="mt-1 text-sm text-slate-600">กรรมการต้องเข้าสู่ระบบด้วยบัญชี Google ที่ยืนยันตัวตนแล้ว และได้รับสิทธิ์เฉพาะรายการที่มอบหมาย</p>
-              <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e=>{e.preventDefault();const mail=officialEmail.trim();void mutate(()=>supabase.rpc("sports_cert_set_official",{p_event:event.id,p_email:mail,p_active:true}),"มอบหมายกรรมการแล้ว").then(()=>setOfficialEmail(""));}}>
-                <label className="min-w-[220px] flex-1 text-xs font-bold">อีเมล Google ของกรรมการ<input type="email" className={`mt-1 ${input}`} value={officialEmail} onChange={e=>setOfficialEmail(e.target.value)} placeholder="name@school.ac.th" required/></label>
-                <button className={primary} disabled={busy||!officialEmail.trim()}>เพิ่มผู้กรอกผล</button>
-              </form>
-              {officials.length>0&&<div className="mt-3 space-y-2">{officials.map(o=><div key={o.email} className="flex flex-wrap items-center justify-between gap-2 rounded-lg bg-slate-50 p-3 text-sm">
-                <span>{o.email} <span className="text-xs text-slate-500">({o.is_active?"ใช้งาน":"ระงับ"})</span></span>
-                <button className={secondary} disabled={busy} onClick={()=>void mutate(()=>supabase.rpc("sports_cert_set_official",{p_event:event.id,p_email:o.email,p_active:!o.is_active}),"ปรับสิทธิ์กรรมการแล้ว")}>{o.is_active?"ระงับสิทธิ์":"เปิดสิทธิ์"}</button>
-              </div>)}</div>}
+              <h2 className="text-lg font-extrabold text-red-900">มอบหมายกรรมการแยกหน้าจัดการ</h2>
+              <p className="mt-1 text-sm text-slate-600">การเพิ่มหรือระงับกรรมการแยกจากการตั้งค่าเกียรติบัตร เพื่อให้ตรวจสอบสิทธิ์รายรายการได้ชัดเจน</p>
+              <Link href="/group-sports/officials" className={`mt-3 inline-flex ${primary}`}>ไปหน้ามอบหมายกรรมการ</Link>
             </section>
           </div>}
+          {mode==="manage"&&screen==="officials"&&context.role==="admin"&&<section className={panel}>
+            <h2 className="text-lg font-extrabold text-red-900">มอบหมายกรรมการกรอกผล — {event.sport_name}</h2>
+            <p className="mt-1 text-sm text-slate-600">เพิ่มอีเมล Google ของกรรมการได้หลายคนต่อรายการ กรรมการจะเห็นเฉพาะรายการที่ได้รับมอบหมาย และต้องเข้าสู่ระบบด้วยบัญชี Google ที่ยืนยันตัวตนแล้ว</p>
+            <form className="mt-4 flex flex-wrap items-end gap-2" onSubmit={e=>{e.preventDefault();const mail=officialEmail.trim().toLowerCase();void mutate(()=>supabase.rpc("sports_cert_set_official",{p_event:event.id,p_email:mail,p_active:true}),"มอบหมายกรรมการแล้ว").then(()=>setOfficialEmail(""));}}>
+              <label className="min-w-[220px] flex-1 text-xs font-bold">อีเมล Google ของกรรมการ<input type="email" className={`mt-1 ${input}`} value={officialEmail} onChange={e=>setOfficialEmail(e.target.value)} placeholder="name@school.ac.th" required/></label>
+              <button className={primary} disabled={busy||!officialEmail.trim()}>เพิ่มผู้รับผิดชอบรายการนี้</button>
+            </form>
+            {officials.length>0?<div className="mt-4 space-y-2">{officials.map(o=><div key={o.email} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm">
+              <div className="min-w-0"><p className="break-all font-semibold text-slate-900">{o.email}</p><p className={`mt-1 text-xs font-semibold ${o.is_active?"text-emerald-700":"text-amber-700"}`}>{o.is_active?"มีสิทธิ์บันทึกผลรายการนี้":"ระงับสิทธิ์แล้ว"}</p></div>
+              <button type="button" className={secondary} disabled={busy} onClick={()=>void mutate(()=>supabase.rpc("sports_cert_set_official",{p_event:event.id,p_email:o.email,p_active:!o.is_active}),"ปรับสิทธิ์กรรมการแล้ว")}>{o.is_active?"ระงับสิทธิ์":"เปิดสิทธิ์อีกครั้ง"}</button>
+            </div>)}</div>:<p className="mt-4 rounded-lg bg-slate-50 p-4 text-sm text-slate-600">ยังไม่มีกรรมการที่ได้รับมอบหมายในรายการนี้</p>}
+            <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs leading-6 text-amber-900">สิทธิ์นี้จำกัดเฉพาะรายการแข่งขันที่เลือก ไม่ให้สิทธิ์แก้โปรแกรม แก้ทะเบียนนักกีฬา อนุมัติผล หรือจัดการเกียรติบัตร</div>
+          </section>}
         </>}
       </>}
       <div className="pt-3 text-xs text-slate-500">{mode==="print"?"โรงเรียนพิมพ์ได้เฉพาะเอกสารที่ออกแล้วตามสิทธิ์บัญชีของตนเอง":"ผลที่กรรมการส่งต้องผ่านการตรวจสอบและเผยแพร่โดยผู้ดูแลก่อนออกเกียรติบัตร"} · เกียรติบัตร V1.2 รองรับการยกเลิกและออกฉบับใหม่แทน โดยไม่แก้ผลกีฬาในระบบกลาง</div>

@@ -386,6 +386,7 @@ export default function GroupSportsDashboard() {
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canManageCertificates, setCanManageCertificates] = useState(false);
+  const [canAdminCertificates, setCanAdminCertificates] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -452,8 +453,10 @@ export default function GroupSportsDashboard() {
         const certificateResponse = await supabase.rpc("sports_cert_context");
         const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
         setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+        setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
       } else {
         setCanManageCertificates(false);
+        setCanAdminCertificates(false);
       }
 
       const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
@@ -1449,15 +1452,34 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
-                  {canManageCertificates && <Link
-                    href="/group-sports/certificates/manage"
-                    tabIndex={sportsMenuOpen ? 0 : -1}
-                    onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                    className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-                  >
-                    <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>จัดการผลเกียรติบัตร (กรรมการ)</span></span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
-                  </Link>}
+                  {canManageCertificates && <>
+                    <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>บันทึกผลการแข่งขัน (กรรมการ)</span></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
+                  </>}
+                  {canAdminCertificates && <>
+                    <Link href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><UserShieldIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>มอบหมายกรรมการกีฬา</span></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
+                    <Link href="/group-sports/results/review" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><ClipboardCheckIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>ตรวจสอบ / อนุมัติผล</span></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
+                    <Link href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
+                      <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
+                    </Link>
+                  </>}
                 </div>
               </div>
             </div>
