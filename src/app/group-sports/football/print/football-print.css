@@ -1,11 +1,43 @@
 .football-print-area{font-family:"Sarabun","Noto Sans Thai",Tahoma,sans-serif;color:#111827;background:#e9eff5;padding:16px;min-height:100vh}
 .football-print-tools{display:flex;align-items:center;flex-wrap:wrap;gap:18px;max-width:210mm;margin:0 auto 18px;font-size:14px}
-.football-print-tools a{color:#991b1b;font-weight:700;text-decoration:underline}.football-print-tools button{background:#991b1b;color:white;border:0;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}.football-print-tools button:disabled{opacity:.6}
+.football-print-tools a{color:#991b1b;font-weight:700;text-decoration:underline}
+.football-print-tools button{background:#991b1b;color:white;border:0;padding:10px 18px;border-radius:8px;font-weight:bold;cursor:pointer}
+.football-print-tools button:disabled{opacity:.6;cursor:not-allowed}
 .football-print-error{max-width:210mm;margin:12px auto;color:#991b1b;font-weight:bold}
-.football-a4{background:#fff;width:210mm;min-height:297mm;margin:0 auto 18px;padding:15mm;box-shadow:0 2px 16px #0002;position:relative;page-break-after:always;break-after:page;box-sizing:border-box}
-.football-a4 header{text-align:center;margin-bottom:13mm}.football-a4 header h1{font-size:16pt;font-weight:700;margin:0 0 5mm}.football-a4 header h2{font-size:14pt;font-weight:700;margin:6mm 0}.football-a4 header p{font-size:11pt;margin:0}
-.football-a4 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:11pt}.football-a4 th,.football-a4 td{border:1px solid #222;text-align:center;padding:3px 4px;height:8.8mm;word-wrap:break-word}.football-a4 th{font-weight:bold;background:#f4f4f4;height:12mm}.football-a4 .number{width:12mm}.football-a4 td.left{text-align:left}.football-a4 footer{text-align:right;margin-top:10mm;font-size:11pt;line-height:2}
-.football-photo-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:6mm 4mm}.football-photo-slot{text-align:center;font-size:8.5pt;min-width:0}.football-photo-frame{height:47mm;width:34mm;margin:0 auto;border:1px solid #888;display:flex;align-items:center;justify-content:center;color:#777}.football-photo-frame img{width:100%;height:100%;object-fit:cover}.football-photo-caption p{overflow-wrap:anywhere;margin:2mm 0}.football-print-staff{display:grid;grid-template-columns:1fr 1fr;margin-top:8mm;gap:4mm 5mm;font-size:10pt}.football-print-note{max-width:210mm;margin:5px auto 20px;font-size:12px}
+.football-a4{background:#fff;width:210mm;min-height:297mm;margin:0 auto 18px;padding:14mm 15mm;box-shadow:0 2px 16px #0002;position:relative;page-break-after:always;break-after:page;box-sizing:border-box}
+.football-a4 header{text-align:center;margin-bottom:9mm}
+.football-a4 header h1{font-size:15pt;font-weight:700;margin:0 0 4mm}
+.football-a4 header h2{font-size:12pt;font-weight:700;margin:4mm 0 0}
+.football-a4 header p{font-size:10pt;margin:0}
+.football-a4 table{width:100%;border-collapse:collapse;table-layout:fixed;font-size:10pt}
+.football-a4 th,.football-a4 td{border:1px solid #222;text-align:center;padding:2px 4px;height:8.1mm;overflow-wrap:break-word;line-height:1.2}
+.football-a4 th{font-weight:bold;background:#f4f4f4;height:10mm}
+.football-a4 .number{width:10mm}
+.football-a4 td.left{text-align:left}
+.football-a4 footer{text-align:right;margin-top:9mm;font-size:10pt;line-height:1.8}
+.football-entry-list th:nth-child(n+4){width:15mm}
+.football-entry-list th:nth-child(3){width:17mm}
+.football-entry-list td{height:7.7mm}
+.football-print-legend{font-size:8.5pt;margin:4mm 0 0;line-height:1.4}
+.football-photo-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:5mm 4mm;align-items:start}
+.football-photo-slot{text-align:left;font-size:8.5pt;min-width:0;break-inside:avoid}
+.football-photo-frame{height:37mm;width:29mm;margin:0 auto 2mm;border:1px solid #64748b;display:flex;align-items:center;justify-content:center;color:#64748b;font-size:8pt;text-align:center;overflow:hidden;background:#fff}
+.football-photo-frame img{width:100%;height:100%;object-fit:cover;display:block}
+.football-photo-caption{padding:0 1mm}
+.football-photo-caption b{font-size:8.5pt;font-weight:700}
+.football-photo-caption p{overflow-wrap:anywhere;margin:1mm 0;line-height:1.2;min-height:3mm}
+.football-photo-staff .football-photo-caption{padding-top:0}
+.football-photos-second .football-photo-frame{height:34mm;width:26mm}
+.football-photos-second .football-photo-grid{gap:4mm 4mm}
+.football-photos-second footer{margin-top:6mm}
+.football-print-note{max-width:210mm;margin:5px auto 20px;font-size:12px}
 @page{size:A4 portrait;margin:0}
-@media print{.football-print-area{padding:0;background:white}.football-print-tools,.football-print-note,.football-print-error{display:none!important}.football-a4{box-shadow:none;margin:0;width:210mm;height:297mm;min-height:0;overflow:hidden;break-after:page;page-break-after:always}.football-a4:last-child{break-after:auto;page-break-after:auto}}
-@media screen and (max-width:800px){.football-a4{transform-origin:top left}.football-print-tools{padding:8px}}
+@media print{
+ html,body{margin:0!important;padding:0!important;background:#fff!important}
+ .football-print-area{padding:0;background:white;min-height:0}
+ .football-print-tools,.football-print-note,.football-print-error{display:none!important}
+ .football-a4{box-shadow:none;margin:0;width:210mm;height:297mm;min-height:0;overflow:hidden;break-after:page;page-break-after:always}
+ .football-a4:last-of-type{break-after:auto;page-break-after:auto}
+ .football-a4 th{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+@media screen and (max-width:800px){.football-print-area{overflow-x:auto;padding:10px}.football-a4{margin-left:auto;margin-right:auto}.football-print-tools{padding:8px}}

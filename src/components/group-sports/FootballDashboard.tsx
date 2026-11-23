@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 import AthletePhotoManager from "@/components/group-sports/AthletePhotoManager";
+import FootballStaffPhotoManager from "@/components/group-sports/FootballStaffPhotoManager";
 import { downloadFootballRosterTemplate, importFootballRosterExcel, type ImportedFootballPlayer } from "@/lib/group-sports/football-roster-excel";
 import { FOOTBALL_CODES, FOOTBALL_CONFIG, FOOTBALL_NAME_PREFIXES, matchSchool, formatThaiFootballDate, type FootballCode, type FootballTab } from "@/lib/group-sports/football-config";
 
@@ -19,7 +20,7 @@ type Match = { id: string; event_id: string; match_no: number; stage: "group"|"q
 type School = { id: string; name: string; director_name?: string|null; status?: string };
 type Role = { role: string; school_id: string|null; competition_id: string|null };
 type Player = { prefix: string; name: string; student_code: string; birth_date: string; jersey_number: string; player_role: string; player_note: string };
-type Coach = { name: string; phone: string };
+type Coach = { name: string; phone: string; manager_name?: string; manager_phone?: string };
 type SavedEntry = { id: string; school_id: string; school_name: string; athlete_count: number; status: string };
 type RosterDetails = { id:string;school_id:string;school_name:string;sport_name:string;director_name?:string|null;players: {full_name:string;student_code:string|null;birth_date:string|null;jersey_number:number|null;player_role:string;player_note:string}[];coaches:Coach[] };
 type History = { id:number; changed_at:string; before_data:Record<string,unknown>; after_data:Record<string,unknown>; changed_by:string|null };
@@ -68,6 +69,8 @@ export default function FootballDashboard(){
  const [schoolId,setSchoolId]=useState("");
  const [players,setPlayers]=useState<Player[]>([newPlayer()]);
  const [coaches,setCoaches]=useState<Coach[]>([newCoach()]);
+ const [managerName,setManagerName]=useState("");
+ const [managerPhone,setManagerPhone]=useState("");
  const [savedEntries,setSavedEntries]=useState<SavedEntry[]>([]);
  const [selectedEntry,setSelectedEntry]=useState<RosterDetails|null>(null);
  const [importPreview,setImportPreview]=useState<ImportedFootballPlayer[]|null>(null);
@@ -111,7 +114,7 @@ export default function FootballDashboard(){
   finally{setLoading(false);}
  },[]);
  useEffect(()=>{void refresh();},[refresh]);
- useEffect(()=>{setMessage("");setError("");setSelectedEntry(null);setSavedEntries([]);setPlayers([newPlayer()]);setCoaches([newCoach()]);setImportPreview(null);setEditMatch(null);setHistory([]);},[code]);
+ useEffect(()=>{setMessage("");setError("");setSelectedEntry(null);setSavedEntries([]);setPlayers([newPlayer()]);setCoaches([newCoach()]);setManagerName("");setManagerPhone("");setImportPreview(null);setEditMatch(null);setHistory([]);},[code]);
  useEffect(()=>{if(eligibleSchools.length&&!eligibleSchools.some(s=>s.id===schoolId))setSchoolId(eligibleSchools[0].id);},[schoolId,eligibleSchools]);
  const loadEntries=useCallback(async()=>{if(!selectedEvent?.id||!email)return;
   const r=await supabase.rpc("sports_football_my_entries",{p_event:selectedEvent.id});
@@ -163,17 +166,19 @@ export default function FootballDashboard(){
   const r=await supabase.rpc("sports_football_roster_details",{p_entry:id});if(r.error)throw r.error;
   const details=r.data as RosterDetails;setSelectedEntry(details);setSchoolId(details.school_id);
   setPlayers(details.players.map(p=>({...parseDisplayName(p.full_name),student_code:p.student_code||"",birth_date:p.birth_date||"",jersey_number:p.jersey_number==null?"":String(p.jersey_number),player_role:p.player_role||"",player_note:p.player_note||""})));
-  setCoaches(details.coaches?.length?details.coaches:[newCoach()]);setTab("registration");
+  setCoaches(details.coaches?.length?details.coaches.map(c=>({name:c.name,phone:c.phone})):[newCoach()]);
+  setManagerName(details.coaches?.[0]?.manager_name||"");setManagerPhone(details.coaches?.[0]?.manager_phone||"");setTab("registration");
  }catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function register(e:FormEvent<HTMLFormElement>){e.preventDefault();if(!selectedEvent||!schoolId||!canRegister)return;
   if(importPreview){setError("กรุณากด ใช้รายชื่อในฟอร์ม หลังตรวจ Excel ก่อนส่งใบสมัคร");return;}
   if(players.some(p=>!p.prefix||!p.name.trim()||!p.birth_date||!/^(?:[0-9]|[1-9][0-9])$/.test(p.jersey_number))){setError("กรุณาระบุคำนำหน้า ชื่อ วันเกิด และเบอร์เสื้อของนักกีฬาทุกคน");return;}
   const numbers=players.map(p=>p.jersey_number);if(new Set(numbers).size!==numbers.length){setError("หมายเลขเสื้อนักกีฬาซ้ำกัน กรุณาตรวจสอบ");return;}
   if(!coaches.length||coaches.some(c=>!c.name.trim()||!/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,"")))){setError("กรุณากรอกชื่อและเบอร์โทรศัพท์ครูผู้ควบคุมอย่างน้อยหนึ่งคน");return;}
+  if(managerPhone.trim() && !/^\+?\d{9,15}$/.test(managerPhone.replace(/[ ()-]/g,""))){setError("กรุณาตรวจสอบเบอร์โทรศัพท์ผู้จัดการทีม");return;}
   if(selectedEntry&&selectedEntry.school_id!==schoolId){setError("ไม่สามารถเปลี่ยนโรงเรียนของใบสมัครเดิมได้");return;}
   setBusy(true);setError("");try{
     const roster=players.map(p=>({full_name:p.prefix+p.name.trim(),student_code:p.student_code||null,birth_date:p.birth_date,jersey_number:p.jersey_number,player_role:p.player_role,player_note:p.player_note}));
-    const result=await supabase.rpc("sports_football_register",{p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:coaches});
+    const result=await supabase.rpc("sports_football_register",{p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:coaches.map((c,i)=>i===0?{...c,manager_name:managerName.trim(),manager_phone:managerPhone.trim()}:c)});
     if(result.error)throw result.error;
     setMessage("บันทึกใบสมัครเรียบร้อยแล้ว สามารถแนบรูปหรือพิมพ์เอกสารได้");await loadEntries();await loadRoster(result.data as string);
   }catch(cause){setError(errorText(cause));}finally{setBusy(false);}
@@ -273,9 +278,17 @@ export default function FootballDashboard(){
       {!email&&<p className="mt-3 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">กรุณา <Link href="/group-sports/login" className="font-bold underline">เข้าสู่ระบบบัญชีโรงเรียน</Link> ก่อนลงทะเบียน</p>}
       {selectedEvent?.status!=="registration"&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">ยังไม่เปิดรับสมัครรุ่นนี้ Admin ต้องเปิดรับสมัครก่อน</p>}
       {canRegister&&<form onSubmit={e=>void register(e)} className="mt-4 space-y-4">
-       <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">โรงเรียน<select disabled={Boolean(selectedEntry)} value={schoolId} onChange={e=>{setSchoolId(e.target.value);setSelectedEntry(null);setPlayers([newPlayer()]);}} className={control}>{eligibleSchools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label className="text-xs font-bold">ประเภทการแข่งขัน<input disabled readOnly value={config.title} className={`${control} bg-slate-50`}/></label></div>
-       <div className="rounded-xl border border-slate-200 p-3"><div className="mb-3 flex flex-wrap justify-between gap-2"><h3 className="font-extrabold">ครูผู้ควบคุมทีม</h3><button type="button" onClick={()=>setCoaches(prev=>[...prev,newCoach()])} className={ghostButton}>+ เพิ่มครู</button></div>
-        <div className="space-y-2">{coaches.map((c,i)=><div key={i} className="grid items-center gap-2 sm:grid-cols-[1fr_1fr_auto]"><input aria-label={`ชื่อครู ${i+1}`} required className={control} placeholder="ชื่อ–สกุลครูผู้ควบคุม" value={c.name} onChange={e=>editCoach(i,"name",e.target.value)}/><input aria-label={`โทรศัพท์ครู ${i+1}`} required className={control} inputMode="tel" placeholder="เบอร์โทรศัพท์" value={c.phone} onChange={e=>editCoach(i,"phone",e.target.value)}/><button type="button" disabled={coaches.length===1} onClick={()=>setCoaches(prev=>prev.filter((_,n)=>n!==i))} className={ghostButton}>ลบ</button></div>)}</div>
+       <div className="grid gap-3 sm:grid-cols-2"><label className="text-xs font-bold">โรงเรียน<select disabled={Boolean(selectedEntry)} value={schoolId} onChange={e=>{setSchoolId(e.target.value);setSelectedEntry(null);setPlayers([newPlayer()]);setCoaches([newCoach()]);setManagerName("");setManagerPhone("");}} className={control}>{eligibleSchools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></label><label className="text-xs font-bold">ประเภทการแข่งขัน<input disabled readOnly value={config.title} className={`${control} bg-slate-50`}/></label></div>
+       <div className="rounded-xl border border-slate-200 p-3"><div className="mb-3 flex flex-wrap justify-between gap-2"><h3 className="font-extrabold">ครูผู้ควบคุมทีม</h3><button type="button" disabled={coaches.length>=30} onClick={()=>setCoaches(prev=>[...prev,newCoach()])} className={ghostButton}>+ เพิ่มครู</button></div>
+        <div className="mb-4 rounded-lg border border-rose-200 bg-rose-50/50 p-3">
+        <h4 className="font-bold text-red-900">ผู้จัดการทีม (สำหรับแผงรูปและลายเซ็น)</h4>
+        <p className="mt-1 text-xs text-slate-600">ชื่อผู้จัดการทีมแยกจากชื่อผู้อำนวยการโรงเรียน · หากยังไม่ทราบชื่อ เว้นว่างไว้ก่อนได้ และเพิ่มหลังจากนั้น</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          <input className={control} aria-label="ชื่อผู้จัดการทีม" placeholder="ชื่อ–สกุลผู้จัดการทีม" value={managerName} onChange={e=>setManagerName(e.target.value)}/>
+          <input className={control} aria-label="เบอร์โทรศัพท์ผู้จัดการทีม (ไม่บังคับ)" inputMode="tel" placeholder="เบอร์โทรศัพท์ (ไม่บังคับ)" value={managerPhone} onChange={e=>setManagerPhone(e.target.value)}/>
+        </div>
+       </div>
+       <p className="mb-2 text-xs text-slate-600">ครูผู้ควบคุมคนแรกแสดงเป็นผู้ฝึกสอน และคนถัดไปเป็นผู้ช่วยผู้ฝึกสอนในแผงรูป</p><div className="space-y-2">{coaches.map((c,i)=><div key={i} className="grid items-center gap-2 sm:grid-cols-[1fr_1fr_auto]"><input aria-label={`ชื่อครู ${i+1}`} required className={control} placeholder="ชื่อ–สกุลครูผู้ควบคุม" value={c.name} onChange={e=>editCoach(i,"name",e.target.value)}/><input aria-label={`โทรศัพท์ครู ${i+1}`} required className={control} inputMode="tel" placeholder="เบอร์โทรศัพท์" value={c.phone} onChange={e=>editCoach(i,"phone",e.target.value)}/><button type="button" disabled={coaches.length===1} onClick={()=>setCoaches(prev=>prev.filter((_,n)=>n!==i))} className={ghostButton}>ลบ</button></div>)}</div>
        </div>
        <div className="rounded-xl border border-emerald-200 bg-emerald-50/40 p-3"><div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="font-extrabold">นำเข้ารายชื่อจาก Excel</h3><p className="text-xs text-slate-600">ดาวน์โหลดแม่แบบเฉพาะรุ่น กรอกนักกีฬาไม่เกิน 20 คน แล้วอัปโหลดตรวจรายชื่อก่อนใช้</p></div><button type="button" className="rounded-lg bg-emerald-700 px-3 py-2 text-sm font-bold text-white" onClick={()=>void downloadFootballRosterTemplate(code).catch(e=>setError(errorText(e)))}>↓ ดาวน์โหลด Excel</button></div>
          <input type="file" aria-label="นำเข้า Excel ฟุตบอล" accept=".xlsx" className="mt-3 block w-full text-xs" onChange={e=>{const file=e.currentTarget.files?.[0];e.currentTarget.value="";if(!file)return;
@@ -288,9 +301,9 @@ export default function FootballDashboard(){
           <div className="mt-2 grid gap-2 sm:grid-cols-3"><label className="text-xs font-bold">รหัสนักเรียน (ถ้ามี)<input className={control} value={p.student_code} onChange={e=>editPlayer(i,"student_code",e.target.value)}/></label><label className="text-xs font-bold">ตำแหน่ง (เลือกได้)<select className={control} value={p.player_role} onChange={e=>editPlayer(i,"player_role",e.target.value)}><option value="">ยังไม่ระบุ</option><option value="ผู้เล่นจริง">ผู้เล่นจริง</option><option value="สำรอง">ตัวสำรอง</option></select></label><label className="text-xs font-bold">หมายเหตุ<input className={control} value={p.player_note} onChange={e=>editPlayer(i,"player_note",e.target.value)} placeholder="ถ้ามี"/></label></div>
         </div>)}</div>
        </div>
-       <div className="flex flex-wrap gap-2"><button type="submit" disabled={busy||!selectedEvent} className={redButton}>{busy?"กำลังบันทึก…":selectedEntry?"บันทึกแก้ไขใบสมัคร":"ส่งใบสมัครนักกีฬา"}</button><button type="button" onClick={()=>{setSelectedEntry(null);setPlayers([newPlayer()]);setCoaches([newCoach()]);}} className={ghostButton}>เริ่มใบสมัครใหม่ / ล้างแบบฟอร์ม</button></div>
+       <div className="flex flex-wrap gap-2"><button type="submit" disabled={busy||!selectedEvent} className={redButton}>{busy?"กำลังบันทึก…":selectedEntry?"บันทึกแก้ไขใบสมัคร":"ส่งใบสมัครนักกีฬา"}</button><button type="button" onClick={()=>{setSelectedEntry(null);setPlayers([newPlayer()]);setCoaches([newCoach()]);setManagerName("");setManagerPhone("");}} className={ghostButton}>เริ่มใบสมัครใหม่ / ล้างแบบฟอร์ม</button></div>
       </form>}
-      {selectedEntry&&<div className="mt-5 rounded-xl border border-rose-200 p-4"><h3 className="font-black">ใบสมัคร: {selectedEntry.school_name}</h3><p className="mt-1 text-xs text-slate-600">แนบรูปนักกีฬาได้หลังบันทึกใบสมัคร โดยไม่ต้องลงทะเบียนใหม่</p><AthletePhotoManager entryId={selectedEntry.id} athletes={selectedEntry.players.map(p=>({full_name:p.full_name,student_code:p.student_code}))}/>
+      {selectedEntry&&<div className="mt-5 rounded-xl border border-rose-200 p-4"><h3 className="font-black">ใบสมัคร: {selectedEntry.school_name}</h3><p className="mt-1 text-xs text-slate-600">แนบรูปนักกีฬาได้หลังบันทึกใบสมัคร โดยไม่ต้องลงทะเบียนใหม่</p><AthletePhotoManager entryId={selectedEntry.id} athletes={selectedEntry.players.map(p=>({full_name:p.full_name,student_code:p.student_code}))}/><FootballStaffPhotoManager entryId={selectedEntry.id} coaches={selectedEntry.coaches||[]}/>
        <Link href={`/group-sports/football/print?entry=${encodeURIComponent(selectedEntry.id)}`} target="_blank" className={`${redButton} mt-3 inline-flex`}>พิมพ์ใบรายชื่อ / แผงรูป / บันทึก PDF ↗</Link></div>}
       {!!email&&<div className="mt-5"><div className="flex justify-between gap-2"><h3 className="font-black">ใบสมัครที่บันทึกแล้ว ({savedEntries.length})</h3><button type="button" onClick={()=>void loadEntries()} className={ghostButton}>รีเฟรช</button></div><div className="mt-2 space-y-2">{savedEntries.map(x=><div key={x.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm"><div><strong>{x.school_name}</strong><p className="text-xs text-slate-500">{x.athlete_count} คน · รับข้อมูลแล้ว ตรวจตัวจริงที่สนาม</p></div><div className="flex gap-2"><button disabled={busy} onClick={()=>void loadRoster(x.id)} className={ghostButton}>ดูรายชื่อ / แนบรูป / แก้ไข</button><Link target="_blank" href={`/group-sports/football/print?entry=${encodeURIComponent(x.id)}`} className={ghostButton}>พิมพ์ PDF</Link></div></div>)}</div>
        {!savedEntries.length&&<p className="mt-3 rounded-xl bg-slate-50 p-3 text-sm text-slate-500">ยังไม่มีใบสมัครในรายการนี้</p>}

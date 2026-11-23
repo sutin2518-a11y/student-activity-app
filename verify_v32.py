@@ -1,6 +1,6 @@
 from pathlib import Path
 import json,collections,zipfile,re,sys
-root=Path('/mnt/data/build-v32')
+root=Path(__file__).resolve().parent
 source=json.loads((root/'setup/football_2569_verified.json').read_text())
 expected={'GS3-FB-13M':9,'GS3-FB-15M':17,'GS3-FB-UM':16,'GS3-FB-UF':9}
 assert dict(collections.Counter(m['code'] for m in source['matches']))==expected
