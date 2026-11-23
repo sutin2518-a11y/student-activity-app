@@ -135,14 +135,23 @@ export default function FootballDashboard(){
   return value;
  };
  const refreshList=async()=>{await refresh();await loadEntries();};
+ async function activatePublicView(){
+  if(!selectedEvent||!isAdmin||selectedEvent.status!=="draft")return;
+  if(!window.confirm(`เปิดแสดงประเภท ${config.title} ให้โรงเรียนเห็นรายชื่อสายได้ โดยยังไม่เปิดรับสมัครนักกีฬาใช่หรือไม่?`))return;
+  setBusy(true);setError("");try{
+   const r=await supabase.from("sports_events").update({status:"scheduled"}).eq("id",selectedEvent.id).eq("competition_id",competitionId).eq("status","draft");
+   if(r.error)throw r.error;
+   setMessage("เปิดแสดงรายการและสายแล้ว แต่ยังไม่เปิดรับสมัครหรือเผยแพร่คู่แข่งขัน กรุณาตรวจและกดเผยแพร่โปรแกรมเมื่อพร้อม");await refresh();
+  }catch(e){setError(errorText(e));}finally{setBusy(false);}
+ }
  async function activateRegistration(){if(!selectedEvent||!isAdmin)return;
-  if(!window.confirm(`เปิดรับสมัคร ${config.title} ให้โรงเรียนในระบบหรือไม่?`))return;
+  if(!window.confirm(`ยืนยันเปิดรับสมัครนักกีฬา ${config.title} ให้โรงเรียนกรอกข้อมูลได้หรือไม่?`))return;
   setBusy(true);try{const r=await supabase.from("sports_events").update({status:"registration"}).eq("id",selectedEvent.id).eq("competition_id",competitionId);if(r.error)throw r.error;
    setMessage("เปิดรับสมัครเรียบร้อยแล้ว");await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
  async function publish(){if(!isAdmin||!selectedEvent)return;
   if(!isScheduleChecked){setError("ตรวจโปรแกรมไม่ครบ กรุณาตรวจวัน เวลา สถานที่ และจำนวนคู่ก่อนเผยแพร่");return;}
-  if(selectedEvent.status==="draft"){setError("กรุณากดเปิดรับสมัคร/เปิดรายการก่อน เพื่อให้ผู้ชมทั่วไปเห็นโปรแกรม");return;}
+  if(selectedEvent.status==="draft"){setError("กรุณากด เปิดแสดงรายการ ก่อน แล้วจึงเผยแพร่โปรแกรมได้ โดยไม่จำเป็นต้องเปิดรับสมัคร");return;}
   const drafts=eventMatches.filter(m=>m.status==="draft");if(!drafts.length){setMessage("ไม่มีคู่ฉบับร่างที่ต้องเผยแพร่");return;}
   if(!window.confirm(`ยืนยันเผยแพร่โปรแกรม ${config.compact} จำนวน ${drafts.length} คู่?`))return;
   setBusy(true);setError("");try{const r=await supabase.from("sports_football_matches").update({status:"published"}).eq("event_id",selectedEvent.id).eq("status","draft");
@@ -212,17 +221,24 @@ export default function FootballDashboard(){
       {FOOTBALL_CONFIG[key].title}</button>)}</div>
      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm text-slate-600"><p>{config.venue} · {config.dateRange}</p><span className="rounded-full bg-rose-50 px-3 py-1 font-bold text-red-800">{config.matches} คู่ · {config.groupCount} สาย</span></div>
     </section>
-    <div className="grid gap-3 sm:grid-cols-3"><div className={panel}><p className="text-xs text-slate-500">ทีมในสาย</p><p className="text-2xl font-black">{eventTeams.length}</p></div><div className={panel}><p className="text-xs text-slate-500">คู่แข่งขันในระบบ</p><p className="text-2xl font-black">{eventMatches.length} / {config.matches}</p></div><div className={panel}><p className="text-xs text-slate-500">บันทึกผลแล้ว / เผยแพร่</p><p className="text-2xl font-black">{completed} / {published}</p></div></div>
+    <div className="grid gap-3 sm:grid-cols-3"><div className={panel}><p className="text-xs text-slate-500">ทีมในสาย</p><p className="text-2xl font-black">{selectedEvent?eventTeams.length:"—"}</p></div><div className={panel}><p className="text-xs text-slate-500">คู่แข่งขันที่มองเห็น</p><p className="text-2xl font-black">{selectedEvent?eventMatches.length:"—"} / {config.matches}</p></div><div className={panel}><p className="text-xs text-slate-500">บันทึกผลแล้ว / เผยแพร่</p><p className="text-2xl font-black">{selectedEvent?completed:"—"} / {selectedEvent?published:"—"}</p></div></div>
     <nav className="flex flex-wrap items-center gap-2" aria-label="เมนูฟุตบอล">{tabs.map(t=><button key={t.key} type="button" onClick={()=>{setTab(t.key);setEditMatch(null);if(t.key==="history")void loadHistory();}}
       className={`min-h-11 rounded-xl border px-3 py-2 text-sm font-extrabold ${tab===t.key?"border-red-900 bg-red-800 text-white shadow ring-2 ring-rose-200":"border-rose-200 bg-white text-red-900 hover:bg-rose-50"}`}>{t.label}</button>)}
       <button type="button" onClick={()=>void refresh()} className={`${ghostButton} ml-auto`}>รีเฟรชข้อมูล</button></nav>
-    {(!selectedEvent||eventMatches.length===0)&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{!selectedEvent?"ยังไม่พบรายการนี้หรือยังเป็นฉบับร่างสำหรับผู้ชมทั่วไป":"ยังไม่พบโปรแกรมที่เผยแพร่"} หากเป็น Admin โปรดตรวจว่าได้ติดตั้ง SQL Migration 0026 แล้ว</div>}
+    {(!selectedEvent||eventMatches.length===0)&&<div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">{!selectedEvent
+      ? "รุ่นนี้ยังไม่เปิดแสดงต่อผู้ชมทั่วไป หรือรายการยังไม่ได้ติดตั้งในฐานข้อมูล — ตัวเลขจากเอกสารไม่ใช่ข้อมูลที่ดึงจากฐานข้อมูล"
+      : "รายการนี้เปิดแสดงแล้ว แต่ยังไม่มีคู่แข่งขันที่เผยแพร่ให้บัญชีนี้เห็น"}
+      {isAdmin?" · ตรวจการติดตั้ง SQL 0026 และข้อมูลรายการใน Supabase":" · รอผู้ดูแลตรวจสอบและเผยแพร่โปรแกรม"}</div>}
     {tab==="schedule"&&<section className={panel}>
      <div className="flex flex-wrap items-center justify-between gap-3"><div><h2 className="text-lg font-black">โปรแกรมและผลการแข่งขัน</h2><p className="text-sm text-slate-500">ตารางตาม PDF ต้นฉบับ · วันเวลาแสดงจากฐานข้อมูลจริง</p></div>
-      {isAdmin&&selectedEvent&&<div className="flex flex-wrap gap-2"><button disabled={busy||selectedEvent.status==="registration"} onClick={()=>void activateRegistration()} className={ghostButton}>เปิดรับสมัคร / เปิดรายการ</button><button disabled={busy||!isScheduleChecked||!eventMatches.some(m=>m.status==="draft")} onClick={()=>void publish()} className={redButton}>เผยแพร่โปรแกรม ({eventMatches.filter(m=>m.status==="draft").length} คู่)</button></div>}
+      {isAdmin&&selectedEvent&&<div className="flex flex-wrap gap-2">
+       {selectedEvent.status==="draft"&&<button disabled={busy} onClick={()=>void activatePublicView()} className={ghostButton}>เปิดแสดงรุ่นนี้ (ยังไม่รับสมัคร)</button>}
+       {selectedEvent.status!=="registration"&&<button disabled={busy} onClick={()=>void activateRegistration()} className={ghostButton}>เปิดรับสมัครนักกีฬา</button>}
+       <button disabled={busy||selectedEvent.status==="draft"||!isScheduleChecked||!eventMatches.some(m=>m.status==="draft")} onClick={()=>void publish()} className={redButton}>เผยแพร่โปรแกรม ({eventMatches.filter(m=>m.status==="draft").length} คู่)</button>
+      </div>}
      </div>
      {isAdmin&&eventMatches.some(m=>collisionMatchIds.has(m.id))&&<p role="alert" className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm font-bold text-amber-900">พบคู่ฟุตบอลที่ใช้สนาม วัน และเวลาเดียวกัน กรุณาแก้ไขก่อนเผยแพร่</p>}
-     {isAdmin&&<div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-red-900">โปรแกรมฉบับร่างซ่อนจากผู้ชมทั่วไป ตรวจวัน เวลา และคู่แข่งขันให้ครบก่อนเผยแพร่ · การเผยแพร่ไม่บันทึกผลการแข่งขัน</div>}
+     {isAdmin&&<div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-red-900">ขั้นตอน: 1) เปิดแสดงรุ่นให้เห็นสาย (ยังไม่เปิดรับสมัคร) 2) ตรวจคู่ วัน เวลา สนาม 3) เผยแพร่โปรแกรม · การเปิดรับสมัครนักกีฬาเป็นปุ่มแยกต่างหาก · โปรแกรมฉบับร่างยังไม่แสดงแก่ผู้ชมทั่วไป</div>}
      <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[760px] text-left text-sm"><thead className="bg-rose-50 text-red-950"><tr><th className="p-3">คู่ที่</th><th className="p-3">วัน / เวลา</th><th className="p-3">รอบ / สาย</th><th className="p-3">คู่แข่งขัน</th><th className="p-3">ผล</th><th className="p-3">สถานะ</th>{isAdmin&&<th className="p-3">จัดการ</th>}</tr></thead>
       <tbody>{eventMatches.map(m=><tr key={m.id} className="border-b border-slate-100 last:border-0"><td className="p-3 font-bold">{m.match_no}</td><td className="p-3 whitespace-nowrap">{formatThaiFootballDate(m.scheduled_date)}<br/><span className="font-bold text-red-900">{m.start_time?.slice(0,5)||"—"} น.</span></td>
        <td className="p-3 whitespace-nowrap">{stageNames[m.stage]}{m.group_code?` · สาย ${m.group_code}`:""}</td>
