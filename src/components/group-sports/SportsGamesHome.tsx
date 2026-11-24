@@ -98,7 +98,7 @@ export default function SportsGamesHome({
   const getEvent = (id: string) => eventById.get(id)?.sport_name || "รายการแข่งขัน";
   const allMatches = [...matches, ...specialMatches];
   const goMatch = (m: Match) => {
-    if (m.special_source === "football") window.location.assign("/group-sports/football");
+    if (m.special_source === "football") window.location.assign(getEvent(m.event_id).includes("เทเบิลเทนนิส") ? "/group-sports/table-tennis" : getEvent(m.event_id).includes("เปตอง") ? "/group-sports/petanque" : getEvent(m.event_id).includes("เซปักตะกร้อ") ? "/group-sports/takraw" : getEvent(m.event_id).includes("วอลเลย์บอล") ? "/group-sports/volleyball" : getEvent(m.event_id).includes("บาสเกตบอล") ? "/group-sports/basketball" : getEvent(m.event_id).includes("ฟุตซอล") ? "/group-sports/futsal" : "/group-sports/football");
     else if (m.special_source === "esports") window.location.assign("/group-sports/esports");
     else onNavigate("matches");
   };

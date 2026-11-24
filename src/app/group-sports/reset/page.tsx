@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import SportsResetManager from "@/components/group-sports/SportsResetManager";
 
 export const metadata: Metadata = {
-  title: "จัดการข้อมูลทดสอบและรีเซตระบบกีฬากลุ่ม",
+  title: "รีเซตข้อมูลจริงกีฬากลุ่ม (ระวัง)",
   robots: { index: false, follow: false },
 };
 

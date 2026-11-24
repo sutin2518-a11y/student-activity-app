@@ -1,0 +1,11 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import {calculateTakrawScore as score} from '../src/lib/group-sports/takraw-score.ts';
+const d=JSON.parse(fs.readFileSync(new URL('../setup/takraw_2569_draft.json',import.meta.url),'utf8'));
+test('62 matches, 32 teams, 8 groups',()=>{assert.equal(d.fixtures.length,62);assert.equal(Object.values(d.groups).flat(2).length,32);assert.equal(Object.values(d.groups).flat(1).length,8);assert.equal(new Set(d.fixtures.map(r=>`${r.event_code}:${r.match_no}`)).size,62);assert.deepEqual(Object.fromEntries(Object.keys(d.groups).map(c=>[c,d.fixtures.filter(r=>r.event_code===c).length])),{'GS3-ST-15M':19,'GS3-ST-UM':19,'GS3-ST-15F':9,'GS3-ST-UF':15});});
+test('all round robin pairs once',()=>{for(const [c,gs] of Object.entries(d.groups)){const expected=gs.flatMap(g=>g.flatMap((a,i)=>g.slice(i+1).map(b=>[a,b].sort().join(':')))).sort();const actual=d.fixtures.filter(r=>r.event_code===c&&r.stage==='group').map(r=>[r.a,r.b].sort().join(':')).sort();assert.deepEqual(actual,expected);}});
+test('two courts, distinct times and same-category winner references',()=>{assert.equal(new Set(d.fixtures.map(r=>`${r.date}:${r.time}:${r.venue}`)).size,62);for(const r of d.fixtures.filter(r=>r.stage==='final'))for(const w of [r.a,r.b]){const m=d.fixtures.find(x=>x.event_code===r.event_code&&x.match_no===Number(w.slice(1)));assert.ok(m&&m.stage==='semifinal');assert.ok(m.date+m.time<r.date+r.time);assert.ok(r.note);}});
+test('source anomalies preserved in review',()=>{assert.equal(d.fixtures.find(r=>r.event_code==='GS3-ST-UF'&&r.match_no===20).group,'A');assert.ok(d.fixtures.find(r=>r.event_code==='GS3-ST-UF'&&r.match_no===20).note);assert.ok(!d.fixtures.some(r=>r.event_code.endsWith('F')&&[10,11].includes(r.match_no)));});
+test('2–0 and 2–1',()=>{assert.equal(score([[15,10],[15,9]]).totalA,2);assert.equal(score([[15,10],[13,15],[14,16]]).totalB,2);});
+test('reject ties, missing sets, extra sets, negative and decimal scores',()=>{for(const s of [[[15,15],[15,10]],[[15,10]],[[15,10],[10,15]],[[15,10],[15,9],[15,10]],[[15,-1],[15,9]],[[15,1.5],[15,9]],[[15,''],[15,9]]])assert.throws(()=>score(s));});

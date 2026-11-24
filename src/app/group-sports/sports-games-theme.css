@@ -173,3 +173,27 @@
 .sports-games-topbar:after {right:4px;width:12px;transform:none;clip-path:polygon(45% 0,100% 0,55% 100%,0 100%);}
 /* Reserve a little more room for readable "เมนูระบบ" on small phones. */
 @media(max-width:690px){.sports-games-topbar{padding-right:20px;}}
+
+
+/* v33.26.1 — Soft Mint canvas, screen only.
+   Shared by every /group-sports route. White cards, navy/blue headers,
+   selected yellow controls, medal colors and semantic statuses stay unchanged.
+   Root-only selectors intentionally avoid nested cards, badges and print sheets. */
+@media screen {
+  .sports-stadium-theme {
+    --sports-page-bg: #eaf5ed;
+    --sports-page-secondary: #dceee1;
+    background: var(--sports-page-bg);
+  }
+  .sports-stadium-theme > :is(main, div).min-h-screen {
+    background: var(--sports-page-bg) !important;
+  }
+  /* Legacy root gradient has an existing !important rule; override it last. */
+  .sports-stadium-theme main.bg-\[\#faf7f7\].min-h-screen {
+    background: var(--sports-page-bg) !important;
+  }
+  /* Only the decorative login backdrop, not error alerts or form controls. */
+  .sports-stadium-theme > main.min-h-screen > div[aria-hidden].pointer-events-none.blur-3xl {
+    background-color: var(--sports-page-secondary);
+  }
+}

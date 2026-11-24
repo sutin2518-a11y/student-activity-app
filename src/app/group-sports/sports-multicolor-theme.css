@@ -1,0 +1,54 @@
+/* v33.27.1 — PHAYAO GAMES colorful accents on a calm mint canvas.
+   Only group-sports, screen only. No changes to print, medals, or status colors. */
+@media screen {
+  .sports-stadium-theme.sports-multicolor-theme {
+    --sports-page-bg: #eaf5ed;
+    --sports-page-secondary: #dceee1;
+    background: #eaf5ed !important;
+  }
+  /* Match route-level main even when Next/React inserts a wrapper.
+     Specificity also overrides the legacy main.bg-[#faf7f7] rule. */
+  .sports-stadium-theme.sports-multicolor-theme main.min-h-screen,
+  .sports-stadium-theme.sports-multicolor-theme > div.min-h-screen,
+  .sports-stadium-theme.sports-multicolor-theme .sports-games-shell {
+    background: #eaf5ed !important;
+  }
+  /* Category selector: direct grid of buttons containing the selected state.
+     Keep alerts, badges, medal cells, and the TEST banner outside this selector. */
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button {
+    --category-accent: #0755ce;
+    --category-tint: #e4efff;
+    --category-ink: #12428d;
+    background: var(--category-tint) !important;
+    border-color: color-mix(in srgb, var(--category-accent) 38%, white) !important;
+    color: var(--category-ink) !important;
+    box-shadow: none !important;
+  }
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button:nth-of-type(4n+2) {
+    --category-accent: #6d28d9; --category-tint: #f0e7ff; --category-ink: #5424a2;
+  }
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button:nth-of-type(4n+3) {
+    --category-accent: #087f5b; --category-tint: #def5e8; --category-ink: #066349;
+  }
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button:nth-of-type(4n+4) {
+    --category-accent: #b45309; --category-tint: #ffebd8; --category-ink: #92400e;
+  }
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"]) {
+    background: var(--category-accent) !important;
+    border-color: var(--category-accent) !important;
+    color: white !important;
+    box-shadow: 0 0 0 2px white, 0 0 0 4px var(--category-accent) !important;
+  }
+  /* Active inner navigation: blue rather than neon yellow/red. */
+  .sports-multicolor-theme nav:not(.sports-games-unified-nav) > button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-11"]) {
+    background: #0755ce !important;
+    border-color: #0755ce !important;
+    color: white !important;
+    box-shadow: none !important;
+  }
+  .sports-multicolor-theme .grid:has(> button:is([class~="bg-[#efff00]"], [class~="bg-red-800"][class~="min-h-16"])) > button:focus-visible,
+  .sports-multicolor-theme nav:not(.sports-games-unified-nav) > button:focus-visible {
+    outline: 3px solid #07123d !important;
+    outline-offset: 3px;
+  }
+}

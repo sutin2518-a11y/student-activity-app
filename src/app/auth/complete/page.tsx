@@ -56,22 +56,31 @@ export default function AuthCompletePage() {
         if (mounted) setStatus("ยืนยันบัญชี Google แล้ว กำลังตรวจสอบสิทธิ์การใช้งาน...");
         // Delegated officials are approved by their exact, verified Google email.
         // Do not require a CKW staff profile just to enter an assigned sports page.
-        const [esportsCheck, certificateCheck, sportsRoleCheck] = await Promise.all([
+        const [esportsCheck, certificateCheck, sportsRoleCheck, eventRefereeCheck, centralCheck] = await Promise.all([
           supabase.rpc("sports_esports_my_access"),
           supabase.rpc("sports_cert_my_access"),
           supabase.from("sports_user_roles").select("role").eq("user_id", user.id).eq("is_active", true),
+          supabase.rpc("sports_event_referee_my_events"),
+          supabase.rpc("sports_central_cert_my_access"),
         ]);
         if (esportsCheck.error) throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
         // A pending SQL migration should not lock out existing school/E-Sport accounts.
         const certificateRpcMissing = !!certificateCheck.error &&
           ["PGRST202", "42883"].includes(String(certificateCheck.error.code));
         if (certificateCheck.error && !certificateRpcMissing) {
-          throw new Error("ตรวจสอบสิทธิ์กรรมการเกียรติบัตรไม่สำเร็จ: " + certificateCheck.error.message);
+          throw new Error("ตรวจสอบสิทธิ์กรรมการบันทึกอันดับรางวัลไม่สำเร็จ: " + certificateCheck.error.message);
         }
+        const refereeRpcMissing = !!eventRefereeCheck.error &&
+          ["PGRST202", "42883"].includes(String(eventRefereeCheck.error.code));
+        if (eventRefereeCheck.error && !refereeRpcMissing) {
+          throw new Error("ตรวจสอบสิทธิ์กรรมการกีฬารายการไม่สำเร็จ: " + eventRefereeCheck.error.message);
+        }
+        const hasEventRefereeAccess = Array.isArray(eventRefereeCheck.data) && eventRefereeCheck.data.length > 0;
+        const hasCentralAccess = !centralCheck.error && centralCheck.data === true;
         const hasEsportsAccess = esportsCheck.data === true;
         const hasCertificateAccess = !certificateRpcMissing && certificateCheck.data === true;
         const missingRoleTable = sportsRoleCheck.error?.code === "42P01" || sportsRoleCheck.error?.code === "PGRST205";
-        if (sportsRoleCheck.error && !missingRoleTable && !hasEsportsAccess && !hasCertificateAccess) {
+        if (sportsRoleCheck.error && !missingRoleTable && !hasEsportsAccess && !hasCertificateAccess && !hasEventRefereeAccess && !hasCentralAccess) {
           throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleCheck.error.message);
         }
         const sportsRoles = sportsRoleCheck.data || [];
@@ -81,7 +90,7 @@ export default function AuthCompletePage() {
         // A missing/blocked CKW staff profile must not prevent an authorized external referee login.
         const { data: profile, error: profileError } = await supabase
           .from("profiles").select("role").eq("id", user.id).maybeSingle();
-        if (profileError && !hasEsportsAccess && !hasCertificateAccess) {
+        if (profileError && !hasEsportsAccess && !hasCertificateAccess && !hasEventRefereeAccess && !hasCentralAccess) {
           throw new Error("อ่านข้อมูลสิทธิ์ผู้ใช้ไม่สำเร็จ: " + profileError.message);
         }
         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
@@ -98,6 +107,14 @@ export default function AuthCompletePage() {
         }
         if (hasCertificateAccess && !isPrincipalSportsAdmin) {
           if (mounted) router.replace("/group-sports/certificates/manage");
+          return;
+        }
+        if (hasEventRefereeAccess && !isPrincipalSportsAdmin) {
+          if (mounted) router.replace("/group-sports/officials/my");
+          return;
+        }
+        if (hasCentralAccess && !isPrincipalSportsAdmin) {
+          if (mounted) router.replace("/group-sports/certificates/central");
           return;
         }
         if (isCkwAccount && destination) {

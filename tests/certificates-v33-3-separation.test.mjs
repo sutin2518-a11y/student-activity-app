@@ -19,7 +19,7 @@ test('the school route shows only the print experience and management has its ow
 
 test('management screen is blocked for school accounts and has no print panel',()=>{
   assert.match(dashboard,/mode==="manage"&&context\.role==="school"/);
-  assert.match(dashboard,/mode==="manage"&&screen==="record"&&context\.role==="official"/);
+  assert.match(dashboard,/mode==="manage"&&screen==="record"&&\(context\.role==="official"\|\|context\.role==="admin"\)/);
   assert.match(dashboard,/mode==="manage"&&screen==="review"&&context\.role==="admin"/);
   assert.match(dashboard,/mode==="manage"&&screen==="settings"&&context\.role==="admin"/);
   assert.match(dashboard,/mode==="print"&&screen==="print"/);

@@ -52,6 +52,7 @@ export default function SportsResetManager() {
   const [filter, setFilter] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirmation, setConfirmation] = useState("");
+  const [understandsReal, setUnderstandsReal] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
@@ -117,10 +118,10 @@ export default function SportsResetManager() {
   }, [entries, filter, eventById, schoolById]);
   const target = scope === "competition" ? null : scope === "event" ? eventId : entryId;
 
-  const clearPreview = () => { setPreview(null); setConfirmation(""); setError(""); setNotice(""); };
+  const clearPreview = () => { setPreview(null); setConfirmation(""); setUnderstandsReal(false); setError(""); setNotice(""); };
   async function inspect() {
     if (!authorized || (scope !== "competition" && !target)) return;
-    setBusy(true); setError(""); setNotice(""); setPreview(null); setConfirmation("");
+    setBusy(true); setError(""); setNotice(""); setPreview(null); setConfirmation(""); setUnderstandsReal(false);
     try {
       const { data, error: rpcError } = await supabase.rpc("sports_admin_reset", {
         p_action: "preview", p_scope: scope, p_target: target,
@@ -149,10 +150,10 @@ export default function SportsResetManager() {
     }
     setPendingPhotos(failed);
     if (failed.length) setError(`ข้อมูลทะเบียนรีเซตแล้ว แต่รูป ${failed.length} ไฟล์ยังรอลบจาก Storage กรุณากด “ลบรูปที่ค้าง” อีกครั้ง`);
-    else setNotice("รีเซตข้อมูลและลบไฟล์รูปทดสอบจาก Storage เรียบร้อยแล้ว");
+    else setNotice("รีเซตข้อมูลและลบไฟล์รูปจาก Storage เรียบร้อยแล้ว");
   }
   async function execute() {
-    if (!authorized || !preview || !preview.can_reset || confirmation !== CONFIRMATION || busy) return;
+    if (!authorized || !preview || !preview.can_reset || confirmation !== CONFIRMATION || !understandsReal || busy) return;
     if (!window.confirm(`ยืนยันรีเซตข้อมูลจริงหรือไม่?\n\nขอบเขต: ${scope}\nใบสมัคร: ${preview.counts.entries} รายการ\nนักกีฬา: ${preview.counts.athletes} คน\nเกียรติบัตรที่ยกเลิกแล้ว: ${preview.counts.revoked_certificates} ฉบับ (เก็บประวัติ/QR)\nผลกีฬาและทะเบียนจะถูกลบจากระบบ\n\nระบบเก็บข้อมูลสำรองไว้สำหรับให้ผู้ดูแลฐานข้อมูลกู้คืนด้วยตนเอง`)) return;
     setBusy(true); setError(""); setNotice("");
     try {
@@ -194,9 +195,10 @@ export default function SportsResetManager() {
     <div className="mx-auto max-w-5xl space-y-5">
       <header className="rounded-2xl bg-gradient-to-r from-[#8b0011] to-[#20264a] p-5 text-white shadow">
         <Link href="/group-sports" className="text-sm font-semibold underline underline-offset-4">← กลับหน้าระบบกีฬากลุ่ม</Link>
-        <h1 className="mt-3 text-2xl font-black">จัดการข้อมูลทดสอบ / รีเซตระบบ</h1>
+        <h1 className="mt-3 text-2xl font-black">รีเซตข้อมูลจริง — เมนูเดิม</h1>
         <p className="mt-2 text-sm text-white/90">สำหรับผู้ดูแลหลักเท่านั้น · ปีการแข่งขัน 2569 · ตรวจสอบและสำรองก่อนลบ</p>
       </header>
+      <div className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-bold text-red-900">คำเตือน: เมนูนี้ลบข้อมูลในตารางจริง ไม่สามารถแยกข้อมูลทดลองเดิมจากข้อมูลจริงได้ หากต้องการทดลองและล้างเฉพาะ TEST ให้ใช้ <Link href="/group-sports/test" className="underline">ศูนย์ทดสอบระบบ (TEST)</Link> เท่านั้น</div>
       {!ready && <div className="rounded-xl bg-white p-6">กำลังตรวจสิทธิ์ผู้ดูแลระบบ...</div>}
       {error && <div role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-900">{error}</div>}
       {notice && <div role="status" className="rounded-xl border border-emerald-300 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{notice}</div>}
@@ -208,7 +210,7 @@ export default function SportsResetManager() {
             {([
               ["entry", "ลบใบสมัครเฉพาะรายการ", "ลบใบสมัครนักกีฬาและรูปของรายการที่เลือก"],
               ["event", "รีเซตประเภทการแข่งขัน", "ลบทุกใบสมัครและผลของประเภทกีฬาที่เลือก"],
-              ["competition", "รีเซตทั้งระบบกีฬากลุ่ม", "ลบทุกใบสมัครและผลทดลองทั้งหมดของปี 2569"],
+              ["competition", "รีเซตทั้งระบบกีฬากลุ่ม", "ลบทุกใบสมัครและผลทั้งหมดของปี 2569 (รวมข้อมูลจริง)"],
             ] as [Scope,string,string][]).map(([key,label,desc]) =>
               <label key={key} className={`cursor-pointer rounded-xl border p-4 ${scope===key?"border-red-700 bg-rose-50":"border-slate-200"}`}>
                 <span className="flex items-center gap-2 font-bold"><input type="radio" name="scope" checked={scope===key} onChange={()=>{setScope(key);clearPreview();}} /> {label}</span>
@@ -234,7 +236,7 @@ export default function SportsResetManager() {
               {events.map(e=><option value={e.id} key={e.id}>{e.sport_name} ({e.event_code || "ไม่ระบุรหัส"})</option>)}
             </select>
           </div>}
-          {scope === "competition" && <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">การรีเซตทั้งระบบจะลบใบสมัครและคะแนนทดลองทุกกีฬา (รวมฟุตบอลและ RoV) แต่คงโครงการแข่งขันและบัญชีไว้ ต้องสำรอง Supabase ก่อนใช้งาน</p>}
+          {scope === "competition" && <p className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900">การรีเซตทั้งระบบจะลบใบสมัครและคะแนนทุกกีฬา รวมข้อมูลจริง (รวมฟุตบอลและ RoV) แต่คงโครงการแข่งขันและบัญชีไว้ ต้องสำรอง Supabase ก่อนใช้งาน</p>}
           <button className="mt-5 rounded-xl bg-red-800 px-5 py-3 text-sm font-black text-white hover:bg-red-900 disabled:opacity-50" disabled={busy || (scope!=="competition"&&!target)} onClick={()=>void inspect()}>
             {busy ? "กำลังตรวจสอบ..." : "ตรวจสอบจำนวนข้อมูลก่อนลบ"}
           </button>
@@ -250,7 +252,8 @@ export default function SportsResetManager() {
           <p className="mt-3 text-sm text-slate-600">จะเก็บข้อมูลก่อนลบไว้ใน Archive สำหรับผู้ดูแลฐานข้อมูล แต่ยังไม่มีปุ่มกู้คืนอัตโนมัติ</p>
           <label htmlFor="reset-confirmation" className="mt-5 block text-sm font-bold text-red-900">พิมพ์ข้อความนี้ทุกตัวอักษรเพื่อยืนยัน: <code className="select-all rounded bg-rose-100 px-2 py-1">{CONFIRMATION}</code></label>
           <input id="reset-confirmation" className={`${cls} mt-3`} value={confirmation} autoComplete="off" onChange={e=>setConfirmation(e.target.value)} placeholder="พิมพ์ข้อความยืนยัน" />
-          <button className="mt-4 rounded-xl bg-red-800 px-6 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40" disabled={busy || !preview.can_reset || confirmation !== CONFIRMATION} onClick={()=>void execute()}>
+          <label className="mt-3 flex items-start gap-2 text-sm font-bold text-red-900"><input type="checkbox" checked={understandsReal} onChange={e=>setUnderstandsReal(e.target.checked)} /> ยืนยันว่าหน้านี้ลบข้อมูลจริง ไม่ใช่ศูนย์ TEST และได้สำรองข้อมูลแล้ว</label>
+          <button className="mt-4 rounded-xl bg-red-800 px-6 py-3 text-sm font-black text-white disabled:cursor-not-allowed disabled:opacity-40" disabled={busy || !preview.can_reset || confirmation !== CONFIRMATION || !understandsReal} onClick={()=>void execute()}>
             {busy ? "กำลังทำรายการ..." : "ยืนยันลบข้อมูลตามที่ตรวจสอบ"}
           </button>
           {!preview.can_reset && <p className="mt-2 text-xs text-red-700">ระบบไม่อนุญาตให้รีเซตหากมีเกียรติบัตรที่ยังไม่ยกเลิก มีผลแข่งขันที่เกี่ยวข้อง หรือถึงวันเริ่มแข่งขัน 30 พ.ย. 2569</p>}

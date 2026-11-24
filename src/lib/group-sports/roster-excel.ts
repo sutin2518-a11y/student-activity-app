@@ -39,7 +39,7 @@ export function isRovRoster(event: RosterTemplateEvent): boolean {
 }
 
 export function supportsIndividualBatch(event: RosterTemplateEvent): boolean {
-  return event.event_type !== "team" && event.max_athletes_per_entry === 1;
+  return !event.event_code?.startsWith("GS3-TT-") && event.event_type !== "team" && event.max_athletes_per_entry === 1;
 }
 
 export function rosterColumns(event: RosterTemplateEvent): string[] {

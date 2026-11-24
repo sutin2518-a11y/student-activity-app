@@ -1,0 +1,551 @@
+{
+  "source": "โปรแกรมการแข่งขันฟุตซอล.pdf pp. 8–10",
+  "schools": {
+    "FK": "ฟากกว๊านวิทยาคม",
+    "PI": "พินิตประสาธน์",
+    "UP": "สาธิตมหาวิทยาลัยพะเยา",
+    "RP": "ราชประชานุเคราะห์ 24",
+    "JU": "จุนวิทยาคม",
+    "PY": "พะเยาพิทยาคม",
+    "CK": "เชียงคำวิทยาคม",
+    "CH": "เฉลิมพระเกียรติสมเด็จพระศรีนครินทร์ พะเยา",
+    "PS": "ภูซางวิทยาคม",
+    "FG": "ฝายกวางวิทยาคม",
+    "KK": "ขุนควรวิทยาคม",
+    "DJ": "ดงเจนวิทยาคม",
+    "TP": "ถ้ำปินวิทยาคม",
+    "DK": "ดอกคำใต้วิทยาคม",
+    "PL": "พญาลอวิทยาคม",
+    "MJ": "แม่ใจวิทยาคม"
+  },
+  "groups": {
+    "15M": [
+      "FK PI UP",
+      "RP JU PY",
+      "CK CH",
+      "PS FG KK"
+    ],
+    "UM": [
+      "FG RP CK UP",
+      "PY DJ CH",
+      "PI TP JU",
+      "DK PS PL"
+    ],
+    "UF": [
+      "PY MJ KK",
+      "UP CH PS TP"
+    ]
+  },
+  "matches": [
+    {
+      "no": 1,
+      "date": "2026-11-30",
+      "time": "08:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "FG",
+      "b": "CK"
+    },
+    {
+      "no": 2,
+      "date": "2026-11-30",
+      "time": "09:30",
+      "code": "UM",
+      "group": "D",
+      "stage": "group",
+      "a": "PS",
+      "b": "PL"
+    },
+    {
+      "no": 3,
+      "date": "2026-11-30",
+      "time": "10:30",
+      "code": "UM",
+      "group": "B",
+      "stage": "group",
+      "a": "DJ",
+      "b": "CH"
+    },
+    {
+      "no": 4,
+      "date": "2026-11-30",
+      "time": "11:30",
+      "code": "UM",
+      "group": "C",
+      "stage": "group",
+      "a": "TP",
+      "b": "JU"
+    },
+    {
+      "no": 5,
+      "date": "2026-11-30",
+      "time": "13:00",
+      "code": "15M",
+      "group": "A",
+      "stage": "group",
+      "a": "FK",
+      "b": "PI"
+    },
+    {
+      "no": 6,
+      "date": "2026-11-30",
+      "time": "14:00",
+      "code": "15M",
+      "group": "B",
+      "stage": "group",
+      "a": "JU",
+      "b": "PY"
+    },
+    {
+      "no": 7,
+      "date": "2026-11-30",
+      "time": "15:00",
+      "code": "15M",
+      "group": "D",
+      "stage": "group",
+      "a": "PS",
+      "b": "FG"
+    },
+    {
+      "no": 8,
+      "date": "2026-12-02",
+      "time": "08:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "CK",
+      "b": "RP"
+    },
+    {
+      "no": 9,
+      "date": "2026-12-02",
+      "time": "09:30",
+      "code": "UM",
+      "group": "D",
+      "stage": "group",
+      "a": "PL",
+      "b": "DK"
+    },
+    {
+      "no": 10,
+      "date": "2026-12-02",
+      "time": "10:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "UP",
+      "b": "FG"
+    },
+    {
+      "no": 11,
+      "date": "2026-12-02",
+      "time": "11:30",
+      "code": "15M",
+      "group": "A",
+      "stage": "group",
+      "a": "UP",
+      "b": "PI"
+    },
+    {
+      "no": 12,
+      "date": "2026-12-02",
+      "time": "13:00",
+      "code": "15M",
+      "group": "C",
+      "stage": "group",
+      "a": "CH",
+      "b": "CK"
+    },
+    {
+      "no": 13,
+      "date": "2026-12-02",
+      "time": "14:00",
+      "code": "UF",
+      "group": "A",
+      "stage": "group",
+      "a": "MJ",
+      "b": "KK"
+    },
+    {
+      "no": 14,
+      "date": "2026-12-02",
+      "time": "15:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "CH",
+      "b": "PS"
+    },
+    {
+      "no": 15,
+      "date": "2026-12-03",
+      "time": "08:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "RP",
+      "b": "FG"
+    },
+    {
+      "no": 16,
+      "date": "2026-12-03",
+      "time": "09:30",
+      "code": "UM",
+      "group": "B",
+      "stage": "group",
+      "a": "PY",
+      "b": "CH"
+    },
+    {
+      "no": 17,
+      "date": "2026-12-03",
+      "time": "10:30",
+      "code": "UM",
+      "group": "C",
+      "stage": "group",
+      "a": "TP",
+      "b": "PI"
+    },
+    {
+      "no": 18,
+      "date": "2026-12-03",
+      "time": "11:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "CK",
+      "b": "UP"
+    },
+    {
+      "no": 19,
+      "date": "2026-12-03",
+      "time": "13:00",
+      "code": "UM",
+      "group": "D",
+      "stage": "group",
+      "a": "DK",
+      "b": "PS"
+    },
+    {
+      "no": 20,
+      "date": "2026-12-03",
+      "time": "14:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "CH",
+      "b": "UP"
+    },
+    {
+      "no": 21,
+      "date": "2026-12-03",
+      "time": "15:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "PS",
+      "b": "TP"
+    },
+    {
+      "no": 22,
+      "date": "2026-12-04",
+      "time": "08:30",
+      "code": "15M",
+      "group": "D",
+      "stage": "group",
+      "a": "FG",
+      "b": "KK"
+    },
+    {
+      "no": 23,
+      "date": "2026-12-04",
+      "time": "09:30",
+      "code": "15M",
+      "group": "B",
+      "stage": "group",
+      "a": "PY",
+      "b": "RP"
+    },
+    {
+      "no": 24,
+      "date": "2026-12-04",
+      "time": "10:30",
+      "code": "15M",
+      "group": "A",
+      "stage": "group",
+      "a": "UP",
+      "b": "FK"
+    },
+    {
+      "no": 25,
+      "date": "2026-12-04",
+      "time": "11:30",
+      "code": "UF",
+      "group": "A",
+      "stage": "group",
+      "a": "PY",
+      "b": "MJ"
+    },
+    {
+      "no": 26,
+      "date": "2026-12-04",
+      "time": "13:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "PS",
+      "b": "UP"
+    },
+    {
+      "no": 27,
+      "date": "2026-12-04",
+      "time": "14:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "TP",
+      "b": "CH"
+    },
+    {
+      "no": 28,
+      "date": "2026-12-05",
+      "time": "08:30",
+      "code": "UM",
+      "group": "B",
+      "stage": "group",
+      "a": "DJ",
+      "b": "PY"
+    },
+    {
+      "no": 29,
+      "date": "2026-12-05",
+      "time": "09:30",
+      "code": "UM",
+      "group": "C",
+      "stage": "group",
+      "a": "JU",
+      "b": "PI"
+    },
+    {
+      "no": 30,
+      "date": "2026-12-05",
+      "time": "10:30",
+      "code": "UM",
+      "group": "A",
+      "stage": "group",
+      "a": "RP",
+      "b": "UP"
+    },
+    {
+      "no": 31,
+      "date": "2026-12-05",
+      "time": "11:30",
+      "code": "15M",
+      "group": "B",
+      "stage": "group",
+      "a": "RP",
+      "b": "JU"
+    },
+    {
+      "no": 32,
+      "date": "2026-12-05",
+      "time": "13:00",
+      "code": "15M",
+      "group": "D",
+      "stage": "group",
+      "a": "KK",
+      "b": "PS"
+    },
+    {
+      "no": 33,
+      "date": "2026-12-05",
+      "time": "14:00",
+      "code": "UF",
+      "group": "A",
+      "stage": "group",
+      "a": "PY",
+      "b": "KK"
+    },
+    {
+      "no": 34,
+      "date": "2026-12-05",
+      "time": "15:00",
+      "code": "UF",
+      "group": "B",
+      "stage": "group",
+      "a": "UP",
+      "b": "TP"
+    },
+    {
+      "no": 35,
+      "date": "2026-12-06",
+      "time": "08:30",
+      "code": "UM",
+      "group": null,
+      "stage": "quarter",
+      "a": "A1",
+      "b": "B2"
+    },
+    {
+      "no": 36,
+      "date": "2026-12-06",
+      "time": "09:30",
+      "code": "UM",
+      "group": null,
+      "stage": "quarter",
+      "a": "B1",
+      "b": "A2"
+    },
+    {
+      "no": 37,
+      "date": "2026-12-06",
+      "time": "10:30",
+      "code": "UM",
+      "group": null,
+      "stage": "quarter",
+      "a": "C1",
+      "b": "D2"
+    },
+    {
+      "no": 38,
+      "date": "2026-12-06",
+      "time": "11:30",
+      "code": "UM",
+      "group": null,
+      "stage": "quarter",
+      "a": "D1",
+      "b": "C2"
+    },
+    {
+      "no": 39,
+      "date": "2026-12-06",
+      "time": "12:30",
+      "code": "15M",
+      "group": null,
+      "stage": "quarter",
+      "a": "A1",
+      "b": "B2"
+    },
+    {
+      "no": 40,
+      "date": "2026-12-06",
+      "time": "13:30",
+      "code": "15M",
+      "group": null,
+      "stage": "quarter",
+      "a": "B1",
+      "b": "A2"
+    },
+    {
+      "no": 41,
+      "date": "2026-12-06",
+      "time": "14:30",
+      "code": "15M",
+      "group": null,
+      "stage": "quarter",
+      "a": "C1",
+      "b": "D2"
+    },
+    {
+      "no": 42,
+      "date": "2026-12-06",
+      "time": "15:30",
+      "code": "15M",
+      "group": null,
+      "stage": "quarter",
+      "a": "D1",
+      "b": "C2"
+    },
+    {
+      "no": 43,
+      "date": "2026-12-07",
+      "time": "08:30",
+      "code": "UM",
+      "group": null,
+      "stage": "semifinal",
+      "a": "W35",
+      "b": "W37"
+    },
+    {
+      "no": 44,
+      "date": "2026-12-07",
+      "time": "09:30",
+      "code": "UM",
+      "group": null,
+      "stage": "semifinal",
+      "a": "W36",
+      "b": "W38"
+    },
+    {
+      "no": 45,
+      "date": "2026-12-07",
+      "time": "10:30",
+      "code": "15M",
+      "group": null,
+      "stage": "semifinal",
+      "a": "W39",
+      "b": "W41"
+    },
+    {
+      "no": 46,
+      "date": "2026-12-07",
+      "time": "11:30",
+      "code": "15M",
+      "group": null,
+      "stage": "semifinal",
+      "a": "W40",
+      "b": "W42"
+    },
+    {
+      "no": 47,
+      "date": "2026-12-07",
+      "time": "13:00",
+      "code": "UF",
+      "group": null,
+      "stage": "semifinal",
+      "a": "A1",
+      "b": "B2"
+    },
+    {
+      "no": 48,
+      "date": "2026-12-07",
+      "time": "14:00",
+      "code": "UF",
+      "group": null,
+      "stage": "semifinal",
+      "a": "B1",
+      "b": "A2"
+    },
+    {
+      "no": 49,
+      "date": "2026-12-07",
+      "time": "15:00",
+      "code": "UM",
+      "group": null,
+      "stage": "final",
+      "a": "W43",
+      "b": "W44"
+    },
+    {
+      "no": 50,
+      "date": "2026-12-08",
+      "time": "09:00",
+      "code": "UF",
+      "group": null,
+      "stage": "final",
+      "a": "W47",
+      "b": "W48"
+    },
+    {
+      "no": 51,
+      "date": "2026-12-08",
+      "time": "10:00",
+      "code": "15M",
+      "group": null,
+      "stage": "final",
+      "a": "W45",
+      "b": "W46"
+    }
+  ]
+}
