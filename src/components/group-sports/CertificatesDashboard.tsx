@@ -91,7 +91,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
     setSuggestion((d.data||null) as Suggestion|null);
     setReceipt((f.data||null) as Receipt|null);
     if(d.error||f.error)setSyncWarning("ไม่สามารถอ่านข้อมูลเชื่อมโยงได้ กรุณาตรวจสอบ Migration 038 หรือโหลดใหม่");
-    const defaults=emptyPlacements(singleBronze(event));
+    const defaults=event.event_code?.startsWith("GS3-BX-") ? (details?.placements.length?details.placements:(d.data as Suggestion|null)?.placements||[]) : emptyPlacements(singleBronze(event));
     setPlacements(defaults.map(def=>({
       ...def,entry_id:details?.placements.find(p=>p.rank===def.rank&&p.slot===def.slot)?.entry_id||"",
     })));
@@ -136,7 +136,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
   })),[entries]);
   const eventReady=Boolean(event && loadedEventId===event.id);
   const published=event?.result_status==="published";
-  const canSend=Boolean(eventReady&&event?.can_record&&placements.length>0&&placements.every(p=>p.entry_id)
+  const canSend=Boolean((!event?.event_code?.startsWith("GS3-BX-")||suggestion?.status==="ready")&&eventReady&&event?.can_record&&placements.length>0&&placements.every(p=>p.entry_id)
     &&new Set(placements.map(p=>p.entry_id)).size===placements.length&&!published);
 
   async function submitResults(e:FormEvent<HTMLFormElement>) {
@@ -275,7 +275,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
                     disabled={placements.some((p,j)=>j!==i&&p.entry_id===entry.id)}>{entry.label}</option>)}
                 </select>
               </label>)}
-              <p className="text-xs text-slate-500">{singleBronze(event)?"รายการนี้มีรองชนะเลิศอันดับที่ 2 หนึ่งรางวัล":"กีฬาทั่วไปมีรองชนะเลิศอันดับที่ 2 สองทีม/รายการ โดยไม่ต้องจัดแข่งขันชิงอันดับ 3"}</p>
+              <p className="text-xs text-slate-500">{event.event_code?.startsWith("GS3-BX-")?"มวย: อันดับตามคู่ชกจริงและกติการางวัลที่ผู้จัดยืนยัน":singleBronze(event)?"รายการนี้มีรองชนะเลิศอันดับที่ 2 หนึ่งรางวัล":"กีฬาทั่วไปมีรองชนะเลิศอันดับที่ 2 สองทีม/รายการ โดยไม่ต้องจัดแข่งขันชิงอันดับ 3"}</p>
               {!published&&<>
                 {entryOptions.length<placements.length&&<p role="alert" className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">มีผู้แข่งขันที่ได้รับใบสมัคร {entryOptions.length} รายการ แต่ต้องเลือก {placements.length} อันดับตามกติกาที่ตั้งไว้ กรุณาตรวจสอบข้อมูลลงทะเบียนก่อนบันทึก</p>}
                 <p className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">เมื่อยืนยันบันทึก ระบบจะประกาศอันดับรางวัล อัปเดตเหรียญ และออกเกียรติบัตรทันที โดยไม่ต้องรออนุมัติ โปรดตรวจสอบอันดับให้ถูกต้องก่อนยืนยัน</p>

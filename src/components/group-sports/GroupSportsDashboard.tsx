@@ -276,6 +276,7 @@ function acceptsNewEntries(event: SportEvent) {
 const blankPlayer = (): AthleteInput => ({ student_code: "", full_name: "", grade_level: null, gender: null });
 const isRov = (event?: SportEvent) => ["GS3-ES-SM", "GS3-ES-SF"].includes(event?.event_code || "");
 const isFutsal = (event?: SportEvent) => ["GS3-FS-15M","GS3-FS-UM","GS3-FS-UF"].includes(event?.event_code || "");
+const isBoxing = (event?: SportEvent) => Boolean(event?.event_code?.startsWith("GS3-BX-"));
 const isTableTennis = (event?: SportEvent) => Boolean(event?.event_code?.startsWith("GS3-TT-"));
 const isPetanque = (event?: SportEvent) => Boolean(event?.event_code?.startsWith("GS3-PT-"));
 const isTakraw = (event?: SportEvent) => Boolean(event?.event_code?.startsWith("GS3-ST-"));
@@ -301,6 +302,7 @@ function resultSportName(event: SportEvent): string {
 
 
 function validateAthletes(event: SportEvent, athletes: AthleteInput[], individualBatch = false) {
+  if (isBoxing(event) && athletes.length !== 1) return "มวยสากลสมัครเล่น: นักกีฬา 1 คนต่อใบสมัคร";
   if (isTableTennis(event) && athletes.length !== (event.event_code?.endsWith("-S") ? 1 : 2)) return "เทเบิลเทนนิส: เดี่ยว 1 คน / คู่ 2 คน";
   if (isPetanque(event) && (athletes.length < 3 || athletes.length > 4)) return "เปตอง: นักกีฬา 3 คน สำรองได้ 1 คน";
   if (isTakraw(event) && (athletes.length < 3 || athletes.length > 5)) return "เซปักตะกร้อ: นักกีฬา 3–5 คน";
@@ -426,7 +428,7 @@ export default function GroupSportsDashboard() {
   const [homeSpecialMatches, setHomeSpecialMatches] = useState<{
     id:string;event_id:string;round_name:string;scheduled_at:string|null;
     venue_name:string|null;status:string;display_team_a:string;display_team_b:string;
-    score_a:number|null;score_b:number|null;special_source:"football"|"esports";
+    score_a:number|null;score_b:number|null;special_source:"football"|"esports"|"boxing";
   }[]>([]);
 
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -567,7 +569,8 @@ export default function GroupSportsDashboard() {
           .eq("competition_id",activeCompetition.id).in("match_status",["scheduled","completed"]).limit(500),
         supabase.from("sports_esports_group_teams")
           .select("id,school_name").eq("competition_id",activeCompetition.id).limit(600),
-      ]).then(([football,esports,teams])=>{
+        supabase.rpc("sports_boxing_public",{p_comp:activeCompetition.id}),
+      ]).then(([football,esports,teams,boxing])=>{
         type FootballRow = {id:string;event_id:string;stage:string;group_code:string|null;team1_name:string;team2_name:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;status:string;score1:number|null;score2:number|null};
         type EsportsRow = {id:string;event_id:string;stage:string;team1_id:string;team2_id:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;match_status:string;score1:number|null;score2:number|null};
         const teamById = new Map(((teams.data || []) as {id:string;school_name:string}[]).map(t=>[t.id,t.school_name]));
@@ -584,7 +587,9 @@ export default function GroupSportsDashboard() {
           status:m.match_status==="completed"?"completed":"scheduled",display_team_a:teamById.get(m.team1_id)||"รอคู่แข่งขัน",display_team_b:teamById.get(m.team2_id)||"รอคู่แข่งขัน",
           score_a:m.score1,score_b:m.score2,special_source:"esports" as const,
         }));
-        setHomeSpecialMatches([...footballMatches,...esportsMatches]);
+        type BoxingRow={id:string;event_id:string;round_name:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;status:string;red_school:string;blue_school:string;winner_school:string|null};
+        const boxingMatches=boxing.error?[]:((boxing.data||[]) as BoxingRow[]).map(m=>({id:`boxing:${m.id}`,event_id:m.event_id,round_name:m.round_name+(m.winner_school?` · ผู้ชนะ ${m.winner_school}`:""),scheduled_at:when(m.scheduled_date,m.start_time),venue_name:m.venue_name,status:m.status==="completed"?"completed":"scheduled",display_team_a:m.red_school,display_team_b:m.blue_school,score_a:null,score_b:null,special_source:"boxing" as const}));
+        setHomeSpecialMatches([...footballMatches,...esportsMatches,...boxingMatches]);
       });
       void supabase.from("sports_school_information")
         .select("id,title,details,published_at")
@@ -701,7 +706,7 @@ export default function GroupSportsDashboard() {
   const resultSportGroups = useMemo(() => {
     const groups = new Map<string, SportEvent[]>();
     for (const event of events) {
-      if (resultSportName(event) === "E-Sport (RoV)" || resultSportName(event) === "ฟุตบอล" || isFutsal(event) || isBasketball(event) || isVolleyball(event) || isTakraw(event) || isPetanque(event) || isTableTennis(event)) continue; // specialist systems have their own fixtures/results
+      if (resultSportName(event) === "E-Sport (RoV)" || resultSportName(event) === "ฟุตบอล" || isFutsal(event) || isBasketball(event) || isVolleyball(event) || isTakraw(event) || isPetanque(event) || isTableTennis(event) || isBoxing(event)) continue; // specialist systems have their own fixtures/results
       const name = resultSportName(event);
       groups.set(name, [...(groups.get(name) || []), event]);
     }
@@ -709,7 +714,7 @@ export default function GroupSportsDashboard() {
       .sort((a, b) => a.name.localeCompare(b.name, "th"));
   }, [events]);
   const filteredResultEvents = useMemo(() => events.filter((event) =>
-    resultSportName(event) !== "E-Sport (RoV)" && !isFutsal(event) && !isBasketball(event) && !isVolleyball(event) && !isTakraw(event) && !isPetanque(event) && !isTableTennis(event) &&
+    resultSportName(event) !== "E-Sport (RoV)" && !isFutsal(event) && !isBasketball(event) && !isVolleyball(event) && !isTakraw(event) && !isPetanque(event) && !isTableTennis(event) && !isBoxing(event) &&
     (resultSportFilter === "all" || resultSportName(event) === resultSportFilter)
   ), [events, resultSportFilter]);
   const filteredResultMatches = useMemo(() => {
@@ -1044,6 +1049,7 @@ export default function GroupSportsDashboard() {
     if (!canManageCompetition || !competition) return;
     const form = new FormData(event.currentTarget);
     const eventId = String(form.get("event_id") || "");
+    if (isBoxing(events.find(e=>e.id===eventId))) return setError("จัดการในหน้ามวยสากลสมัครเล่นโดยเฉพาะ");
     if (isTableTennis(events.find(e=>e.id===eventId))) return setError("จัดการในหน้าเทเบิลเทนนิสโดยเฉพาะ");
     if (isPetanque(events.find(e=>e.id===eventId))) return setError("จัดการคู่แข่งขันในหน้าเปตองโดยเฉพาะ");
     if (isTakraw(events.find(e=>e.id===eventId))) return setError("จัดการคู่แข่งขันในหน้าเซปักตะกร้อโดยเฉพาะ");
@@ -1121,6 +1127,7 @@ export default function GroupSportsDashboard() {
     const entryId = String(form.get("entry_id") || "");
     const entry = entries.find((item) => item.id === entryId);
     if (!eventId || !entry || entry.event_id !== eventId || entry.status !== "approved") return setError("กรุณาเลือกรายการแข่งขันและใบสมัครที่รับข้อมูลแล้วให้ตรงกัน");
+    if (events.find(e=>e.id===eventId)?.event_code?.startsWith("GS3-AT-")) return setError("กรุณาบันทึกผลที่ระบบกรีฑา / รายงานตัวโดยเฉพาะ");
     const rankValue = String(form.get("rank") || "").trim();
     const performanceValue = String(form.get("performance_value") || "").trim();
     const payload = {
@@ -1667,6 +1674,8 @@ export default function GroupSportsDashboard() {
                 {canManageCompetition && <Link href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
                 {canManageCompetition && <Link href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
                 {canManageCompetition && <Link href="/group-sports/petanque">จัดการเปตอง</Link>}
+                {canManageCompetition && <Link href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
+                <Link href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
                 {canManageCompetition && <Link href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
                 {canManageCompetition && <Link href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
                 {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
@@ -1739,7 +1748,7 @@ export default function GroupSportsDashboard() {
                   canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && <SportsGamesHome
-              schools={schools} events={events} matches={matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)))} results={results}
+              schools={schools} events={events} matches={matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id)))} results={results}
               medals={medals} entries={entries} eventResults={eventResults}
               specialMatches={homeSpecialMatches}
               announcements={homeAnnouncements} athleteCount={homeAthleteCount}
@@ -1854,6 +1863,8 @@ export default function GroupSportsDashboard() {
                   <Link href="/group-sports/takraw" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-blue-200 bg-white p-4 shadow-[0_3px_12px_rgba(127,29,29,.06)] transition hover:border-blue-400 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">🏐</span><span className="min-w-0"><span className="block font-extrabold text-[#07123d]">เซปักตะกร้อ 4 รุ่น</span><span className="mt-1 block text-xs text-slate-600">ระบบเฉพาะเซปักตะกร้อ · แบ่งสาย โปรแกรม 62 คู่ บันทึกผล และตารางคะแนน</span></span></span><span className="shrink-0 rounded-lg bg-[#0755ce] px-3 py-2 text-center text-xs font-bold text-white group-hover:bg-[#07123d]">เข้าสู่เซปักตะกร้อ ↗</span></Link>
                   <Link href="/group-sports/petanque" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-blue-200 bg-white p-4 shadow-[0_3px_12px_rgba(127,29,29,.06)] transition hover:border-blue-400 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">🔴</span><span className="min-w-0"><span className="block font-extrabold text-[#07123d]">เปตอง 4 รุ่น</span><span className="mt-1 block text-xs text-slate-600">ระบบเฉพาะเปตอง · แบ่งสาย โปรแกรม 96 คู่จริง บันทึกผล และตารางคะแนน</span></span></span><span className="shrink-0 rounded-lg bg-[#0755ce] px-3 py-2 text-center text-xs font-bold text-white group-hover:bg-[#07123d]">เข้าสู่เปตอง ↗</span></Link>
                   <Link href="/group-sports/table-tennis" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-blue-200 bg-white p-4 shadow-[0_3px_12px_rgba(127,29,29,.06)] transition hover:border-blue-400 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">🏓</span><span className="min-w-0"><span className="block font-extrabold text-[#07123d]">เทเบิลเทนนิส 15 รายการ</span><span className="mt-1 block text-xs text-slate-600">แพ้คัดออก · โปรแกรม 75 คู่ · บันทึกคะแนนรายเกม</span></span></span><span className="shrink-0 rounded-lg bg-[#0755ce] px-3 py-2 text-center text-xs font-bold text-white group-hover:bg-[#07123d]">เข้าสู่เทเบิลเทนนิส ↗</span></Link>
+                  <Link href="/group-sports/athletics" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-emerald-200 bg-white p-4 font-bold text-emerald-800">🏃 ระบบกรีฑา · โปรแกรม / รายงานตัว / พิมพ์ใบรายงานตัว →</Link>
+                  <Link href="/group-sports/boxing" className="group mb-3 flex min-h-20 items-center justify-between gap-4 rounded-xl border border-blue-200 bg-white p-4 shadow-[0_3px_12px_rgba(127,29,29,.06)] transition hover:border-blue-400 hover:bg-blue-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-red-700"><span className="flex min-w-0 items-center gap-3"><span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-blue-100 text-2xl">🥊</span><span className="min-w-0"><span className="block font-extrabold text-[#07123d]">มวยสากลสมัครเล่น 26 รายการ</span><span className="mt-1 block text-xs text-slate-600">ชั่งน้ำหนัก · จับสาย · บันทึกผลตามคำตัดสิน</span></span></span><span className="shrink-0 rounded-lg bg-[#0755ce] px-3 py-2 text-center text-xs font-bold text-white group-hover:bg-[#07123d]">เข้าสู่มวยสากลสมัครเล่น ↗</span></Link>
                   <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {resultSportGroups.map((group) => {
                       const isSelected = resultSportFilter === group.name;

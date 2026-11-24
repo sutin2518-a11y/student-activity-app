@@ -10,7 +10,7 @@ type Match = {
   school_a_id?: string | null; school_b_id?: string | null;
   scheduled_at?: string | null; venue_name?: string | null; status: string;
   display_team_a?:string; display_team_b?:string; score_a?:number|null;score_b?:number|null;
-  special_source?:"football"|"esports";
+  special_source?:"football"|"esports"|"boxing";
 };
 type Result = { match_id: string; score_a: number; score_b: number };
 type Medal = { school_id: string; event_id: string; medal_type: "gold" | "silver" | "bronze" };
@@ -47,6 +47,7 @@ function sportGlyph(sport: string) {
   if (/กรีฑา|วิ่ง|กระโดด|ขว้าง/i.test(sport)) return "🏃";
   if (/วอลเลย์/i.test(sport)) return "🏐";
   if (/บาสเกต/i.test(sport)) return "🏀";
+  if (/มวยสากล/i.test(sport)) return "🥊";
   if (/เทเบิลเทนนิส/i.test(sport)) return "🏓";
   if (/RoV|E-Sport/i.test(sport)) return "🎮";
   if (/แบดมินตัน/i.test(sport)) return "🏸";
@@ -59,6 +60,7 @@ function sportGroup(value: string) {
   if (/ฟุตบอล/i.test(name)) return "ฟุตบอล";
   if (/กรีฑา|วิ่ง|กระโดด|ขว้าง/i.test(name)) return "กรีฑา";
   if (/วอลเลย์บอล/i.test(name)) return "วอลเลย์บอล";
+  if (/มวยสากล/i.test(name)) return "มวยสากลสมัครเล่น";
   if (/เทเบิลเทนนิส/i.test(name)) return "เทเบิลเทนนิส";
   const fragment = name.split(/\s+(?:รุ่น|ประเภท|ชาย|หญิง|ไม่จำกัด|อายุ|คู่|เดี่ยว|ม\.)/)[0];
   return fragment || name;
@@ -99,6 +101,7 @@ export default function SportsGamesHome({
   const allMatches = [...matches, ...specialMatches];
   const goMatch = (m: Match) => {
     if (m.special_source === "football") window.location.assign(getEvent(m.event_id).includes("เทเบิลเทนนิส") ? "/group-sports/table-tennis" : getEvent(m.event_id).includes("เปตอง") ? "/group-sports/petanque" : getEvent(m.event_id).includes("เซปักตะกร้อ") ? "/group-sports/takraw" : getEvent(m.event_id).includes("วอลเลย์บอล") ? "/group-sports/volleyball" : getEvent(m.event_id).includes("บาสเกตบอล") ? "/group-sports/basketball" : getEvent(m.event_id).includes("ฟุตซอล") ? "/group-sports/futsal" : "/group-sports/football");
+    else if (m.special_source === "boxing") window.location.assign("/group-sports/boxing");
     else if (m.special_source === "esports") window.location.assign("/group-sports/esports");
     else onNavigate("matches");
   };
