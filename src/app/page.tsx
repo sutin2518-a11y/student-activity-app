@@ -297,7 +297,13 @@ export default function HomePage() {
       {/* 🛑 Footer */}
       <div className="mt-10 bg-red-800 text-white py-3 px-4 text-center text-xs font-medium flex flex-col md:flex-row justify-between items-center max-w-7xl mx-auto rounded-t-xl opacity-90">
         <p>"เชื่อมต่อกิจกรรม สร้างโอกาส พัฒนานักเรียนสู่สังคมที่ยั่งยืน"</p>
-        <p className="mt-1 md:mt-0">งานกิจกรรมพัฒนาผู้เรียน โรงเรียนเชียงคำวิทยาคม</p>
+        <div className="mt-2 md:mt-0 text-center md:text-right">
+          <p>งานกิจกรรมพัฒนาผู้เรียน โรงเรียนเชียงคำวิทยาคม</p>
+          <nav aria-label="ข้อมูลนโยบาย" className="mt-2 flex flex-wrap justify-center md:justify-end gap-x-3 gap-y-1">
+            <Link href="/privacy" className="underline underline-offset-2 hover:text-red-100">นโยบายความเป็นส่วนตัว</Link>
+            <Link href="/terms" className="underline underline-offset-2 hover:text-red-100">ข้อกำหนดการใช้งาน</Link>
+          </nav>
+        </div>
       </div>
 
     </div>

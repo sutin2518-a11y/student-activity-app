@@ -391,6 +391,7 @@ export default function GroupSportsDashboard() {
   const [isAdmin, setIsAdmin] = useState(false);
   const [canManageCertificates, setCanManageCertificates] = useState(false);
   const [canAdminCertificates, setCanAdminCertificates] = useState(false);
+  const [canCentralPrint, setCanCentralPrint] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -427,7 +428,7 @@ export default function GroupSportsDashboard() {
   const canManageSchool = rosterAdmin || roles.some((role) => role.role === "school_manager" && (!role.competition_id || role.competition_id === competition?.id));
   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
   const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
-  const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canManageCompetition || canRecordResults || canManageSchool);
+  const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canCentralPrint || canManageCompetition || canRecordResults || canManageSchool);
   const entrySchools = rosterAdmin
     ? schools
     : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
@@ -456,13 +457,15 @@ export default function GroupSportsDashboard() {
       // Management entry is shown only to appointed certificate officials and administrators.
       // The certificate RPC checks the authenticated account; a school-only user never sees it.
       if (user) {
-        const certificateResponse = await supabase.rpc("sports_cert_context");
+        const [certificateResponse, centralResponse] = await Promise.all([supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access")]);
+        setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
         const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
         setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
         setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
       } else {
         setCanManageCertificates(false);
         setCanAdminCertificates(false);
+        setCanCentralPrint(false);
       }
 
       const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
@@ -1607,6 +1610,7 @@ export default function GroupSportsDashboard() {
                 {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
                 {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
                 {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
+                {canCentralPrint && <Link href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
                 {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
                 {canManageAccounts && <Link href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
                 {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลทดสอบ</Link>}

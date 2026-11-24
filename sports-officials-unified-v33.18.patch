@@ -1,0 +1,417 @@
+diff --git a/src/app/auth/complete/page.tsx b/src/app/auth/complete/page.tsx
+index 0f18f50..3550726 100644
+--- a/src/app/auth/complete/page.tsx
++++ b/src/app/auth/complete/page.tsx
+@@ -56,10 +56,11 @@ export default function AuthCompletePage() {
+         if (mounted) setStatus("ยืนยันบัญชี Google แล้ว กำลังตรวจสอบสิทธิ์การใช้งาน...");
+         // Delegated officials are approved by their exact, verified Google email.
+         // Do not require a CKW staff profile just to enter an assigned sports page.
+-        const [esportsCheck, certificateCheck, sportsRoleCheck] = await Promise.all([
++        const [esportsCheck, certificateCheck, sportsRoleCheck, eventRefereeCheck] = await Promise.all([
+           supabase.rpc("sports_esports_my_access"),
+           supabase.rpc("sports_cert_my_access"),
+           supabase.from("sports_user_roles").select("role").eq("user_id", user.id).eq("is_active", true),
++          supabase.rpc("sports_event_referee_my_events"),
+         ]);
+         if (esportsCheck.error) throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
+         // A pending SQL migration should not lock out existing school/E-Sport accounts.
+@@ -68,10 +69,16 @@ export default function AuthCompletePage() {
+         if (certificateCheck.error && !certificateRpcMissing) {
+           throw new Error("ตรวจสอบสิทธิ์กรรมการเกียรติบัตรไม่สำเร็จ: " + certificateCheck.error.message);
+         }
++        const refereeRpcMissing = !!eventRefereeCheck.error &&
++          ["PGRST202", "42883"].includes(String(eventRefereeCheck.error.code));
++        if (eventRefereeCheck.error && !refereeRpcMissing) {
++          throw new Error("ตรวจสอบสิทธิ์กรรมการกีฬารายการไม่สำเร็จ: " + eventRefereeCheck.error.message);
++        }
++        const hasEventRefereeAccess = Array.isArray(eventRefereeCheck.data) && eventRefereeCheck.data.length > 0;
+         const hasEsportsAccess = esportsCheck.data === true;
+         const hasCertificateAccess = !certificateRpcMissing && certificateCheck.data === true;
+         const missingRoleTable = sportsRoleCheck.error?.code === "42P01" || sportsRoleCheck.error?.code === "PGRST205";
+-        if (sportsRoleCheck.error && !missingRoleTable && !hasEsportsAccess && !hasCertificateAccess) {
++        if (sportsRoleCheck.error && !missingRoleTable && !hasEsportsAccess && !hasCertificateAccess && !hasEventRefereeAccess) {
+           throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleCheck.error.message);
+         }
+         const sportsRoles = sportsRoleCheck.data || [];
+@@ -81,7 +88,7 @@ export default function AuthCompletePage() {
+         // A missing/blocked CKW staff profile must not prevent an authorized external referee login.
+         const { data: profile, error: profileError } = await supabase
+           .from("profiles").select("role").eq("id", user.id).maybeSingle();
+-        if (profileError && !hasEsportsAccess && !hasCertificateAccess) {
++        if (profileError && !hasEsportsAccess && !hasCertificateAccess && !hasEventRefereeAccess) {
+           throw new Error("อ่านข้อมูลสิทธิ์ผู้ใช้ไม่สำเร็จ: " + profileError.message);
+         }
+         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
+@@ -100,6 +107,10 @@ export default function AuthCompletePage() {
+           if (mounted) router.replace("/group-sports/certificates/manage");
+           return;
+         }
++        if (hasEventRefereeAccess && !isPrincipalSportsAdmin) {
++          if (mounted) router.replace("/group-sports/officials/my");
++          return;
++        }
+         if (isCkwAccount && destination) {
+           if (mounted) router.replace(destination);
+           return;
+diff --git a/src/app/group-sports/officials/my/page.tsx b/src/app/group-sports/officials/my/page.tsx
+new file mode 100644
+index 0000000..670f82e
+--- /dev/null
++++ b/src/app/group-sports/officials/my/page.tsx
+@@ -0,0 +1,46 @@
++"use client";
++
++import { useEffect, useState } from "react";
++import Link from "next/link";
++import { supabase } from "@/lib/supabase";
++
++type AssignedEvent = { id: string; sport_name: string; event_code: string | null; event_type: string | null };
++
++export default function MySportsOfficialAssignmentsPage() {
++  const [events, setEvents] = useState<AssignedEvent[]>([]);
++  const [loading, setLoading] = useState(true);
++  const [error, setError] = useState("");
++  useEffect(() => {
++    let mounted = true;
++    async function load() {
++      const auth = await supabase.auth.getUser();
++      if (auth.error || !auth.data.user) throw new Error("กรุณาเข้าสู่ระบบด้วย Google ก่อน");
++      const result = await supabase.rpc("sports_event_referee_my_events");
++      if (result.error) throw result.error;
++      if (mounted) setEvents((result.data || []) as AssignedEvent[]);
++    }
++    void load().catch(e => { if (mounted) setError(e instanceof Error ? e.message : "ไม่สามารถอ่านสิทธิ์กรรมการได้"); })
++      .finally(() => { if (mounted) setLoading(false); });
++    return () => { mounted = false; };
++  }, []);
++  return <main className="min-h-screen bg-slate-100 p-4 text-slate-900 sm:p-8">
++    <div className="mx-auto max-w-4xl space-y-4">
++      <header className="rounded-2xl bg-gradient-to-r from-blue-950 to-blue-700 p-6 text-white">
++        <Link href="/group-sports" className="text-xs font-semibold underline">← กลับสู่กีฬากลุ่ม</Link>
++        <h1 className="mt-3 text-2xl font-black">รายการที่ได้รับมอบหมาย — กรรมการกีฬา</h1>
++        <p className="mt-1 text-sm text-white/80">แสดงเฉพาะรายการแข่งขันที่บัญชี Google นี้ได้รับสิทธิ์</p>
++      </header>
++      {loading && <p className="rounded-xl bg-white p-5">กำลังตรวจสอบสิทธิ์...</p>}
++      {error && <p role="alert" className="rounded-xl border border-red-200 bg-red-50 p-5 text-red-900">{error}</p>}
++      {!loading && !error && events.length === 0 && <p className="rounded-xl bg-white p-5">ยังไม่มีรายการที่ได้รับมอบหมาย กรุณาติดต่อแม่แอดมิน</p>}
++      {!loading && !error && events.length > 0 && <section className="rounded-2xl bg-white p-5 shadow-sm">
++        <h2 className="text-lg font-extrabold">รายการแข่งขันที่รับผิดชอบ ({events.length})</h2>
++        <div className="mt-4 space-y-2">{events.map(event => <div key={event.id} className="rounded-xl border border-slate-200 p-4">
++          <p className="font-bold">{event.sport_name}</p>
++          <p className="mt-1 text-xs text-slate-600">รหัสรายการ {event.event_code || "—"}</p>
++        </div>)}</div>
++        <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">ขั้นที่ 1 เป็นการมอบหมายและตรวจสอบสิทธิ์เท่านั้น ฟอร์มบันทึกผลสำหรับกีฬาทั่วไปจะเชื่อมในขั้นที่ 2 และไม่ต้องรอแม่แอดมินอนุมัติทุกครั้ง</p>
++      </section>}
++    </div>
++  </main>;
++}
+diff --git a/src/components/group-sports/SportsOfficialsAccessManager.tsx b/src/components/group-sports/SportsOfficialsAccessManager.tsx
+index 852b9e0..1f86de3 100644
+--- a/src/components/group-sports/SportsOfficialsAccessManager.tsx
++++ b/src/components/group-sports/SportsOfficialsAccessManager.tsx
+@@ -5,11 +5,12 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react
+ import { supabase } from "@/lib/supabase";
+ import type { CertificateContext, CertificateEvent } from "@/lib/group-sports/certificates";
+ 
+-type Scope = "certificate" | "esports" | "both";
++type Scope = "results" | "certificate" | "esports" | "both";
+ type Access = {
+   email: string;
+   certificate_active: boolean;
+   esports_active: boolean;
++  results_active: boolean;
+   login_ready: boolean;
+   login_status: "ready" | "not_signed_in" | "unconfirmed_email" | "not_google";
+ };
+@@ -32,13 +33,18 @@ export default function SportsOfficialsAccessManager() {
+   const [eventId, setEventId] = useState("");
+   const [rows, setRows] = useState<Access[]>([]);
+   const [email, setEmail] = useState("");
+-  const [scope, setScope] = useState<Scope>("certificate");
++  const [scope, setScope] = useState<Scope>("results");
++  const [filter, setFilter] = useState("");
+   const [loading, setLoading] = useState(true);
+   const [busy, setBusy] = useState(false);
+   const [error, setError] = useState("");
+   const [notice, setNotice] = useState("");
+ 
+   const selectedEvent = useMemo(() => context?.events.find(e => e.id === eventId), [context, eventId]);
++  const filteredEvents = useMemo(() => (context?.events || []).filter(e => {
++    const search = filter.trim().toLowerCase();
++    return !search || `${e.sport_name} ${e.event_code || ""}`.toLowerCase().includes(search);
++  }), [context, filter]);
+   const isEsports = typeof selectedEvent?.event_code === "string" && eSportCodes.has(selectedEvent.event_code);
+ 
+   const loadContext = useCallback(async () => {
+@@ -54,9 +60,23 @@ export default function SportsOfficialsAccessManager() {
+ 
+   const refresh = useCallback(async (id: string) => {
+     if (!id) return;
+-    const result = await supabase.rpc("sports_officials_access_overview", { p_event: id });
+-    if (result.error) throw result.error;
+-    setRows((result.data || []) as Access[]);
++    const [legacy, resultOfficials] = await Promise.all([
++      supabase.rpc("sports_officials_access_overview", { p_event: id }),
++      supabase.rpc("sports_event_referee_roster", { p_event: id }),
++    ]);
++    if (legacy.error) throw legacy.error;
++    if (resultOfficials.error) throw resultOfficials.error;
++    const combined = new Map<string, Access>();
++    for (const item of (legacy.data || []) as Access[]) {
++      combined.set(item.email, { ...item, results_active: false });
++    }
++    for (const item of (resultOfficials.data || []) as Access[]) {
++      const current = combined.get(item.email);
++      combined.set(item.email, current
++        ? { ...current, results_active: item.results_active }
++        : { ...item, results_active: item.results_active, certificate_active: false, esports_active: false });
++    }
++    setRows(Array.from(combined.values()).sort((a, b) => a.email.localeCompare(b.email)));
+   }, []);
+ 
+   useEffect(() => {
+@@ -74,16 +94,20 @@ export default function SportsOfficialsAccessManager() {
+     return () => { active = false; };
+   }, [eventId, context?.role, refresh]);
+ 
+-  useEffect(() => { setScope(isEsports ? "both" : "certificate"); }, [isEsports, eventId]);
++  useEffect(() => { setScope("results"); }, [eventId]);
+ 
+   async function assign(targetEmail: string, assignedScope: Scope, active: boolean) {
+     if (!eventId || busy) return;
+     setBusy(true); setError(""); setNotice("");
+     try {
+-      const result = await supabase.rpc("sports_officials_assign", {
+-        p_event: eventId, p_email: targetEmail.trim().toLowerCase(),
+-        p_scope: assignedScope, p_active: active,
+-      });
++      const result = assignedScope === "results"
++        ? await supabase.rpc("sports_event_referee_assign", {
++            p_event: eventId, p_email: targetEmail.trim().toLowerCase(), p_active: active,
++          })
++        : await supabase.rpc("sports_officials_assign", {
++            p_event: eventId, p_email: targetEmail.trim().toLowerCase(),
++            p_scope: assignedScope, p_active: active,
++          });
+       if (result.error) throw result.error;
+       await refresh(eventId);
+       setNotice(`${active ? "มอบหมาย" : "ระงับ"}สิทธิ์เรียบร้อยแล้ว`);
+@@ -105,18 +129,21 @@ export default function SportsOfficialsAccessManager() {
+       <header className="rounded-2xl bg-gradient-to-r from-red-900 to-blue-900 p-5 text-white sm:p-7">
+         <Link href="/group-sports" className="text-xs font-semibold text-white/80 underline">← กลับหน้ากีฬากลุ่ม</Link>
+         <h1 className="mt-3 text-2xl font-black">มอบหมายกรรมการกีฬา</h1>
+-        <p className="mt-1 text-sm text-white/85">ศูนย์จัดการสิทธิ์จุดเดียว · แยกหน้าที่บันทึกผลเกียรติบัตรและดูแลโปรแกรม RoV อย่างชัดเจน</p>
++        <p className="mt-1 text-sm text-white/85">ศูนย์มอบหมายกรรมการทุกกีฬา · แยกสิทธิ์กรรมการประจำรายการ / ผลเกียรติบัตร / ผู้ดูแล RoV</p>
+       </header>
+       {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-900">{error}</p>}
+       {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{notice}</p>}
+       {loading && <p className="rounded-xl bg-white p-4">กำลังตรวจสอบสิทธิ์ผู้ดูแล...</p>}
+       {!loading && context?.role === "admin" && <>
+         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+-          <label className="block text-sm font-extrabold text-red-900" htmlFor="official-event">รายการแข่งขันที่รับผิดชอบ</label>
++          <label className="block text-sm font-extrabold text-red-900" htmlFor="official-filter">ค้นหาประเภทกีฬา / รุ่น / รหัสรายการ</label>
++          <input id="official-filter" className={`mt-2 ${field}`} value={filter} onChange={e => setFilter(e.target.value)} placeholder="เช่น กรีฑา ฟุตบอล GS3-FB" />
++          <label className="mt-3 block text-sm font-extrabold text-red-900" htmlFor="official-event">รายการแข่งขันที่มอบหมาย</label>
+           <select id="official-event" className={`mt-2 ${field}`} value={eventId} onChange={e => setEventId(e.target.value)}>
+-            {context.events.map((e: CertificateEvent) => <option key={e.id} value={e.id}>{e.sport_name} ({e.event_code})</option>)}
++            {selectedEvent && !filteredEvents.some(e => e.id === selectedEvent.id) && <option value={selectedEvent.id}>{selectedEvent.sport_name} ({selectedEvent.event_code}) — รายการปัจจุบัน</option>}
++            {filteredEvents.map((e: CertificateEvent) => <option key={e.id} value={e.id}>{e.sport_name} ({e.event_code})</option>)}
+           </select>
+-          <p className="mt-2 text-xs text-slate-600">สิทธิ์บันทึกผลเกียรติบัตรกำหนดแยกตามรายการที่เลือก ส่วนผู้ดูแล RoV มีสิทธิ์จัดการแข่งขันทั้งชายและหญิง</p>
++          <p className="mt-2 text-xs text-slate-600">พบ {filteredEvents.length} รายการ · กรรมการกีฬาทั่วไปกำหนดแยกรายการ ส่วนผู้ดูแล RoV ครอบคลุมชายและหญิงตามระบบเดิม</p>
+         </section>
+         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+           <h2 className="text-lg font-extrabold text-red-900">เพิ่ม / เปิดสิทธิ์กรรมการ</h2>
+@@ -126,6 +153,7 @@ export default function SportsOfficialsAccessManager() {
+             </label>
+             <label className="text-xs font-bold">ประเภทสิทธิ์
+               <select className={`mt-1 ${field}`} value={scope} onChange={e => setScope(e.target.value as Scope)}>
++                <option value="results">กรรมการประจำรายการ / เตรียมบันทึกผลกีฬา</option>
+                 <option value="certificate">บันทึกผลเกียรติบัตรรายการนี้</option>
+                 {isEsports && <option value="esports">ดูแลโปรแกรมและผล RoV ชาย/หญิง</option>}
+                 {isEsports && <option value="both">ทั้งสองหน้าที่</option>}
+@@ -133,7 +161,7 @@ export default function SportsOfficialsAccessManager() {
+             </label>
+             <button className="min-h-11 rounded-xl bg-red-800 px-4 font-bold text-white disabled:opacity-50" disabled={busy || !email.trim()}>มอบหมายสิทธิ์</button>
+           </form>
+-          <p className="mt-3 text-xs text-slate-600">ผู้ได้รับสิทธิ์ต้องใช้บัญชี Google อีเมลตรงกับที่มอบหมาย ระบบจะยืนยันบัญชีหลังเข้าสู่ระบบครั้งแรก · การเลือก “ทั้งสองหน้าที่” ใช้ได้เฉพาะ RoV</p>
++          <p className="mt-3 text-xs text-slate-600">กรรมการต้องเข้าสู่ระบบด้วย Google อีเมลตรงกับที่มอบหมาย · สิทธิ์กรรมการประจำรายการในขั้นนี้เปิดให้ดูรายการที่รับผิดชอบเท่านั้น การบันทึกผลสำหรับกีฬาทั่วไปจะเชื่อมในขั้นที่ 2 โดยไม่มอบสิทธิ์ Admin ทั้งระบบ</p>
+         </section>
+         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+           <h2 className="text-lg font-extrabold text-red-900">รายชื่อและสถานะสิทธิ์ ({rows.length} บัญชี)</h2>
+@@ -147,19 +175,21 @@ export default function SportsOfficialsAccessManager() {
+                   <p className={`mt-1 text-xs ${row.login_ready ? "text-emerald-800" : "text-amber-800"}`}>{loginStatus[row.login_status] || "ตรวจสอบบัญชีไม่ได้"}</p>
+                 </div>
+                 <div className="flex flex-wrap gap-2 text-xs font-semibold">
++                  {row.results_active && <span className="rounded-full bg-violet-100 px-2 py-1 text-violet-900">กรรมการประจำรายการ</span>}
+                   {row.certificate_active && <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-900">กรรมการเกียรติบัตร</span>}
+                   {row.esports_active && <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-900">ผู้ดูแล RoV</span>}
+-                  {!row.certificate_active && !row.esports_active && <span className="rounded-full bg-slate-200 px-2 py-1 text-slate-600">สิทธิ์ถูกระงับ</span>}
++                  {!row.results_active && !row.certificate_active && !row.esports_active && <span className="rounded-full bg-slate-200 px-2 py-1 text-slate-600">สิทธิ์ถูกระงับ</span>}
+                 </div>
+               </div>
+               <div className="mt-3 flex flex-wrap gap-2">
++                <button className={button} disabled={busy} onClick={() => void assign(row.email,"results",!row.results_active)}>{row.results_active ? "ระงับสิทธิ์กรรมการรายการนี้" : "เปิดสิทธิ์กรรมการรายการนี้"}</button>
+                 <button className={button} disabled={busy} onClick={() => void assign(row.email,"certificate",!row.certificate_active)}>{row.certificate_active ? "ระงับสิทธิ์เกียรติบัตร" : "เปิดสิทธิ์เกียรติบัตร"}</button>
+                 {isEsports && <button className={button} disabled={busy} onClick={() => void assign(row.email,"esports",!row.esports_active)}>{row.esports_active ? "ระงับสิทธิ์ RoV" : "เปิดสิทธิ์ RoV"}</button>}
+               </div>
+             </div>)}
+           </div>
+         </section>
+-        <p className="text-xs leading-6 text-slate-600">กรรมการเข้าสู่ระบบด้วย Google ที่ <Link href="/login" className="font-bold text-red-800 underline">หน้าเข้าสู่ระบบ</Link> แล้วใช้เมนูจัดการแข่งขัน → จัดการผลเกียรติบัตร หรือหน้า E-Sport ตามสิทธิ์ · ไม่มีการมอบสิทธิ์ดูแลกีฬาประเภทอื่นโดยอัตโนมัติ</p>
++        <p className="text-xs leading-6 text-slate-600">กรรมการเข้าสู่ระบบด้วย Google ที่ <Link href="/login" className="font-bold text-red-800 underline">หน้าเข้าสู่ระบบ</Link> · กรรมการกีฬาทั่วไปใช้หน้า <Link href="/group-sports/officials/my" className="font-bold text-red-800 underline">รายการที่ได้รับมอบหมาย</Link> · กรรมการผลเกียรติบัตรและผู้ดูแล RoV ยังคงใช้หน้าปฏิบัติงานเฉพาะเดิม ไม่มีการให้สิทธิ์ข้ามกีฬาหรือยกเป็น Admin อัตโนมัติ</p>
+       </>}
+     </div>
+   </main>;
+diff --git a/supabase/migrations/202611240036_sports_event_referees_v33_18.sql b/supabase/migrations/202611240036_sports_event_referees_v33_18.sql
+new file mode 100644
+index 0000000..575641d
+--- /dev/null
++++ b/supabase/migrations/202611240036_sports_event_referees_v33_18.sql
+@@ -0,0 +1,146 @@
++-- PHAYAO GAMES v33.18 | Event referee assignment registry (Stage 1)
++-- Prerequisites: sports_stage3_admin, sports_events, sports_competitions,
++-- 202611230027_sports_certificates_v1 and v33.4 unified officials access RPCs.
++-- No existing rights/registrations/results/programs are modified.
++begin;
++
++create table if not exists public.sports_event_referees (
++  event_id uuid not null references public.sports_events(id) on delete restrict,
++  competition_id uuid not null references public.sports_competitions(id) on delete restrict,
++  email text not null check (email=lower(btrim(email)) and length(email) between 6 and 254),
++  is_active boolean not null default true,
++  assigned_by uuid references auth.users(id) on delete set null,
++  assigned_at timestamptz not null default now(),
++  updated_by uuid references auth.users(id) on delete set null,
++  updated_at timestamptz not null default now(),
++  primary key(event_id,email)
++);
++create index if not exists sports_event_referees_email_lookup
++  on public.sports_event_referees(email,is_active,competition_id);
++
++create table if not exists public.sports_event_referee_audit (
++  id bigint generated always as identity primary key,
++  competition_id uuid not null references public.sports_competitions(id) on delete restrict,
++  event_id uuid not null references public.sports_events(id) on delete restrict,
++  target_email text not null,
++  was_active boolean,
++  is_active boolean not null,
++  performed_by uuid references auth.users(id) on delete set null,
++  performed_at timestamptz not null default now()
++);
++create index if not exists sports_event_referee_audit_event_idx
++  on public.sports_event_referee_audit(event_id,performed_at desc);
++
++alter table public.sports_event_referees enable row level security;
++alter table public.sports_event_referee_audit enable row level security;
++-- Deliberately expose no table access to browser clients; use vetted RPCs.
++revoke all on public.sports_event_referees, public.sports_event_referee_audit
++  from public, anon, authenticated;
++
++create or replace function public.sports_event_referee_assign(
++  p_event uuid, p_email text, p_active boolean
++) returns jsonb
++language plpgsql security definer set search_path='' as $$
++declare
++  v_comp uuid;
++  v_email text := lower(btrim(coalesce(p_email,'')));
++  v_previous boolean;
++begin
++  select e.competition_id into v_comp
++  from public.sports_events e
++  join public.sports_competitions c on c.id=e.competition_id
++    and c.slug='phayao-secondary-group-sports-2569'
++  where e.id=p_event;
++  if v_comp is null or auth.uid() is null or not public.sports_stage3_admin(v_comp) then
++    raise exception 'เฉพาะแม่แอดมินสามารถมอบหมายกรรมการรายการนี้ได้' using errcode='42501';
++  end if;
++  if p_active is null or length(v_email)>254 or
++      v_email !~ '^[a-z0-9._%+\-]+@[a-z0-9.\-]+\.[a-z]{2,}$' then
++    raise exception 'กรุณาระบุอีเมล Google และสถานะให้ถูกต้อง';
++  end if;
++  select r.is_active into v_previous
++    from public.sports_event_referees r
++    where r.event_id=p_event and r.email=v_email for update;
++  insert into public.sports_event_referees(
++    event_id,competition_id,email,is_active,assigned_by,updated_by
++  ) values(p_event,v_comp,v_email,p_active,auth.uid(),auth.uid())
++  on conflict(event_id,email) do update
++    set is_active=excluded.is_active, updated_by=auth.uid(), updated_at=now();
++  if v_previous is distinct from p_active then
++    insert into public.sports_event_referee_audit(
++      competition_id,event_id,target_email,was_active,is_active,performed_by
++    ) values (v_comp,p_event,v_email,v_previous,p_active,auth.uid());
++  end if;
++  return jsonb_build_object('event_id',p_event,'email',v_email,'is_active',p_active);
++end;
++$$;
++revoke all on function public.sports_event_referee_assign(uuid,text,boolean)
++  from public,anon,authenticated;
++grant execute on function public.sports_event_referee_assign(uuid,text,boolean)
++  to authenticated;
++
++-- Only the principal competition admin may inspect the roster / OAuth status.
++create or replace function public.sports_event_referee_roster(p_event uuid)
++returns jsonb language plpgsql stable security definer set search_path='' as $$
++declare v_comp uuid; v_rows jsonb;
++begin
++  select e.competition_id into v_comp from public.sports_events e
++  join public.sports_competitions c on c.id=e.competition_id
++    and c.slug='phayao-secondary-group-sports-2569'
++  where e.id=p_event;
++  if v_comp is null or auth.uid() is null or not public.sports_stage3_admin(v_comp) then
++    raise exception 'เฉพาะแม่แอดมินสามารถดูข้อมูลกรรมการได้' using errcode='42501';
++  end if;
++  select coalesce(jsonb_agg(jsonb_build_object(
++    'email',r.email,'results_active',r.is_active,
++    'login_ready',u.id is not null and u.email_confirmed_at is not null and
++      exists (select 1 from auth.identities i where i.user_id=u.id and i.provider='google'),
++    'login_status',case
++      when u.id is null then 'not_signed_in'
++      when u.email_confirmed_at is null then 'unconfirmed_email'
++      when not exists (select 1 from auth.identities i where i.user_id=u.id and i.provider='google') then 'not_google'
++      else 'ready' end
++  ) order by r.email),'[]'::jsonb) into v_rows
++  from public.sports_event_referees r
++  left join lateral (
++    select a.id,a.email_confirmed_at from auth.users a
++    where lower(btrim(a.email))=r.email limit 1
++  ) u on true
++  where r.event_id=p_event and r.competition_id=v_comp;
++  return v_rows;
++end;
++$$;
++revoke all on function public.sports_event_referee_roster(uuid)
++  from public,anon,authenticated;
++grant execute on function public.sports_event_referee_roster(uuid) to authenticated;
++
++-- A verified Google account may only see its OWN active event assignments.
++-- No ability to edit a result/fixture is granted at this stage.
++create or replace function public.sports_event_referee_my_events()
++returns jsonb language plpgsql stable security definer set search_path='' as $$
++declare v_email text; v_rows jsonb;
++begin
++  if auth.uid() is null then return '[]'::jsonb; end if;
++  select lower(btrim(u.email)) into v_email from auth.users u
++  where u.id=auth.uid() and u.email_confirmed_at is not null
++    and exists(select 1 from auth.identities i
++      where i.user_id=u.id and i.provider='google');
++  if v_email is null then return '[]'::jsonb; end if;
++  select coalesce(jsonb_agg(jsonb_build_object(
++    'id',e.id,'sport_name',e.sport_name,
++    'event_code',e.event_code,'event_type',e.event_type
++  ) order by e.sport_name),'[]'::jsonb) into v_rows
++  from public.sports_event_referees r
++  join public.sports_events e on e.id=r.event_id and e.competition_id=r.competition_id
++  join public.sports_competitions c on c.id=e.competition_id
++    and c.slug='phayao-secondary-group-sports-2569'
++  where r.is_active and r.email=v_email;
++  return v_rows;
++end;
++$$;
++revoke all on function public.sports_event_referee_my_events()
++  from public,anon,authenticated;
++grant execute on function public.sports_event_referee_my_events()
++  to authenticated;
++
++commit;

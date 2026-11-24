@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import CertificatesDashboard from "@/components/group-sports/CertificatesDashboard";
+import SportsOfficialsAccessManager from "@/components/group-sports/SportsOfficialsAccessManager";
 
 export const metadata: Metadata = {
   title: "มอบหมายกรรมการกีฬา · ภูลังกาเกมส์ 2569",
@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function SportsOfficialsPage() {
-  return <CertificatesDashboard mode="manage" />;
+  return <SportsOfficialsAccessManager />;
 }
