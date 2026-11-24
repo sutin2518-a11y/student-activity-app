@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
 import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
 import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
@@ -153,7 +154,7 @@ type AthleteInput = {
   gender: string | null;
 };
 
-type TabKey = "overview" | "submissions" | "school_info" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals" | "accounts";
+type TabKey = "overview" | "about" | "submissions" | "school_info" | "schedule" | "schools" | "events" | "entries" | "matches" | "standings" | "medals" | "accounts";
 type UserRole = { role: string; school_id?: string | null; competition_id?: string | null };
 
 const DEMO_COMPETITION: Competition = {
@@ -208,13 +209,7 @@ const DEMO_MEDALS: Medal[] = [
   { id: "demo-medal-3", competition_id: DEMO_COMPETITION.id, event_id: "demo-event-run", school_id: "demo-school-c", medal_type: "bronze" },
 ];
 
-// Compact monochrome navigation. The three competition views share one animated menu.
-// Red/white branding is intentionally local to the sports app.
-// Keep the active/inactive background colours in exclusive class branches so Tailwind
-// does not accidentally put white text on a light background.
-const sportsMenuItem = "group relative flex h-[88px] w-full min-w-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-xl border px-1.5 py-2 text-center transition-[background-color,border-color,box-shadow,transform] duration-300 ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-800 active:scale-[0.98] motion-reduce:transform-none motion-reduce:transition-none";
-const sportsMenuActive = "border-[#7f1d1d] bg-[#991b1b] text-white ring-[3px] ring-rose-200 ring-offset-1 ring-offset-white shadow-[0_0_0_1px_rgba(127,29,29,0.18),0_0_16px_rgba(220,38,38,0.20)]";
-const sportsMenuInactive = "border-rose-100 bg-[#fff9f9] text-[#7f1d1d] shadow-[0_2px_7px_rgba(127,29,29,0.05)] hover:border-rose-300 hover:bg-rose-50 hover:shadow-md";
+// Unified stadium navigation: original tabs and handlers, now rendered text-only in the navy masthead.
 type SportsManagementTab = "schedule" | "events" | "matches";
 type NavKey = Exclude<TabKey, SportsManagementTab | "submissions"> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
@@ -332,6 +327,7 @@ export default function GroupSportsDashboard() {
   const [schoolInfoMenuOpen, setSchoolInfoMenuOpen] = useState(false);
   const [schoolInfoSection, setSchoolInfoSection] = useState<SchoolInformationSection>("submission");
   const schoolInfoNavRef = useRef<HTMLElement | null>(null);
+  const systemMenuRef = useRef<HTMLDetailsElement | null>(null);
   const schoolInfoTriggerRef = useRef<HTMLButtonElement | null>(null);
   const sportsTriggerRef = useRef<HTMLButtonElement | null>(null);
   const [sportsDropdownLeft, setSportsDropdownLeft] = useState(8);
@@ -383,9 +379,18 @@ export default function GroupSportsDashboard() {
   const [results, setResults] = useState<MatchResult[]>([]);
   const [eventResults, setEventResults] = useState<EventResult[]>([]);
   const [medals, setMedals] = useState<Medal[]>([]);
+  const [homeAthleteCount, setHomeAthleteCount] = useState<number | null>(null);
+  const [homeAnnouncements, setHomeAnnouncements] = useState<{id:string;title:string;details:string;published_at:string|null}[]>([]);
+  const [homeSpecialMatches, setHomeSpecialMatches] = useState<{
+    id:string;event_id:string;round_name:string;scheduled_at:string|null;
+    venue_name:string|null;status:string;display_team_a:string;display_team_b:string;
+    score_a:number|null;score_b:number|null;special_source:"football"|"esports";
+  }[]>([]);
+
   const [roles, setRoles] = useState<UserRole[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
   const [canManageCertificates, setCanManageCertificates] = useState(false);
+  const [canAdminCertificates, setCanAdminCertificates] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -400,6 +405,7 @@ export default function GroupSportsDashboard() {
   const [resultMatchId, setResultMatchId] = useState("");
   const [resultScoreA, setResultScoreA] = useState("0");
   const [resultScoreB, setResultScoreB] = useState("0");
+  const liveResultsRefreshTimer = useRef<number | null>(null);
 
   const [coaches,setCoaches] = useState<Coach[]>([{name:"",phone:""}]);
   const [players,setPlayers] = useState<AthleteInput[]>([blankPlayer()]);
@@ -421,13 +427,14 @@ export default function GroupSportsDashboard() {
   const canManageSchool = rosterAdmin || roles.some((role) => role.role === "school_manager" && (!role.competition_id || role.competition_id === competition?.id));
   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
   const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
+  const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canManageCompetition || canRecordResults || canManageSchool);
   const entrySchools = rosterAdmin
     ? schools
     : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    setError("");
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
+    if (!silent) setError("");
     try {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData.user;
@@ -452,8 +459,10 @@ export default function GroupSportsDashboard() {
         const certificateResponse = await supabase.rpc("sports_cert_context");
         const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
         setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+        setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
       } else {
         setCanManageCertificates(false);
+        setCanAdminCertificates(false);
       }
 
       const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
@@ -469,6 +478,9 @@ export default function GroupSportsDashboard() {
       const missingTable = publicErrors.some((item) => item?.code === "42P01" || item?.code === "PGRST205");
       if (missingTable) {
         setIsDemo(true);
+      setHomeAthleteCount(DEMO_ENTRIES.reduce((n,e)=>n+(e.athlete_count || 0),0));
+      setHomeAnnouncements([]);
+      setHomeSpecialMatches([]);
         setCompetition(DEMO_COMPETITION);
         setSchools(DEMO_SCHOOLS);
         setEvents(DEMO_EVENTS);
@@ -490,6 +502,53 @@ export default function GroupSportsDashboard() {
         throw new Error("ไม่พบการแข่งขันภูลังกาเกมส์ 2569 กรุณาตรวจสอบข้อมูลการแข่งขันใน Supabase");
       }
       setCompetition(activeCompetition);
+      // Read-only public aggregates: no individual student names exposed to public overview.
+      // The new RPC is optional until migration v33.11 is installed.
+      void supabase.rpc("sports_public_overview_counts", { p_comp: activeCompetition.id })
+        .then(({data, error}) => {
+          if (!error && data && typeof data === "object" && "athletes" in data) {
+            const count = Number((data as {athletes: unknown}).athletes);
+            if (Number.isFinite(count)) setHomeAthleteCount(count);
+          }
+        });
+      // Specialist football/RoV fixtures have independent result tables. Public RLS
+      // permits only non-draft fixtures; never show unpublished scores on home.
+      void Promise.all([
+        supabase.from("sports_football_matches")
+          .select("id,event_id,stage,group_code,team1_name,team2_name,scheduled_date,start_time,venue_name,status,score1,score2")
+          .eq("competition_id",activeCompetition.id).in("status",["published","completed"]).limit(500),
+        supabase.from("sports_esports_matches")
+          .select("id,event_id,stage,team1_id,team2_id,scheduled_date,start_time,venue_name,match_status,score1,score2")
+          .eq("competition_id",activeCompetition.id).in("match_status",["scheduled","completed"]).limit(500),
+        supabase.from("sports_esports_group_teams")
+          .select("id,school_name").eq("competition_id",activeCompetition.id).limit(600),
+      ]).then(([football,esports,teams])=>{
+        type FootballRow = {id:string;event_id:string;stage:string;group_code:string|null;team1_name:string;team2_name:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;status:string;score1:number|null;score2:number|null};
+        type EsportsRow = {id:string;event_id:string;stage:string;team1_id:string;team2_id:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;match_status:string;score1:number|null;score2:number|null};
+        const teamById = new Map(((teams.data || []) as {id:string;school_name:string}[]).map(t=>[t.id,t.school_name]));
+        const when = (day:string|null,time:string|null) => day && time ? `${day}T${time}+07:00` : null;
+        const footballMatches = football.error ? [] : ((football.data || []) as FootballRow[]).map(m=>({
+          id:`football:${m.id}`,event_id:m.event_id,round_name:m.stage==="group"?`รอบแบ่งกลุ่ม${m.group_code ? ` · สาย ${m.group_code}`:""}`:m.stage,
+          scheduled_at:when(m.scheduled_date,m.start_time),venue_name:m.venue_name,
+          status:m.status==="completed"?"completed":"scheduled",display_team_a:m.team1_name||"รอคู่แข่งขัน",display_team_b:m.team2_name||"รอคู่แข่งขัน",
+          score_a:m.score1,score_b:m.score2,special_source:"football" as const,
+        }));
+        const esportsMatches = esports.error ? [] : ((esports.data || []) as EsportsRow[]).map(m=>({
+          id:`esports:${m.id}`,event_id:m.event_id,round_name:m.stage,
+          scheduled_at:when(m.scheduled_date,m.start_time),venue_name:m.venue_name,
+          status:m.match_status==="completed"?"completed":"scheduled",display_team_a:teamById.get(m.team1_id)||"รอคู่แข่งขัน",display_team_b:teamById.get(m.team2_id)||"รอคู่แข่งขัน",
+          score_a:m.score1,score_b:m.score2,special_source:"esports" as const,
+        }));
+        setHomeSpecialMatches([...footballMatches,...esportsMatches]);
+      });
+      void supabase.from("sports_school_information")
+        .select("id,title,details,published_at")
+        .eq("competition_id", activeCompetition.id).eq("section", "announcements")
+        .eq("is_published", true).order("published_at", {ascending:false}).limit(6)
+        .then(({data, error}) => {
+          if (!error) setHomeAnnouncements((data || []) as {id:string;title:string;details:string;published_at:string|null}[]);
+        });
+
       const allSchools = (schoolResult.data || []) as School[];
       setSchools(allSchools.filter((school) => school.status !== "inactive"));
       const allEvents = (eventResult.data || []) as SportEvent[];
@@ -529,12 +588,41 @@ export default function GroupSportsDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, []);
 
   useEffect(() => {
     void loadData();
+  }, [loadData]);
+
+  // Keep the public results/medal board fresh after an official publishes placements.
+  // The database transaction writes both tables together; debounce the resulting row events.
+  useEffect(() => {
+    const refreshPublicResults = () => {
+      if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
+      liveResultsRefreshTimer.current = window.setTimeout(() => {
+        liveResultsRefreshTimer.current = null;
+        void loadData(true);
+      }, 350);
+    };
+    const channel = supabase.channel("sports-public-results-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_event_results" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_medals" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_match_results" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_matches" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_football_matches" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_esports_matches" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_school_information" }, refreshPublicResults)
+      .subscribe();
+    // Polling fallback: Supabase Realtime may not be enabled for every public table.
+    const pollId = window.setInterval(refreshPublicResults, 45_000);
+    return () => {
+      window.clearInterval(pollId);
+      if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
+      liveResultsRefreshTimer.current = null;
+      void supabase.removeChannel(channel);
+    };
   }, [loadData]);
 
   // Deep link for committees returning from specialist sport pages.
@@ -1075,13 +1163,6 @@ export default function GroupSportsDashboard() {
     if (tab === "entries" && canManageSchool) return (
       <form key={editEntry?.id || "new-roster"} className={formShell} onSubmit={addEntry} noValidate>
         <div className="mb-4 flex items-center justify-between"><h3 className="font-bold text-slate-900">ลงทะเบียนทีม / นักกีฬา</h3><button type="button" onClick={close} className="text-sm text-slate-500">ปิด ✕</button></div>
-        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-sm leading-6 text-amber-950">
-          <strong>หากลงทะเบียน RoV ไว้แล้ว ไม่ต้องสร้างใบสมัครใหม่:</strong> ใช้ปุ่ม “ไปที่ใบสมัครเดิม” แล้วเลือก “แนบรูปใบสมัครเดิม” ของทีมที่ต้องการ ระบบจะดึงรายชื่อที่บันทึกไว้ให้แนบรูปทีละคน
-          <button type="button" className="mt-2 block rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100" onClick={()=>{
-            setFormOpen(false);
-            window.requestAnimationFrame(()=>document.getElementById("sports-saved-entries-list")?.scrollIntoView({behavior:"smooth",block:"start"}));
-          }}>ไปที่ใบสมัครเดิม ↓</button>
-        </div>
         <div className="grid gap-3 md:grid-cols-2">
           <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required disabled={rosterImportBusy} className={inputClass} value={eventChoice} onChange={e=>{
             const id=e.target.value;
@@ -1282,52 +1363,30 @@ export default function GroupSportsDashboard() {
     return null;
   };
 
-  return (
-    <main className="min-h-screen bg-[#faf7f7] text-slate-800">
-      {/* Responsive, accessible hero using the artwork from the red-white sports banner.
-          The image is decorative only: navigation and login stay real controls. */}
-      <header className="relative z-40 isolate overflow-visible bg-gradient-to-r from-[#68000b] via-[#9d001b] to-[#dc1534] text-white">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-y-0 right-0 hidden w-[58%] bg-right-bottom bg-no-repeat lg:block"
-          style={{ backgroundImage: "url('/images/group-sports-hero-rov.png')", backgroundSize: "auto 100%" }}
-        />
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 hidden lg:block"
-          style={{ background: "linear-gradient(90deg, #67000c 0%, #850013 45%, rgba(133,0,20,.94) 55%, rgba(133,0,20,.40) 76%, transparent 100%)" }}
-        />
-        <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-white/90 via-red-200/70 to-white/50" />
-        <div className="relative w-full px-4 py-5 md:px-8 md:py-7">
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <Link href="/" className="rounded-md text-sm font-semibold text-white/90 underline-offset-4 transition hover:text-white hover:underline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-white">← กลับสู่ระบบกิจกรรม</Link>
-            <div className="flex items-center gap-2 text-xs">
-              {isDemo && <span className="rounded-full border border-yellow-100/60 bg-black/15 px-3 py-1.5 font-bold text-yellow-100">โหมดสาธิต · ข้อมูลตัวอย่าง</span>}
-              {userEmail ? <>
-                <span className="hidden max-w-48 truncate rounded-full bg-white/15 px-3 py-1.5 text-white sm:inline">{userEmail}</span>
-                <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}} className="rounded-xl border border-white/50 bg-white/15 px-4 py-2 font-bold text-white transition hover:bg-white/25 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">ออกจากระบบ</button>
-              </> : <Link href="/group-sports/login" className="rounded-full bg-white px-5 py-2.5 font-extrabold text-[#a90021] shadow-lg shadow-black/10 transition hover:bg-rose-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white">เข้าสู่ระบบโรงเรียน</Link>}
-            </div>
-          </div>
-          <div className="flex flex-col justify-between gap-5 md:flex-row md:items-end">
-            <div className="max-w-[880px] lg:max-w-[63%]">
-              <p className="mb-2 text-xs font-bold uppercase tracking-[0.23em] text-white/90">Provincial School Sports Management</p>
-              <h1 className="border-l-[5px] border-rose-400 pl-3 text-2xl font-black leading-tight drop-shadow-[0_2px_6px_rgba(55,0,8,0.30)] sm:text-3xl md:text-4xl">ระบบบริหารจัดการแข่งขันกีฬากลุ่ม</h1>
-              <p className="mt-3 text-sm leading-relaxed text-white/95 md:text-base">มัธยมศึกษาจังหวัดพะเยา · เชื่อมโยงโรงเรียน รายการแข่งขัน โปรแกรม และผลการแข่งขันไว้ในระบบเดียว</p>
-              <p className="mt-4 inline-flex max-w-full items-center gap-2 rounded-xl border border-white/15 bg-white/10 px-3 py-2 text-sm font-bold text-white backdrop-blur-sm"><span aria-hidden="true">🏆</span><span>{competition?.name || "การแข่งขันกีฬากลุ่มมัธยมศึกษาจังหวัดพะเยา"} {competition?.academic_year ? `· ปีการศึกษา ${competition.academic_year}` : ""}</span></p>
-            </div>
-            <div className="flex w-full flex-col items-end justify-end gap-3 md:w-auto md:min-w-[280px]">
-              {headerAction() && <div className="flex flex-wrap gap-2">{headerAction()}</div>}
-              <ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts} />
-            </div>
-          </div>
-        </div>
-      </header>
+  const goToSportsSection = (key: string) => {
+    setSportsMenuOpen(false);
+    setSchoolInfoMenuOpen(false);
+    setFormOpen(false);
+    if (key === "news") { setSchoolInfoSection("announcements"); setTab("school_info"); }
+    else if (key === "program") { setScheduleView("schedule"); setTab("schedule"); }
+    else if (key === "general") { setSchoolInfoSection("submission"); setTab("school_info"); }
+    else if (key === "sports") { setScheduleView("schedule"); setTab("schedule"); }
+    else if (key === "register") { openNewRegistration(); setTab("entries"); }
+    else if (key === "about") { setTab("about"); }
+    else { setTab(key as TabKey); }
+    setError("");
+  };
 
-      <div className="w-full px-4 pb-12 md:px-8">
-        <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="26.2-flowing-pastel-dropdowns" onKeyDown={(event) => { if (event.key === "Escape") { if (sportsMenuOpen) sportsTriggerRef.current?.focus(); else if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="relative z-30 my-4 rounded-2xl border border-rose-100 bg-white px-2 py-2 shadow-[0_6px_20px_-12px_rgba(15,23,42,0.35)]">
-          <div data-sports-nav-items className="flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:thin] xl:grid xl:grid-cols-8 xl:overflow-visible">
-            {tabs.map((item) => {
+  return (
+    <main className="sports-games-shell min-h-screen text-slate-900">
+      <header className="sports-games-masthead">
+        <div className="sports-games-topbar" aria-label="เมนูหลักภูลังกาเกมส์">
+          <button type="button" className="sports-games-logo" onClick={()=>goToSportsSection("overview")} aria-label="ภูลังกาเกมส์ — หน้าหลัก">
+            <img src="/images/group-sports/phayao-games-logo-reference.webp" alt="PHAYAO GAMES" />
+          </button>
+          <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="33.12-text-only-existing-tabs" onKeyDown={(event) => { if (event.key === "Escape") { if (sportsMenuOpen) sportsTriggerRef.current?.focus(); else if (schoolInfoMenuOpen) schoolInfoTriggerRef.current?.focus(); setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); } }} className="sports-games-unified-nav">
+          <div data-sports-nav-items className="sports-games-unified-items">
+            {tabs.filter((item) => item.key !== "accounts" || canManageAccounts).map((item) => {
               const isSportsGroup = item.key === "sports";
               const isSchoolInfoGroup = item.key === "school_info";
               const isActive = isSportsGroup
@@ -1335,7 +1394,6 @@ export default function GroupSportsDashboard() {
                 : isSchoolInfoGroup
                   ? schoolInfoMenuOpen || (!sportsMenuOpen && (tab === "school_info" || tab === "submissions"))
                   : !sportsMenuOpen && !schoolInfoMenuOpen && tab === item.key;
-              const Icon = item.icon;
               return (
                 <button
                   key={item.key}
@@ -1391,27 +1449,15 @@ export default function GroupSportsDashboard() {
                     setTab(item.key as TabKey);
                     setError("");
                   }}
-                  className={`${sportsMenuItem} min-w-[122px] xl:min-w-0 ${isActive ? sportsMenuActive : sportsMenuInactive}`}
-                  // Use a direct background style as a resilient fallback: the open
-                  // parent must turn deep red immediately even if cached styles load late.
-                  style={isActive ? { backgroundColor: "#991b1b", borderColor: "#7f1d1d", color: "#ffffff" } : undefined}
+                  className={`sports-games-main-item ${isActive ? "is-current" : ""}`}
                 >
-                  {isActive && <span aria-hidden="true" className="pointer-events-none absolute inset-0 bg-gradient-to-b from-white/[0.06] to-transparent" />}
-                  <Icon className={`relative h-[34px] w-[34px] shrink-0 ${isActive ? "text-white" : "text-[#7f1d1d]"}`} />
-                  <span className={`relative line-clamp-2 text-[11px] font-extrabold leading-tight sm:text-xs ${isActive ? "text-white" : "text-[#7f1d1d]"}`}>{item.label}</span>
-                  {(isSportsGroup || isSchoolInfoGroup) && (
-                    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.25" strokeLinecap="round" strokeLinejoin="round" className={`absolute right-1.5 top-1.5 h-4 w-4 transition-transform duration-300 ease-out motion-reduce:transition-none ${(isSportsGroup ? sportsMenuOpen : schoolInfoMenuOpen) ? "rotate-180" : ""} ${isActive ? "text-white" : "text-slate-500"}`}>
-                      <path d="m6 9 6 6 6-6" />
-                    </svg>
-                  )}
-                  {isActive && <span aria-hidden="true" className="absolute bottom-1 left-1/2 h-[3px] w-10 -translate-x-1/2 rounded-full bg-amber-300 shadow-[0_0_9px_rgba(253,230,138,0.85)]" />}
+                  <span className="sports-games-main-label">{item.label}</span>
                 </button>
               );
             })}
           </div>
 
-          {/* Both submenus take up real height in the page. The expanding grid gently pushes
-              the dashboard below it down; there is never content behind an open menu. */}
+          {/* Submenus open below the unified topbar without a second card-menu strip. */}
           <div
             id="sports-management-submenu"
             aria-hidden={!sportsMenuOpen}
@@ -1425,7 +1471,6 @@ export default function GroupSportsDashboard() {
                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
                 <div role="group" aria-label="เลือกเมนูจัดการแข่งขัน" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
                   {sportsSubTabs.map((sub) => {
-                    const SubIcon = sub.icon;
                     const selected = tab === sub.key;
                     return (
                       <button
@@ -1444,28 +1489,39 @@ export default function GroupSportsDashboard() {
                         }}
                         className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition-[background-color,color,transform,box-shadow] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none ${selected ? "bg-rose-100 font-extrabold text-[#7f1d1d]" : "bg-white font-semibold text-slate-800 hover:bg-rose-50 hover:text-[#7f1d1d]"}`}
                       >
-                        <span className="flex min-w-0 items-center gap-3"><SubIcon className="h-5 w-5 shrink-0 text-[#991b1b]" /><span>{sub.label}</span></span>
-                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                        <span className="flex min-w-0 items-center gap-3"><span>{sub.label}</span></span>
                       </button>
                     );
                   })}
-                  {canManageAccounts && <Link
-                    href="/group-sports/certificates/officials"
-                    tabIndex={sportsMenuOpen ? 0 : -1}
-                    onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                    className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-                  >
-                    <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>มอบหมายกรรมการกีฬา</span></span>
-                  </Link>}
-                  {canManageCertificates && <Link
-                    href="/group-sports/certificates/manage"
-                    tabIndex={sportsMenuOpen ? 0 : -1}
-                    onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                    className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700"
-                  >
-                    <span className="flex min-w-0 items-center gap-3"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>จัดการผลเกียรติบัตร (กรรมการ)</span></span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0"><path d="m9 6 6 6-6 6" /></svg>
-                  </Link>}
+                  {canManageCertificates && <>
+                    <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><span>บันทึกผลและประกาศผลทันที (กรรมการ)</span></span>
+                    </Link>
+                  </>}
+                  {canAdminCertificates && <>
+                    <Link href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><span>มอบหมายกรรมการกีฬา</span></span>
+                    </Link>
+                    <Link href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
+                    </Link>
+                    <Link href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
+                    </Link>
+                    <Link href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
+                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                      <span className="flex min-w-0 items-center gap-3"><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
+                    </Link>
+                  </>}
                 </div>
               </div>
             </div>
@@ -1505,10 +1561,19 @@ export default function GroupSportsDashboard() {
                           {selected && <span aria-hidden="true" className="h-5 w-[3px] rounded-full bg-rose-600" />}
                           <span>{option.label}</span>
                         </span>
-                        <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
                       </button>
                     );
                   })}
+                  {canManageAccounts && <Link href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                    onClick={() => { setSchoolInfoMenuOpen(false); setSportsMenuOpen(false); }}
+                    className="flex min-h-12 w-full items-center justify-between rounded-xl border-t border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100">
+                    <span>จัดการภาพและข้อความ (Admin)</span>
+                  </Link>}
+                  <button type="button" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                    onClick={()=>goToSportsSection("about")}
+                    className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-900">
+                    <span>เกี่ยวกับงานและรายละเอียดการแข่งขัน</span>
+                  </button>
                   {/* School printing is separate from the official management route. */}
                   <Link
                     href="/group-sports/certificates"
@@ -1519,14 +1584,57 @@ export default function GroupSportsDashboard() {
                     }}
                     className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none"
                   >
-                    <span className="flex min-w-0 items-center gap-2"><MedalIcon className="h-5 w-5 shrink-0 text-[#991b1b]"/><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4 shrink-0 text-[#991b1b] transition-transform duration-200 group-hover:translate-x-0.5 motion-reduce:transition-none"><path d="m9 6 6 6-6 6" /></svg>
+                    <span className="flex min-w-0 items-center gap-2"><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
                   </Link>
                 </div>
               </div>
             </div>
           </div>
-        </nav>
+          </nav>
+          <details ref={systemMenuRef} className="sports-games-more">
+            <summary aria-label={canAccessSystemMenu ? "เมนูระบบสำหรับผู้ได้รับสิทธิ์" : "เข้าสู่ระบบ"}>
+              {canAccessSystemMenu ? <span>เมนูระบบ</span> : <span>เข้าสู่ระบบ</span>}
+            </summary>
+            <div className="sports-games-more-list" onClick={()=>{ if (systemMenuRef.current) systemMenuRef.current.open = false; }}>
+              {canAccessSystemMenu ? <>
+                {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
+                {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
+                {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
+                {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}
+                {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
+                {canManageCertificates && <Link href="/group-sports/results">กรรมการบันทึกและประกาศผล</Link>}
+                {canAdminCertificates && <Link href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
+                {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
+                {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
+                {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
+                {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
+                {canManageAccounts && <Link href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
+                {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลทดสอบ</Link>}
+                <Link href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
+                <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
+              </> : <>
+                <Link href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
+                <Link href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
+              </>}
+            </div>
+          </details>
+        </div>
+        {tab === "overview" ? <div className="sports-games-banner">
+          <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
+          <img src="/images/group-sports/phayao-games-hero-reference.webp" alt="ภูลังกาเกมส์ 2569 สนามกรีฑาและนักวิ่ง ภูเขาพะเยา" />
+          <button type="button" className="sports-games-banner-hit" aria-label="ดูโปรแกรมวันนี้" onClick={()=>goToSportsSection("program")} />
+          <div className="sports-games-mobile-banner">
+            <span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><em>ครั้งที่ 30 • ประจำปี 2569</em>
+            <button type="button" onClick={()=>goToSportsSection("program")}>ดูโปรแกรมวันนี้ ❯</button>
+          </div>
+        </div> : <div className="sports-games-inner-banner">
+          <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
+          <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>
+        </div>}
+      </header>
+
+      <div className="w-full px-4 pb-12 md:px-8">
+
 
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
@@ -1557,50 +1665,28 @@ export default function GroupSportsDashboard() {
               ? (hasSchoolParadeReference(schoolInfoSection)
                   ? <section className="rounded-2xl border border-rose-100 bg-white p-4 sm:p-6"><SchoolParadeReference section={schoolInfoSection} /></section>
                   : <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">โหมดสาธิตยังไม่มีข้อมูลประชาสัมพันธ์จริง กรุณาเชื่อมต่อ Supabase</div>)
-              : <SchoolInformationHub competitionId={competition?.id ?? null} section={schoolInfoSection}
+              : <SchoolInformationHub key={schoolInfoSection} competitionId={competition?.id ?? null} section={schoolInfoSection}
                   canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
-            {tab === "overview" && (
-              <>
-                <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-                  {[
-                    { label: "โรงเรียนในระบบ", value: schools.length, icon: "🏫", color: "text-red-700", bg: "bg-rose-50" },
-                    { label: "รายการแข่งขัน", value: events.length, icon: "🏅", color: "text-red-700", bg: "bg-rose-50" },
-                    { label: "ทีม / รายการที่ลงทะเบียน", value: entries.length, icon: "👥", color: "text-emerald-700", bg: "bg-emerald-50" },
-                    { label: "แข่งขันเสร็จแล้ว", value: completedMatches.length, icon: "⚑", color: "text-amber-700", bg: "bg-amber-50" },
-                    { label: "เหรียญรางวัล", value: totalMedals, icon: "🥇", color: "text-orange-700", bg: "bg-orange-50" },
-                  ].map((item) => (
-                    <div key={item.label} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <div className="flex items-center justify-between"><span className={`flex h-10 w-10 items-center justify-center rounded-xl text-xl ${item.bg}`}>{item.icon}</span><span className={`text-2xl font-black tabular-nums ${item.color}`}>{item.value.toLocaleString("th-TH")}</span></div>
-                      <p className="mt-3 text-xs font-semibold text-slate-500">{item.label}</p>
-                    </div>
-                  ))}
-                </section>
-                <section className="mt-5 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">รายการแข่งขัน</h2><p className="text-xs text-slate-500">ภาพรวมประเภทกีฬาและรุ่นการแข่งขัน</p></div><button onClick={() => setTab("events")} className="text-xs font-bold text-red-700">ดูทั้งหมด →</button></div>
-                    <div className="space-y-3">
-                      {events.slice(0, 5).map((item) => (
-                        <div key={item.id} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 p-3">
-                          <div className="min-w-0"><p className="truncate text-sm font-bold text-slate-800">{item.sport_name}</p><p className="mt-1 text-xs text-slate-500">{eventTypeLabel(item.event_type)} · {item.gender_rule} · {item.level_rule}</p></div>
-                          <span className="shrink-0 rounded-full bg-rose-50 px-2.5 py-1 text-[11px] font-bold text-red-700">{statusLabel(item.status)}</span>
-                        </div>
-                      ))}
-                      {!events.length && <EmptyState title="ยังไม่มีรายการแข่งขัน" description="เพิ่มประเภทกีฬาและรุ่นการแข่งขันเพื่อเริ่มต้น" />}
-                    </div>
-                  </div>
-                  <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">ตารางเหรียญ</h2><p className="text-xs text-slate-500">สรุปผลตามโรงเรียน</p></div><button onClick={() => setTab("medals")} className="text-xs font-bold text-red-700">ดูทั้งหมด →</button></div>
-                    <MedalTable rows={medalTable.slice(0, 5)} />
-                    {!medalTable.length && <EmptyState title="ยังไม่มีเหรียญรางวัล" description="เมื่อบันทึกผลและมอบรางวัลแล้วจะแสดงที่นี่" />}
-                  </div>
-                </section>
-                <section className="mt-5 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-                  <div className="mb-4 flex items-center justify-between"><div><h2 className="text-lg font-black text-slate-900">โปรแกรมการแข่งขันล่าสุด</h2><p className="text-xs text-slate-500">กำหนดการและสถานะการแข่งขัน</p></div><button onClick={() => {setScheduleView("schedule");setTab("schedule");}} className="text-xs font-bold text-red-700">ดูโปรแกรมทั้งหมด →</button></div>
-                  <MatchTable matches={matches.slice(0, 5)} schools={schoolById} events={eventById} results={resultByMatch} />
-                </section>
-              </>
-            )}
+            {tab === "overview" && <SportsGamesHome
+              schools={schools} events={events} matches={matches} results={results}
+              medals={medals} entries={entries} eventResults={eventResults}
+              specialMatches={homeSpecialMatches}
+              announcements={homeAnnouncements} athleteCount={homeAthleteCount}
+              onNavigate={(destination)=>{
+                if (destination === "announcements") goToSportsSection("news");
+                else if (destination === "schedule") goToSportsSection("program");
+                else if (destination === "entries") { setTab("entries"); setFormOpen(false); }
+                else goToSportsSection(destination);
+              }}
+            />}
+
+            {tab === "about" && <section className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm">
+              <h2 className="text-2xl font-black text-blue-950">เกี่ยวกับการแข่งขัน</h2>
+              <p className="mt-3 text-base leading-8">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</p>
+              <p className="text-sm text-slate-600">ติดตามโปรแกรมการแข่งขัน ผลการแข่งขัน และตารางเหรียญรางวัลจากข้อมูลที่กรรมการประกาศผ่านระบบ</p>
+              <div className="mt-5 flex flex-wrap gap-3"><button onClick={()=>goToSportsSection("program")} className="rounded-xl bg-blue-700 px-4 py-2 font-bold text-white">ดูโปรแกรมแข่งขัน</button><button onClick={()=>goToSportsSection("schools")} className="rounded-xl border border-blue-200 px-4 py-2 font-bold text-blue-900">โรงเรียนที่เข้าร่วม</button></div>
+            </section>}
 
             {tab === "schools" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -1631,6 +1717,7 @@ export default function GroupSportsDashboard() {
                   <div><h2 className="text-xl font-black text-slate-900">การลงทะเบียนทีมและนักกีฬา</h2><p className="mt-1 text-sm text-slate-500">รับข้อมูลลงทะเบียนทันทีหลังส่งสำเร็จ · ตรวจตัวนักกีฬาและเอกสารหลักฐานที่สนามในวันแข่งขันจริง</p></div>
                   <div className="flex flex-wrap items-center gap-2">
                     {!formOpen && canManageSchool && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
+                    {canManageAccounts && <Link href="/group-sports/reset" className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-red-900 hover:bg-rose-100">จัดการข้อมูลทดสอบ / รีเซต</Link>}
                     <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">รับข้อมูลแล้ว {receivedEntries} / {schoolEntries.length}</span>
                   </div>
                 </div>
@@ -1650,6 +1737,8 @@ export default function GroupSportsDashboard() {
                         {busy && rosterTargetId===entry.id ? "กำลังดึงนักกีฬา..." : "แนบรูปใบสมัครเดิม"}
                       </button>}
                     {!isDemo && <Link href={`${isFootball(eventById.get(entry.event_id))?"/group-sports/football/print":"/group-sports/print"}?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-bold text-red-800 transition hover:bg-rose-100">พิมพ์ใบสมัคร PDF</Link>}
+                    {canManageAccounts && <Link href={`/group-sports/admin?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100">Admin แก้ไขใบสมัคร</Link>}
+                    {canManageAccounts && <Link href={`/group-sports/reset?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50">ลบใบสมัคร</Link>}
                   </div>
                 </article>)}
                 {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5">ยังไม่มีใบสมัครตามเงื่อนไขนี้</p>}
@@ -1704,7 +1793,7 @@ export default function GroupSportsDashboard() {
                   <div className="min-w-0 flex-1"><p className="text-sm font-bold text-slate-900">{resultSportFilter === "all" ? "ผลการแข่งขันทุกชนิดกีฬา" : `ผลการแข่งขัน: ${resultSportFilter}`}</p><p className="text-xs text-slate-500">เลือกประเภทย่อยหรือรุ่นแข่งขันเพื่อดูผลเฉพาะรายการ</p></div>
                   <label className="w-full sm:w-72"><span className="sr-only">กรองรายการแข่งขัน</span><select value={resultEventFilter} onChange={(event) => {setResultEventFilter(event.target.value);setResultMatchId("");}} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="all">ทุกรุ่น / ทุกประเภท</option>{filteredResultEvents.map((event) => <option key={event.id} value={event.id}>{event.sport_name} · {event.gender_rule} {event.level_rule}</option>)}</select></label>
                 </div>
-                {filteredResultMatches.length ? <MatchTable matches={filteredResultMatches} schools={schoolById} events={eventById} results={resultByMatch} /> : <EmptyState title="ยังไม่มีผลการแข่งขันประเภททีม" description="เมื่อกรรมการบันทึกผลการแข่งขัน ข้อมูลจะแสดงในส่วนนี้" />}
+                {filteredResultMatches.length ? <MatchTable matches={filteredResultMatches} schools={schoolById} events={eventById} results={resultByMatch} /> : <EmptyState title="ยังไม่มีผลการแข่งขันประเภททีม" description="เมื่อกรรมการส่งผล ระบบจะประกาศผลในส่วนนี้ทันที" />}
                 {filteredIndividualResults.length > 0 && <div className="mt-5 overflow-hidden rounded-xl border border-slate-200"><h3 className="bg-slate-50 px-4 py-3 font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b text-xs text-slate-500"><th className="p-3">รายการ</th><th className="p-3">โรงเรียน</th><th className="p-3">นักกีฬา / ทีม</th><th className="p-3">อันดับ</th><th className="p-3">สถิติ</th></tr></thead><tbody>{filteredIndividualResults.map((result) => <tr key={result.id} className="border-b last:border-0"><td className="p-3 font-semibold">{eventById.get(result.event_id)?.sport_name || "-"}</td><td className="p-3">{schoolById.get(result.school_id)?.name || "-"}</td><td className="p-3">{result.entry_name}</td><td className="p-3 font-bold text-red-800">{result.rank || "-"}</td><td className="p-3">{result.performance_value ?? "-"} {result.performance_unit || ""}</td></tr>)}</tbody></table></div></div>}
                 {canRecordResults && <div className="mt-5 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-rose-50 px-4 py-3"><p className="text-xs text-rose-900">กรรมการที่ได้รับสิทธิ์สามารถบันทึกผลประเภททีมด้านล่าง หรือไปบันทึกผลกีฬาเดี่ยวและกรีฑาได้ ส่วน E-Sport ใช้ระบบแยกด้านบน</p><button type="button" className="shrink-0 rounded-lg border border-rose-300 bg-white px-3 py-2 text-xs font-bold text-red-800 hover:bg-rose-100" onClick={() => {setTab("standings");setFormOpen(true);}}>บันทึกผลเดี่ยว / กรีฑา →</button></div>}
                 {canRecordResults && <form onSubmit={saveMatchResult} className="mt-6 rounded-2xl border border-amber-200 bg-amber-50/70 p-4"><h3 className="mb-3 font-bold text-slate-900">บันทึกผลการแข่งขัน</h3><div className="grid gap-3 md:grid-cols-[2fr_1fr_1fr_auto] md:items-end"><label><span className="mb-1 block text-xs font-bold text-slate-600">เลือกแมตช์</span><select required value={resultMatchId} onChange={(event) => setResultMatchId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm"><option value="">เลือกแมตช์ที่ต้องการบันทึกผล</option>{filteredResultMatches.filter((match) => match.status !== "cancelled").map((match) => <option key={match.id} value={match.id}>{eventById.get(match.event_id)?.sport_name || "รายการแข่งขัน"} · {schoolById.get(match.school_a_id || "")?.name || "รอระบุ"} พบ {schoolById.get(match.school_b_id || "")?.name || "รอระบุ"}</option>)}</select></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน A</span><input type="number" min="0" step="0.01" value={resultScoreA} onChange={(event) => setResultScoreA(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><label><span className="mb-1 block text-xs font-bold text-slate-600">คะแนน B</span><input type="number" min="0" step="0.01" value={resultScoreB} onChange={(event) => setResultScoreB(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm" /></label><button disabled={busy || !resultMatchId} className="rounded-xl bg-red-700 px-5 py-2.5 text-sm font-bold text-white disabled:opacity-50">บันทึกผล</button></div><p className="mt-2 text-xs text-slate-500">ระบบจะคำนวณผู้ชนะและอัปเดตสถานะแมตช์เป็นเสร็จสิ้นโดยอัตโนมัติ</p></form>}
@@ -1715,7 +1804,7 @@ export default function GroupSportsDashboard() {
             {tab === "standings" && (
               <section className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3"><div><h2 className="text-xl font-black text-slate-900">ตารางคะแนน</h2><p className="mt-1 text-sm text-slate-500">คำนวณจากผลการแข่งขันที่บันทึกแล้ว โดยใช้เกณฑ์คะแนนของแต่ละรายการ</p></div><select value={selectedEventId} onChange={(event) => setSelectedEventId(event.target.value)} className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm"><option value="all">ทุกรายการ</option>{events.map((item) => <option key={item.id} value={item.id}>{item.sport_name}</option>)}</select></div>
-                {eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).length > 0 && <div className="mb-5 overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">ผลกีฬาเดี่ยว / กรีฑา</h3><p className="text-xs text-slate-500">อันดับและสถิติที่กรรมการบันทึก</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">รายการ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">ผู้เข้าแข่งขัน</th><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">สถิติ</th><th className="px-4 py-2">หมายเหตุ</th></tr></thead><tbody>{eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).sort((a, b) => (a.rank || 999) - (b.rank || 999)).map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-semibold">{eventById.get(item.event_id)?.sport_name || "-"}</td><td className="px-4 py-3">{schoolById.get(item.school_id)?.name || "-"}</td><td className="px-4 py-3 font-bold">{item.entry_name}</td><td className="px-4 py-3 font-black text-red-700">{item.rank || "-"}</td><td className="px-4 py-3">{item.performance_value ?? "-"} {item.performance_unit || ""}</td><td className="px-4 py-3 text-slate-500">{item.result_text || "-"}</td></tr>)}</tbody></table></div></div>}
+                {eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).length > 0 && <div className="mb-5 overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">ผลอันดับสุดท้ายจากกรรมการ</h3><p className="text-xs text-slate-500">อันดับที่ประกาศแล้วในแต่ละรายการแข่งขัน</p></div><div className="overflow-x-auto"><table className="w-full min-w-[620px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">รายการ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">ผู้เข้าแข่งขัน</th><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">สถิติ</th><th className="px-4 py-2">หมายเหตุ</th></tr></thead><tbody>{eventResults.filter((item) => selectedEventId === "all" || item.event_id === selectedEventId).sort((a, b) => (a.rank || 999) - (b.rank || 999)).map((item) => <tr key={item.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-semibold">{eventById.get(item.event_id)?.sport_name || "-"}</td><td className="px-4 py-3">{schoolById.get(item.school_id)?.name || "-"}</td><td className="px-4 py-3 font-bold">{item.entry_name}</td><td className="px-4 py-3 font-black text-red-700">{item.rank || "-"}</td><td className="px-4 py-3">{item.performance_value ?? "-"} {item.performance_unit || ""}</td><td className="px-4 py-3 text-slate-500">{item.result_text || "-"}</td></tr>)}</tbody></table></div></div>}
                 <div className="space-y-5">{standings.map(({ event: sportEvent, groupName, rows }) => <div key={`${sportEvent.id}-${groupName}`} className="overflow-hidden rounded-xl border border-slate-200"><div className="bg-slate-50 px-4 py-3"><h3 className="font-bold text-slate-900">{sportEvent.sport_name} · {groupName}</h3><p className="text-xs text-slate-500">คะแนนชนะ {sportEvent.points_win ?? 3} · เสมอ {sportEvent.points_draw ?? 1} · แพ้ {sportEvent.points_loss ?? 0}</p></div><div className="overflow-x-auto"><table className="w-full min-w-[640px] text-left text-sm"><thead><tr className="border-b border-slate-100 text-xs text-slate-500"><th className="px-4 py-2">อันดับ</th><th className="px-4 py-2">โรงเรียน</th><th className="px-4 py-2">แข่ง</th><th className="px-4 py-2">ชนะ</th><th className="px-4 py-2">เสมอ</th><th className="px-4 py-2">แพ้</th><th className="px-4 py-2">ได้ / เสีย</th><th className="px-4 py-2">คะแนน</th></tr></thead><tbody>{rows.map((row, index) => <tr key={row.school.id} className="border-b border-slate-100 last:border-0"><td className="px-4 py-3 font-black">{index + 1}</td><td className="px-4 py-3 font-bold">{row.school.name}</td><td className="px-4 py-3">{row.played}</td><td className="px-4 py-3">{row.win}</td><td className="px-4 py-3">{row.draw}</td><td className="px-4 py-3">{row.loss}</td><td className="px-4 py-3">{row.scored} / {row.conceded}</td><td className="px-4 py-3 font-black text-red-700">{row.points}</td></tr>)}</tbody></table></div></div>)}{!standings.length && <EmptyState title="ยังไม่มีตารางคะแนน" description="เมื่อบันทึกผลการแข่งขันประเภททีมแล้ว ระบบจะคำนวณตารางคะแนนให้" />}</div>
               </section>
             )}
