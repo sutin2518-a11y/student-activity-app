@@ -42,3 +42,9 @@ next-env.d.ts
 
 .vercel
 .env*
+
+# Local backup and temporary files
+/.hotfix-v33-4-2-backup-*/
+/dashboard-compare.patch
+/0
+/0}
