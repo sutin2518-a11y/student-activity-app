@@ -54,45 +54,36 @@ export default function AuthCompletePage() {
         }
 
         if (mounted) setStatus("ยืนยันบัญชี Google แล้ว กำลังตรวจสอบสิทธิ์การใช้งาน...");
-        const { data: profile, error: profileError } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-        if (profileError) throw new Error("อ่านข้อมูลสิทธิ์ผู้ใช้ไม่สำเร็จ: " + profileError.message);
-
-        // โรงเรียนภายนอกเชียงคำวิทยาคมจะเข้าได้เฉพาะผู้ที่ผู้ดูแลเพิ่มสิทธิ์
-        // ไว้ใน sports_user_roles แล้วเท่านั้น ไม่เปิดให้บัญชี Google ทั่วไปเข้าใช้ระบบได้เอง
-        const { data: sportsRoles, error: sportsRoleError } = await supabase
-          .from("sports_user_roles")
-          .select("role")
-          .eq("user_id", user.id)
-          .eq("is_active", true);
-        const missingRoleTable = sportsRoleError?.code === "42P01" || sportsRoleError?.code === "PGRST205";
-        if (sportsRoleError && !missingRoleTable) {
-          throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleError.message);
-        }
-
-        // A sports official may be assigned directly to one or more events by email
-        // in sports_certificate_officials. Check the certificate context after Google
-        // has verified the identity so external judges do not also need a broad
-        // competition-wide sports_user_roles entry.
-        const certificateAccess = await supabase.rpc("sports_cert_context");
-        const certificateRole = !certificateAccess.error
-          ? (certificateAccess.data as { role?: string } | null)?.role
-          : undefined;
-        const hasCertificateOfficialAccess = certificateRole === "official";
-
-        // RoV-only administrators are pre-approved by email in an E-Sport-specific
-        // roster, not given competition-wide roles in sports_user_roles.
-        const esportsCheck = await supabase.rpc("sports_esports_my_access");
-        if (esportsCheck.error) {
-          throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
+        // Delegated officials are approved by their exact, verified Google email.
+        // Do not require a CKW staff profile just to enter an assigned sports page.
+        const [esportsCheck, certificateCheck, sportsRoleCheck] = await Promise.all([
+          supabase.rpc("sports_esports_my_access"),
+          supabase.rpc("sports_cert_my_access"),
+          supabase.from("sports_user_roles").select("role").eq("user_id", user.id).eq("is_active", true),
+        ]);
+        if (esportsCheck.error) throw new Error("ตรวจสอบสิทธิ์ผู้ดูแล E-Sport ไม่สำเร็จ: " + esportsCheck.error.message);
+        // A pending SQL migration should not lock out existing school/E-Sport accounts.
+        const certificateRpcMissing = !!certificateCheck.error &&
+          ["PGRST202", "42883"].includes(String(certificateCheck.error.code));
+        if (certificateCheck.error && !certificateRpcMissing) {
+          throw new Error("ตรวจสอบสิทธิ์กรรมการเกียรติบัตรไม่สำเร็จ: " + certificateCheck.error.message);
         }
         const hasEsportsAccess = esportsCheck.data === true;
-        const hasSportsAccess = hasCertificateOfficialAccess || (sportsRoles || []).some((item: { role: string }) =>
+        const hasCertificateAccess = !certificateRpcMissing && certificateCheck.data === true;
+        const missingRoleTable = sportsRoleCheck.error?.code === "42P01" || sportsRoleCheck.error?.code === "PGRST205";
+        if (sportsRoleCheck.error && !missingRoleTable && !hasEsportsAccess && !hasCertificateAccess) {
+          throw new Error("ตรวจสอบสิทธิ์ระบบกีฬากลุ่มไม่สำเร็จ: " + sportsRoleCheck.error.message);
+        }
+        const sportsRoles = sportsRoleCheck.data || [];
+        const hasSportsAccess = sportsRoles.some((item: { role: string }) =>
           ["super_admin", "competition_admin", "school_manager", "referee", "viewer"].includes(String(item.role))
         );
+        // A missing/blocked CKW staff profile must not prevent an authorized external referee login.
+        const { data: profile, error: profileError } = await supabase
+          .from("profiles").select("role").eq("id", user.id).maybeSingle();
+        if (profileError && !hasEsportsAccess && !hasCertificateAccess) {
+          throw new Error("อ่านข้อมูลสิทธิ์ผู้ใช้ไม่สำเร็จ: " + profileError.message);
+        }
         const role = typeof profile?.role === "string" ? profile.role.toLowerCase().trim() : "";
         const destination = PATH_BY_ROLE[role];
 
@@ -105,10 +96,8 @@ export default function AuthCompletePage() {
           if (mounted) router.replace("/group-sports/esports");
           return;
         }
-        // Assigned judges land directly on the result-entry page, including CKW
-        // accounts that would otherwise be redirected to their teacher/student home.
-        if (hasCertificateOfficialAccess) {
-          if (mounted) router.replace("/group-sports/results");
+        if (hasCertificateAccess && !isPrincipalSportsAdmin) {
+          if (mounted) router.replace("/group-sports/certificates/manage");
           return;
         }
         if (isCkwAccount && destination) {

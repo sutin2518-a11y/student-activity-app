@@ -7,5 +7,5 @@ export const metadata: Metadata = {
 };
 
 export default function SportsOfficialsPage() {
-  return <CertificatesDashboard mode="manage" view="officials" />;
+  return <CertificatesDashboard mode="manage" />;
 }

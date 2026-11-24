@@ -5,7 +5,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
-import EsportsAdminManager from "@/components/group-sports/EsportsAdminManager";
 
 const SLUG = "phayao-secondary-group-sports-2569";
 const EVENT_CODES = ["GS3-ES-SM", "GS3-ES-SF"] as const;
@@ -981,7 +980,11 @@ export default function EsportsPage() {
 
       {admin && tab === "prelaunch" && <PrelaunchResetPanel onReset={load} />}
 
-      {mainAdmin && competitionId && tab === "admins" && <EsportsAdminManager competitionId={competitionId} />}
+      {mainAdmin && competitionId && tab === "admins" && <section className={`${panel} space-y-3`}>
+        <h2 className="text-lg font-bold text-red-900">ศูนย์มอบหมายกรรมการกีฬา</h2>
+        <p className="text-sm text-slate-600">เพื่อไม่ให้รายชื่อกรรมการซ้ำซ้อน สามารถจัดการสิทธิ์ผู้ดูแล RoV และผู้บันทึกผลเกียรติบัตรได้จากหน้าเดียว พร้อมตรวจสอบสถานะการเข้าสู่ระบบ Google</p>
+        <Link href="/group-sports/certificates/officials" className="inline-flex rounded-xl bg-red-800 px-4 py-3 text-sm font-bold text-white hover:bg-red-900">จัดการสิทธิ์กรรมการ →</Link>
+      </section>}
 
       {admin && currentEvent && tab === "history" && <section className={`${panel} space-y-3`}>
         <div><h2 className="text-lg font-black">ประวัติการแก้ไขผลและสายการแข่งขัน</h2><p className="mt-1 text-xs text-slate-500">แสดงประวัติ 150 รายการล่าสุดของประเภทการแข่งขันที่เลือก พร้อมข้อมูลก่อนและหลังแก้ไข</p></div>
