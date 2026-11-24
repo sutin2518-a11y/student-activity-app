@@ -982,7 +982,7 @@ export default function EsportsPage() {
 
       {mainAdmin && competitionId && tab === "admins" && <section className={`${panel} space-y-3`}>
         <h2 className="text-lg font-bold text-red-900">ศูนย์มอบหมายกรรมการกีฬา</h2>
-        <p className="text-sm text-slate-600">เพื่อไม่ให้รายชื่อกรรมการซ้ำซ้อน สามารถจัดการสิทธิ์ผู้ดูแล RoV และผู้บันทึกผลเกียรติบัตรได้จากหน้าเดียว พร้อมตรวจสอบสถานะการเข้าสู่ระบบ Google</p>
+        <p className="text-sm text-slate-600">เพื่อไม่ให้รายชื่อกรรมการซ้ำซ้อน สามารถจัดการสิทธิ์ผู้ดูแล RoV และผู้บันทึกอันดับรางวัลได้จากหน้าเดียว พร้อมตรวจสอบสถานะการเข้าสู่ระบบ Google</p>
         <Link href="/group-sports/certificates/officials" className="inline-flex rounded-xl bg-red-800 px-4 py-3 text-sm font-bold text-white hover:bg-red-900">จัดการสิทธิ์กรรมการ →</Link>
       </section>}
 

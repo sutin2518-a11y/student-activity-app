@@ -13,9 +13,10 @@ test('original 8 tabs remain, public header does not substitute new 7 public tab
 test('original tab handlers and both dropdowns are preserved',()=>{
  for(const expr of ['setSchoolInfoMenuOpen','setSportsMenuOpen','openNewRegistration','setTab(item.key as TabKey)','id="school-information-submenu"','id="sports-management-submenu"','schoolInfoNavRef','sportsSubTabs.map','SCHOOL_INFORMATION_SECTIONS']) assert.ok(nav.includes(expr),expr);
 });
-test('top menu and dropdown items are text only',()=>{
+test('top menu remains text only; sports submenu may have functional icons',()=>{
  assert.match(nav,/className="sports-games-main-label"/);
- assert.doesNotMatch(nav,/<svg\b|<Icon\b|<MedalIcon\b|<SubIcon\b|<UserShieldIcon\b/);
+ const top=nav.slice(0,nav.indexOf('id="sports-management-submenu"'));
+ assert.doesNotMatch(top,/<svg\b|<Icon\b|<MedalIcon\b|<SubIcon\b|<UserShieldIcon\b|<sub\.icon\b/);
 });
 test('one top menu, no second icon-card navigation',()=>{
  assert.equal((src.match(/data-sports-nav-items className=/g)||[]).length,1);

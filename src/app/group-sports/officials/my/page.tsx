@@ -37,9 +37,9 @@ export default function MySportsOfficialAssignmentsPage() {
         <h2 className="text-lg font-extrabold">รายการแข่งขันที่รับผิดชอบ ({events.length})</h2>
         <div className="mt-4 space-y-2">{events.map(event => <div key={event.id} className="rounded-xl border border-slate-200 p-4">
           <p className="font-bold">{event.sport_name}</p>
-          <p className="mt-1 text-xs text-slate-600">รหัสรายการ {event.event_code || "—"}</p>
+          <p className="mt-1 text-xs text-slate-600">รหัสรายการ {event.event_code || "—"}</p><Link href={`/group-sports/certificates/manage?event=${encodeURIComponent(event.id)}`} className="mt-3 inline-block rounded-xl bg-blue-700 px-4 py-2 text-sm font-bold text-white">บันทึกอันดับรางวัล</Link>
         </div>)}</div>
-        <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">ขั้นที่ 1 เป็นการมอบหมายและตรวจสอบสิทธิ์เท่านั้น ฟอร์มบันทึกผลสำหรับกีฬาทั่วไปจะเชื่อมในขั้นที่ 2 และไม่ต้องรอแม่แอดมินอนุมัติทุกครั้ง</p>
+        <p className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900">บันทึกอันดับรางวัลเพียงครั้งเดียว ระบบเชื่อมผลการแข่งขัน เหรียญและเกียรติบัตรโดยไม่ต้องรอแม่แอดมินอนุมัติ (ต้องติดตั้ง Migration 038)</p>
       </section>}
     </div>
   </main>;

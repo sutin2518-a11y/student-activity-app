@@ -213,9 +213,9 @@ const DEMO_MEDALS: Medal[] = [
 type SportsManagementTab = "schedule" | "events" | "matches";
 type NavKey = Exclude<TabKey, SportsManagementTab | "submissions"> | "sports";
 const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: IconProps) => ReactElement }[] = [
-  { key: "schedule", label: "จัดการ / ดูโปรแกรม", icon: CalendarGearIcon },
-  { key: "events", label: "รายการแข่งขัน", icon: TrophyIcon },
-  { key: "matches", label: "ผลการแข่งขัน", icon: CalendarCheckIcon },
+  { key: "schedule", label: "โปรแกรมแข่งขัน", icon: CalendarCheckIcon },
+  { key: "events", label: "รายการแข่งขัน", icon: ClipboardCheckIcon },
+  { key: "matches", label: "ผลการแข่งขัน", icon: BarChartIcon },
 ];
 const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
@@ -1183,7 +1183,7 @@ export default function GroupSportsDashboard() {
           {!events.length && <p role="status" className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">ยังไม่พบรายการแข่งขันของภูลังกาเกมส์ 2569 ในฐานข้อมูล กรุณาตรวจสอบการนำเข้ารายการแข่งขันและรหัสการแข่งขัน (slug)</p>}
           <label><span className={labelClass}>โรงเรียน *</span><select name="school_id" required className={inputClass} defaultValue={editEntry?.school_id||(entrySchools.length===1?entrySchools[0].id:"")}><option value="" disabled>เลือกโรงเรียน</option>{entrySchools.filter(s=>!editEntry||s.id===editEntry.school_id).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           {chosenEvent && !editEntry && !acceptsNewEntries(chosenEvent) && <div className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900 md:col-span-2">
-            รายการนี้ยังไม่เปิดรับสมัคร {rosterAdmin && <button type="button" onClick={() => { setScheduleView("events"); setTab("schedule"); setFormOpen(false); }} className="font-bold underline">ไปที่จัดการ / ดูโปรแกรม → รายการแข่งขัน เพื่อเปลี่ยนสถานะเป็น “เปิดรับสมัคร”</button>}
+            รายการนี้ยังไม่เปิดรับสมัคร {rosterAdmin && <button type="button" onClick={() => { setScheduleView("events"); setTab("schedule"); setFormOpen(false); }} className="font-bold underline">ไปที่จัดการแข่งขัน → รายการแข่งขัน เพื่อเปลี่ยนสถานะเป็น “เปิดรับสมัคร”</button>}
           </div>}
           <div className="space-y-2 md:col-span-2">
             <div>
@@ -1492,15 +1492,15 @@ export default function GroupSportsDashboard() {
                         }}
                         className={`group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-left text-sm transition-[background-color,color,transform,box-shadow] duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none ${selected ? "bg-rose-100 font-extrabold text-[#7f1d1d]" : "bg-white font-semibold text-slate-800 hover:bg-rose-50 hover:text-[#7f1d1d]"}`}
                       >
-                        <span className="flex min-w-0 items-center gap-3"><span>{sub.label}</span></span>
+                        <span className="flex min-w-0 items-center gap-3"><sub.icon className="h-5 w-5 shrink-0 text-blue-800"/><span>{sub.label}</span></span>
                       </button>
                     );
                   })}
                   {canManageCertificates && <>
                     <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><span>บันทึกผลและประกาศผลทันที (กรรมการ)</span></span>
+                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+                      <span className="flex min-w-0 items-center gap-3"><TrophyIcon className="h-5 w-5 shrink-0 text-blue-800"/><span>บันทึกอันดับรางวัล</span></span>
                     </Link>
                   </>}
                   {canAdminCertificates && <>
@@ -1605,7 +1605,7 @@ export default function GroupSportsDashboard() {
                 {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
                 {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}
                 {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
-                {canManageCertificates && <Link href="/group-sports/results">กรรมการบันทึกและประกาศผล</Link>}
+                {canManageCertificates && <Link href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
                 {canAdminCertificates && <Link href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
                 {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
                 {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}

@@ -69,7 +69,7 @@ export default function SportsOfficialsAccessManager() {
       supabase.rpc("sports_officials_access_overview", { p_event: id }),
       supabase.rpc("sports_event_referee_roster", { p_event: id }),
     ]);
-    if (legacy.error) throw new Error(`อ่านสิทธิ์กรรมการเกียรติบัตร/ผู้ดูแล RoV ไม่สำเร็จ: ${errorText(legacy.error)}`);
+    if (legacy.error) throw new Error(`อ่านสิทธิ์กรรมการบันทึกอันดับรางวัล/ผู้ดูแล RoV ไม่สำเร็จ: ${errorText(legacy.error)}`);
     if (resultOfficials.error) throw new Error(`อ่านสิทธิ์กรรมการประจำรายการไม่สำเร็จ: ${errorText(resultOfficials.error)}`);
     const combined = new Map<string, Access>();
     for (const item of (legacy.data || []) as Access[]) {
@@ -135,7 +135,7 @@ export default function SportsOfficialsAccessManager() {
         <Link href="/group-sports" className="text-xs font-semibold text-white/80 underline">← กลับหน้ากีฬากลุ่ม</Link>
         <Link href="/group-sports/certificates/central" className="ml-4 text-xs font-semibold text-white underline">มอบหมายกรรมการพิมพ์เกียรติบัตรส่วนกลาง</Link>
         <h1 className="mt-3 text-2xl font-black">มอบหมายกรรมการกีฬา</h1>
-        <p className="mt-1 text-sm text-white/85">ศูนย์มอบหมายกรรมการทุกกีฬา · แยกสิทธิ์กรรมการประจำรายการ / ผลเกียรติบัตร / ผู้ดูแล RoV</p>
+        <p className="mt-1 text-sm text-white/85">ศูนย์มอบหมายกรรมการทุกกีฬา · แยกสิทธิ์กรรมการประจำรายการ / บันทึกอันดับรางวัล / ผู้ดูแล RoV</p>
       </header>
       {error && <p role="alert" className="rounded-xl border border-red-300 bg-red-50 p-4 text-sm font-semibold text-red-900">{error}</p>}
       {notice && <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-900">{notice}</p>}
@@ -159,19 +159,19 @@ export default function SportsOfficialsAccessManager() {
             </label>
             <label className="text-xs font-bold">ประเภทสิทธิ์
               <select className={`mt-1 ${field}`} value={scope} onChange={e => setScope(e.target.value as Scope)}>
-                <option value="results">กรรมการประจำรายการ / เตรียมบันทึกผลกีฬา</option>
-                <option value="certificate">บันทึกผลเกียรติบัตรรายการนี้</option>
+                <option value="results">กรรมการประจำรายการ / บันทึกอันดับรางวัล</option>
+                <option value="certificate">บันทึกอันดับรางวัลรายการนี้</option>
                 {isEsports && <option value="esports">ดูแลโปรแกรมและผล RoV ชาย/หญิง</option>}
                 {isEsports && <option value="both">ทั้งสองหน้าที่</option>}
               </select>
             </label>
             <button className="min-h-11 rounded-xl bg-red-800 px-4 font-bold text-white disabled:opacity-50" disabled={busy || !email.trim()}>มอบหมายสิทธิ์</button>
           </form>
-          <p className="mt-3 text-xs text-slate-600">กรรมการต้องเข้าสู่ระบบด้วย Google อีเมลตรงกับที่มอบหมาย · สิทธิ์กรรมการประจำรายการในขั้นนี้เปิดให้ดูรายการที่รับผิดชอบเท่านั้น การบันทึกผลสำหรับกีฬาทั่วไปจะเชื่อมในขั้นที่ 2 โดยไม่มอบสิทธิ์ Admin ทั้งระบบ</p>
+          <p className="mt-3 text-xs text-slate-600">กรรมการต้องเข้าสู่ระบบด้วย Google อีเมลตรงกับที่มอบหมาย · กรรมการประจำรายการบันทึกอันดับรางวัลได้เฉพาะรายการที่ได้รับมอบหมาย (Migration 038) ไม่ได้รับสิทธิ์พิมพ์ส่วนกลางหรือ Admin ทั้งระบบ</p>
         </section>
         <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
           <h2 className="text-lg font-extrabold text-red-900">รายชื่อและสถานะสิทธิ์ ({rows.length} บัญชี)</h2>
-          {isEsports && <p className="mt-1 text-xs text-slate-600">รายชื่อผู้ดูแล RoV จะปรากฏทั้งสองประเภท เพราะสิทธิ์นี้ครอบคลุม RoV ชายและหญิง แต่สิทธิ์กรอกผลเกียรติบัตรแยกตามรายการ</p>}
+          {isEsports && <p className="mt-1 text-xs text-slate-600">รายชื่อผู้ดูแล RoV จะปรากฏทั้งสองประเภท เพราะสิทธิ์นี้ครอบคลุม RoV ชายและหญิง แต่สิทธิ์บันทึกอันดับรางวัลแยกตามรายการ</p>}
           {rows.length === 0 && !error && <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm text-slate-600">ยังไม่มีรายชื่อกรรมการในรายการนี้</p>}
           <div className="mt-3 space-y-3">
             {rows.map(row => <div key={row.email} className="rounded-xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
@@ -182,20 +182,20 @@ export default function SportsOfficialsAccessManager() {
                 </div>
                 <div className="flex flex-wrap gap-2 text-xs font-semibold">
                   {row.results_active && <span className="rounded-full bg-violet-100 px-2 py-1 text-violet-900">กรรมการประจำรายการ</span>}
-                  {row.certificate_active && <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-900">กรรมการเกียรติบัตร</span>}
+                  {row.certificate_active && <span className="rounded-full bg-blue-100 px-2 py-1 text-blue-900">กรรมการบันทึกอันดับรางวัล</span>}
                   {row.esports_active && <span className="rounded-full bg-emerald-100 px-2 py-1 text-emerald-900">ผู้ดูแล RoV</span>}
                   {!row.results_active && !row.certificate_active && !row.esports_active && <span className="rounded-full bg-slate-200 px-2 py-1 text-slate-600">สิทธิ์ถูกระงับ</span>}
                 </div>
               </div>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button className={button} disabled={busy} onClick={() => void assign(row.email,"results",!row.results_active)}>{row.results_active ? "ระงับสิทธิ์กรรมการรายการนี้" : "เปิดสิทธิ์กรรมการรายการนี้"}</button>
-                <button className={button} disabled={busy} onClick={() => void assign(row.email,"certificate",!row.certificate_active)}>{row.certificate_active ? "ระงับสิทธิ์เกียรติบัตร" : "เปิดสิทธิ์เกียรติบัตร"}</button>
+                <button className={button} disabled={busy} onClick={() => void assign(row.email,"certificate",!row.certificate_active)}>{row.certificate_active ? "ระงับสิทธิ์บันทึกอันดับรางวัล" : "เปิดสิทธิ์บันทึกอันดับรางวัล"}</button>
                 {isEsports && <button className={button} disabled={busy} onClick={() => void assign(row.email,"esports",!row.esports_active)}>{row.esports_active ? "ระงับสิทธิ์ RoV" : "เปิดสิทธิ์ RoV"}</button>}
               </div>
             </div>)}
           </div>
         </section>
-        <p className="text-xs leading-6 text-slate-600">กรรมการเข้าสู่ระบบด้วย Google ที่ <Link href="/login" className="font-bold text-red-800 underline">หน้าเข้าสู่ระบบ</Link> · กรรมการกีฬาทั่วไปใช้หน้า <Link href="/group-sports/officials/my" className="font-bold text-red-800 underline">รายการที่ได้รับมอบหมาย</Link> · กรรมการผลเกียรติบัตรและผู้ดูแล RoV ยังคงใช้หน้าปฏิบัติงานเฉพาะเดิม ไม่มีการให้สิทธิ์ข้ามกีฬาหรือยกเป็น Admin อัตโนมัติ</p>
+        <p className="text-xs leading-6 text-slate-600">กรรมการเข้าสู่ระบบด้วย Google ที่ <Link href="/login" className="font-bold text-red-800 underline">หน้าเข้าสู่ระบบ</Link> · กรรมการกีฬาทั่วไปใช้หน้า <Link href="/group-sports/officials/my" className="font-bold text-red-800 underline">รายการที่ได้รับมอบหมาย</Link> · กรรมการบันทึกอันดับรางวัลและผู้ดูแล RoV ยังคงใช้หน้าปฏิบัติงานเฉพาะเดิม การระงับสิทธิ์บันทึกอันดับต้องปิดทั้งกรรมการประจำรายการและกรรมการบันทึกอันดับรางวัล หากบัญชีได้รับทั้งสองสิทธิ์</p>
       </>}
     </div>
   </main>;

@@ -52,7 +52,7 @@ export function certificateAward(rank: number | null, kind: string): string {
   return "";
 }
 export function resultStatusLabel(status: CertificateStatus): string {
-  return ({not_submitted:"ยังไม่ส่งผล", submitted:"ผลเดิมรอประกาศ", rejected:"ผลเดิมต้องส่งใหม่", approved:"ผลเดิมพร้อมประกาศ", published:"ประกาศผลแล้ว"})[status];
+  return ({not_submitted:"ยังไม่บันทึกอันดับ", submitted:"ผลเดิมรอประกาศ", rejected:"ผลเดิมต้องส่งใหม่", approved:"ผลเดิมพร้อมประกาศ", published:"ประกาศผลแล้ว"})[status];
 }
 export function emptyPlacements(isAthletics:boolean): CertificatePlacement[] {
   const base:CertificatePlacement[] = [{rank:1,slot:1,entry_id:""},{rank:2,slot:1,entry_id:""},{rank:3,slot:1,entry_id:""}];

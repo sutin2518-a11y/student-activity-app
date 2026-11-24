@@ -68,7 +68,7 @@ export default function AuthCompletePage() {
         const certificateRpcMissing = !!certificateCheck.error &&
           ["PGRST202", "42883"].includes(String(certificateCheck.error.code));
         if (certificateCheck.error && !certificateRpcMissing) {
-          throw new Error("ตรวจสอบสิทธิ์กรรมการเกียรติบัตรไม่สำเร็จ: " + certificateCheck.error.message);
+          throw new Error("ตรวจสอบสิทธิ์กรรมการบันทึกอันดับรางวัลไม่สำเร็จ: " + certificateCheck.error.message);
         }
         const refereeRpcMissing = !!eventRefereeCheck.error &&
           ["PGRST202", "42883"].includes(String(eventRefereeCheck.error.code));
