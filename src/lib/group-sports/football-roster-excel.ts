@@ -52,5 +52,6 @@ export async function importFootballRosterExcel(file:File,code:FootballCode):Pro
   jerseys.add(values[4]);players.push({prefix:values[1],name:values[2],student_code:values[0],birth_date:birthDate,jersey_number:values[4],player_role:values[5],player_note:values[6]});
  }
  if(!players.length)throw new Error("ไม่พบรายชื่อนักกีฬาใน Excel");
+ if(players.length>20)throw new Error("ลงทะเบียนนักกีฬาได้ไม่เกิน 20 คน");
  return players;
 }

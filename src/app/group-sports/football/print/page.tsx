@@ -14,17 +14,17 @@ function thaiDate(value:string|null){
  const date=new Date(`${value}T12:00:00+07:00`);
  return Number.isNaN(date.getTime())?"":new Intl.DateTimeFormat("th-TH",{day:"numeric",month:"short",year:"numeric",timeZone:"Asia/Bangkok"}).format(date);
 }
-function managerName(data:Details){return (data.coaches[0]?.manager_name||"").trim();}
+function schoolName(name:string){return name.replace(/^โรงเรียน\s*/,"");}
 function printPlayerPhoto(player:Player|undefined, index:number, url:string|undefined){
  return <div key={`athlete-${index}`} className="football-photo-slot">
-  <div className="football-photo-frame">{player&&url?<img src={url} alt={`รูปนักกีฬา ${player.full_name}`}/>:<span>{player?"ยังไม่ได้แนบรูป":"รูปถ่าย"}<br/>นักกีฬา {index+1}</span>}</div>
-  <div className="football-photo-caption"><b>หมายเลข {player?.jersey_number??"........"}</b><p>{player?.full_name||"ชื่อ–สกุล ............................."}</p><p>ว/ด/ป เกิด {thaiDate(player?.birth_date||null)||"......................"}</p></div>
+  <div className="football-photo-frame">{player&&url?<img src={url} alt={`รูปนักกีฬา ${player.full_name}`}/>:null}</div>
+  <div className="football-photo-caption"><b>หมายเลข {player?.jersey_number??"........"}</b><p>ชื่อ–สกุล {player?.full_name||"............................."}</p><p>ว/ด/ป เกิด {thaiDate(player?.birth_date||null)||"......................"}</p></div>
  </div>;
 }
 function printStaffPhoto(slot:FootballStaffSlot, url:string|undefined){
  return <div className="football-photo-slot football-photo-staff" key={slot.key}>
-  <div className="football-photo-frame">{slot.name&&url?<img src={url} alt={`รูป ${slot.title} ${slot.name}`}/>:<span>{slot.name?"ยังไม่ได้แนบรูป":"รูปถ่าย"}<br/>{slot.title}</span>}</div>
-  <div className="football-photo-caption"><b>{slot.title}</b><p>{slot.name||"ชื่อ–สกุล ............................"}</p></div>
+  <div className="football-photo-frame">{slot.name&&url?<img src={url} alt={`รูป ${slot.title} ${slot.name}`}/>:null}</div>
+  <div className="football-photo-caption"><b>{slot.title}</b><p>ชื่อ–สกุล {slot.name||"............................"}</p></div>
  </div>;
 }
 export default function FootballPrintPage(){
@@ -83,18 +83,18 @@ export default function FootballPrintPage(){
    <button disabled={!readyToPrint} onClick={()=>window.print()}>พิมพ์ / บันทึกเป็น PDF</button>
    <span role="status">{loading?"กำลังเตรียมใบสมัครและรูปภาพ…":error||(!entry?"ไม่พบรหัสใบสมัคร":data?`${data.players.length} คน · รูปนักกีฬา ${Object.keys(photos).length} รูป · รูปเจ้าหน้าที่ ${Object.keys(staffPhotos).length} รูป`:"ยังไม่มีใบสมัคร")}</span>
   </div>
+  {data&&!loading&&!error&&(Object.keys(photos).length<data.players.length||Object.keys(staffPhotos).length<staff.filter(s=>s.name).length)&&<p className="football-print-note" role="status">รูปบางคนยังไม่พบหรืออ่านไม่ได้ กรุณาตรวจสอบก่อนพิมพ์ส่งกรรมการ (กรอบว่างตามต้นฉบับ)</p>}
   {error&&<p className="football-print-error" role="alert">{error}</p>}
   {!entry&&!loading&&<p className="football-print-error" role="alert">กรุณากลับไปเลือกใบสมัครที่ต้องการพิมพ์</p>}
   {data&&<>
    <section className="football-a4 football-sheet">
-    <header><h1>รายชื่อนักกีฬาฟุตบอล {data.sport_name.replace(/^ฟุตบอล\s*/,"")}</h1><p>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</p><h2>ชื่อทีมโรงเรียน {data.school_name}</h2></header>
-    <table><thead><tr><th className="number">ลำดับ</th><th>ชื่อ–สกุล</th><th>วัน/เดือน/ปีเกิด</th><th>เบอร์เสื้อ</th><th>หมายเหตุ</th></tr></thead>
+    <header><h1>รายชื่อนักกีฬา{data.sport_name} กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30<br/>ประจำปีการศึกษา 2569</h1><div className="football-dotted-rule"/><h2>ชื่อทีมโรงเรียน {schoolName(data.school_name)}</h2></header>
+    <table><thead><tr><th className="number">ลำดับ</th><th>ชื่อ - สกุล</th><th>วัน/เดือน/ปีเกิด</th><th>เบอร์เสื้อ</th><th>หมายเหตุ</th></tr></thead>
      <tbody>{playerRows.map((p,i)=><tr key={i}><td>{i+1}</td><td className="left">{p?.full_name||""}</td><td>{thaiDate(p?.birth_date||null)}</td><td>{p?.jersey_number??""}</td><td className="left">{p?.player_note||""}</td></tr>)}</tbody></table>
-    <footer>ลงชื่อ ........................................................................ ผู้จัดการทีม<br/>({managerName(data)||"..................................................."})</footer>
    </section>
    <section className="football-a4 football-sheet football-entry-list">
-    <header><h1>ใบส่งรายชื่อนักกีฬาฟุตบอลทีมโรงเรียน {data.school_name}</h1><p>{data.sport_name} · กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</p></header>
-    <table><thead><tr><th className="number">ลำดับ</th><th>ชื่อ–สกุล</th><th>เบอร์เสื้อ</th>
+    <header><h1>ใบส่งรายชื่อนักกีฬาฟุตบอลทีมโรงเรียน {schoolName(data.school_name)}</h1></header>
+    <table><thead><tr><th className="number">ลำดับ</th><th>ชื่อ - สกุล</th><th>เบอร์เสื้อ</th>
       {isOpenBoys?<><th>P</th><th>S</th><th>N</th><th>อายุ</th></>:<><th>ผู้เล่นจริง</th><th>สำรอง</th><th>อายุ</th></>}
      </tr></thead><tbody>{Array.from({length:isOpenBoys?22:20},(_,i)=>{
       const p=data.players[i];const age=footballAgeOnStart(p?.birth_date||null,data.sport_name);
@@ -105,20 +105,18 @@ export default function FootballPrintPage(){
        <td>{age??""}</td>
       </tr>;
      })}</tbody></table>
-    <p className="football-print-legend">อายุ = จำนวนปีเต็ม ณ วันเริ่มการแข่งขัน{isOpenBoys?" · P = ผู้เล่นจริง · S = สำรอง · N = ยังไม่ระบุสถานะ":""} (ใช้แสดงข้อมูล ไม่ใช่การตรวจสอบคุณสมบัติ)</p>
-    <footer>ลงชื่อ ........................................................................ ผู้จัดการทีม<br/>({managerName(data)||"..................................................."})</footer>
+    {isOpenBoys&&<p className="football-print-legend">P = ผู้เล่นจริง · S = สำรอง · N = ยังไม่ระบุสถานะ</p>}
    </section>
    <section className="football-a4 football-photos">
-    <header><h1>แผงรูปนักกีฬาฟุตบอล</h1><p>{data.sport_name} · กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</p><h2>ทีมโรงเรียน {data.school_name} · หน้าที่ 1/2</h2></header>
+    <header><h1>แผงรูปนักกีฬา</h1><p>นักกีฬา{data.sport_name} กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30<br/>ประจำปีการศึกษา 2569</p><h2>ทีม {data.school_name}</h2></header>
     <div className="football-photo-grid">{Array.from({length:12},(_,i)=>printPlayerPhoto(data.players[i],i,photos[i]))}</div>
    </section>
    <section className="football-a4 football-photos football-photos-second">
-    <header><h1>แผงรูปนักกีฬาฟุตบอล</h1><p>{data.sport_name} · กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</p><h2>ทีมโรงเรียน {data.school_name} · หน้าที่ 2/2</h2></header>
+    <header><h1>แผงรูปนักกีฬา</h1><p>นักกีฬา{data.sport_name} กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30<br/>ประจำปีการศึกษา 2569</p><h2>ทีม {data.school_name}</h2></header>
     <div className="football-photo-grid">
      {Array.from({length:8},(_,i)=>printPlayerPhoto(data.players[i+12],i+12,photos[i+12]))}
      {staff.slice(0,4).map(s=>printStaffPhoto(s,staffPhotos[s.key]))}
     </div>
-    <footer>ลงชื่อ ........................................................................ ผู้จัดการทีม<br/>({managerName(data)||"..................................................."})</footer>
    </section>
    {extraStaffPages.map((extraPage,i)=><section key={`staff-page-${i}`} className="football-a4 football-photos football-photos-extra">
     <header><h1>แผงรูปเจ้าหน้าที่ทีมเพิ่มเติม {i+1}/{extraStaffPages.length}</h1><p>{data.sport_name} · ทีมโรงเรียน {data.school_name}</p></header>
