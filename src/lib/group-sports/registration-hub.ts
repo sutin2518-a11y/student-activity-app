@@ -21,6 +21,9 @@ export function eventRegistrationSport(event:RegistrationEvent):RegistrationSpor
  if(/RoV|E-Sport|อีสปอร์ต/i.test(event.sport_name))return 'esports';
  return REGISTRATION_SPORTS.find(s=>event.sport_name.startsWith(s.name))?.key;
 }
+export function allowsRegistrationPhotos(event?: RegistrationEvent) {
+ return !!event && eventRegistrationSport(event) !== "boxing";
+}
 export function registrationHref(s:typeof REGISTRATION_SPORTS[number]) {
  return `/group-sports/${s.key}?tab=registration`;
 }

@@ -1,0 +1,1 @@
+v33.37.1: install after v33.37. Copy apply-v33.37.1.cjs to project root; run node apply-v33.37.1.cjs, npm run build. No new SQL. Two TSX files only. Existing records not changed by installer. Staff DOB hidden, not printed. Print links require saved entry. STOP if source differs. Remove installer before commit.

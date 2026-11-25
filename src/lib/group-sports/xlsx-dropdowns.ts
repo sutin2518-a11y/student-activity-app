@@ -12,6 +12,14 @@
 export type ExcelDropdown = {
   range: string; // C2:C101
   options: readonly string[];
+  sourceRange?: string; // absolute reference on the same worksheet
+  label: string;
+};
+
+export type ExcelDateValidation = {
+  range: string;
+  minSerial: number;
+  maxSerial: number;
   label: string;
 };
 
@@ -133,20 +141,27 @@ function escapeXml(value: string): string {
   return value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
 }
 
-function validationXml(rules: readonly ExcelDropdown[], prefix = ""): string {
-  const items = rules.map(({ range, options, label }) => {
+function validationXml(rules: readonly ExcelDropdown[], dateRules: readonly ExcelDateValidation[] = [], prefix = ""): string {
+  const listItems = rules.map(({ range, options, label, sourceRange }) => {
     if (!/^[A-Z]{1,3}[1-9]\d*:[A-Z]{1,3}[1-9]\d*$/.test(range)) throw new Error("ช่วงเซลล์ดรอปดาวน์ไม่ถูกต้อง");
-    if (!options.length || options.some(option => /[,"\r\n]/.test(option))) throw new Error("ค่าตัวเลือก Excel ไม่ถูกต้อง");
-    const formula = `"${options.join(",")}"`;
-    if (encoder.encode(formula).length > 255) throw new Error("รายการตัวเลือก Excel ยาวเกิน 255 ไบต์");
+    if (sourceRange && !/^\$[A-Z]{1,3}\$[1-9]\d*:\$[A-Z]{1,3}\$[1-9]\d*$/.test(sourceRange)) throw new Error("ช่วงแหล่งข้อมูล Excel ไม่ถูกต้อง");
+    if (!sourceRange && (!options.length || options.some(option => /[,"\r\n]/.test(option)))) throw new Error("ค่าตัวเลือก Excel ไม่ถูกต้อง");
+    const formula = sourceRange || `"${options.join(",")}"`;
+    if (!sourceRange && encoder.encode(formula).length > 255) throw new Error("รายการตัวเลือก Excel ยาวเกิน 255 ไบต์");
     return `<${prefix}dataValidation type="list" errorStyle="stop" allowBlank="1" showDropDown="0" showInputMessage="1" showErrorMessage="1" sqref="${range}" promptTitle="${escapeXml(label)}" prompt="กรุณาเลือกค่าจากรายการ" errorTitle="ค่าที่เลือกไม่ถูกต้อง" error="กรุณาเลือกจากรายการที่กำหนด"><${prefix}formula1>${escapeXml(formula)}</${prefix}formula1></${prefix}dataValidation>`;
   });
+  const dateItems = dateRules.map(({ range, minSerial, maxSerial, label }) => {
+    if (!/^[A-Z]{1,3}[1-9]\d*:[A-Z]{1,3}[1-9]\d*$/.test(range)) throw new Error("ช่วงเซลล์วันที่ Excel ไม่ถูกต้อง");
+    if (!Number.isFinite(minSerial) || !Number.isFinite(maxSerial) || minSerial < 1 || maxSerial < minSerial) throw new Error("ช่วงวันที่ Excel ไม่ถูกต้อง");
+    return `<${prefix}dataValidation type="date" operator="between" errorStyle="stop" allowBlank="1" showInputMessage="1" showErrorMessage="1" sqref="${range}" promptTitle="${escapeXml(label)}" prompt="กรอกวันเกิดเป็นวันที่ พ.ศ. เช่น 02/12/2554 (เซลล์จะแสดงปี พ.ศ.)" errorTitle="วันเกิดไม่ถูกต้อง" error="กรุณากรอกวันที่จริงภายในช่วงที่กำหนด"><${prefix}formula1>${Math.floor(minSerial)}</${prefix}formula1><${prefix}formula2>${Math.floor(maxSerial)}</${prefix}formula2></${prefix}dataValidation>`;
+  });
+  const items = [...listItems, ...dateItems];
   return `<${prefix}dataValidations count="${items.length}">${items.join("")}</${prefix}dataValidations>`;
 }
 
 /** Applies dropdowns to the first worksheet (รายชื่อนักกีฬา). */
-export function addRosterExcelDropdowns(uncompressedXlsx: Uint8Array, rules: readonly ExcelDropdown[]): Uint8Array {
-  if (!rules.length) return uncompressedXlsx;
+export function addRosterExcelDropdowns(uncompressedXlsx: Uint8Array, rules: readonly ExcelDropdown[], dateRules: readonly ExcelDateValidation[] = []): Uint8Array {
+  if (!rules.length && !dateRules.length) return uncompressedXlsx;
   const entries = parseStoredZip(uncompressedXlsx);
   const worksheet = entries.find(entry => entry.name === "xl/worksheets/sheet1.xml");
   if (!worksheet) throw new Error("ไม่พบชีตรายชื่อนักกีฬาใน Excel");
@@ -156,7 +171,7 @@ export function addRosterExcelDropdowns(uncompressedXlsx: Uint8Array, rules: rea
   if (!rootTag) throw new Error("โครงสร้างชีต Excel ไม่ถูกต้อง");
   const prefix = rootTag[1] || "";
   if (!xml.includes(`</${prefix}worksheet>`)) throw new Error("โครงสร้างชีต Excel ไม่ถูกต้อง");
-  const validation = validationXml(rules, prefix);
+  const validation = validationXml(rules, dateRules, prefix);
   // OOXML schema order requires dataValidations after sheetData and before
   // hyperlinks/print settings/page margins. SheetJS writes the latter.
   const afterData = xml.indexOf(`</${prefix}sheetData>`);

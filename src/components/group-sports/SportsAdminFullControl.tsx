@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import { allowsRegistrationPhotos } from "@/lib/group-sports/registration-hub";
 import AthletePhotoManager from "@/components/group-sports/AthletePhotoManager";
 
 const SLUG = "phayao-secondary-group-sports-2569";
@@ -212,9 +213,9 @@ export default function SportsAdminFullControl(){
           </div>
           <div><label className="mb-1 block text-sm font-bold text-red-900">เหตุผลการแก้ไขจากผู้ร้องขอ *</label><textarea rows={3} className={control} value={reason} onChange={e=>setReason(e.target.value)} placeholder="เช่น กรรมการฟุตบอลแจ้งขอแก้ชื่อนักกีฬาและเบอร์เสื้อ เนื่องจากกรอกผิด"/></div>
           <div className="flex flex-wrap gap-2"><button type="button" disabled={busy||reason.trim().length<8} onClick={()=>void save()} className="rounded-xl bg-red-800 px-5 py-3 font-black text-white hover:bg-red-900 disabled:opacity-40">{busy?"กำลังบันทึก...":"ยืนยันแก้ไขใบสมัคร (Admin)"}</button><button className={button} disabled={busy} type="button" onClick={()=>void openEntry(detail.id)}>ยกเลิกการแก้ไขที่ยังไม่บันทึก</button></div>
-          <div><h3 className="font-black text-red-900">จัดการรูปนักกีฬา</h3><p className="mb-2 text-xs text-slate-600">หากเปลี่ยนชื่อหรือรหัสนักกีฬา ให้บันทึกข้อมูลก่อนแล้วจึงแนบรูปใหม่ รูปทั้งหมดเก็บใน Supabase Storage แบบ Private</p>
+          {allowsRegistrationPhotos(event) && <div><h3 className="font-black text-red-900">จัดการรูปนักกีฬา</h3><p className="mb-2 text-xs text-slate-600">หากเปลี่ยนชื่อหรือรหัสนักกีฬา ให้บันทึกข้อมูลก่อนแล้วจึงแนบรูปใหม่ รูปทั้งหมดเก็บใน Supabase Storage แบบ Private</p>
             <AthletePhotoManager key={`${detail.id}:${detail.updated_at}`} entryId={detail.id} athletes={detail.players.map(p=>({full_name:p.full_name,student_code:p.student_code}))}/>
-          </div>
+          </div>}
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-4"><h3 className="font-black">ประวัติการแก้ไขใบสมัคร ({detail.history.length})</h3>
             {detail.history.map((h,i)=><details className="mt-3 border-t pt-2 text-xs" key={`${i}-${h.edited_at}`}><summary className="cursor-pointer font-semibold">{new Date(h.edited_at).toLocaleString("th-TH")} · {h.actor||"Admin"} · {h.reason}</summary><p className="mt-2">ยกเลิกเกียรติบัตร {h.revoked} ฉบับ · ออกใหม่ {h.issued} ฉบับ</p><pre className="mt-2 max-h-56 overflow-auto rounded bg-white p-2">{JSON.stringify({before:h.before_data,after:h.after_data},null,2)}</pre></details>)}
             {!detail.history.length && <p className="mt-2 text-sm text-slate-500">ยังไม่มีประวัติการแก้ไขผ่านเมนูนี้</p>}
