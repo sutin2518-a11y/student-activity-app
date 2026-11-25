@@ -3,6 +3,7 @@
 import EsportsSessionSchedule, { makePlan } from "@/components/group-sports/EsportsSessionSchedule";
 import Link from "next/link";
 import Image from "next/image";
+import SportRegistrationEmbed from "@/components/group-sports/SportRegistrationEmbed";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
 
@@ -15,7 +16,7 @@ const secondary = "rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
 const danger = "rounded-lg bg-red-700 px-4 py-2 text-sm font-bold text-white hover:bg-red-800 disabled:opacity-50";
 
 type Gender = "ชาย" | "หญิง";
-type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "history" | "prelaunch" | "admins";
+type Tab = "groups" | "matches" | "schedule" | "standings" | "knockout" | "registration" | "history" | "prelaunch" | "admins";
 
 // แยกสีเมนูแต่ละส่วนให้เห็นชัดทั้งสถานะที่เลือกและยังไม่เลือก
 const tabPalette: Record<Tab, { active: string; idle: string }> = {
@@ -36,6 +37,10 @@ const tabPalette: Record<Tab, { active: string; idle: string }> = {
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
   knockout: {
+    active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
+    idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
+  },
+  registration: {
     active: "border-red-900 bg-red-800 text-white shadow-md ring-2 ring-rose-200",
     idle: "border-rose-200 bg-white text-red-900 hover:border-rose-400 hover:bg-rose-50"
   },
@@ -415,6 +420,9 @@ export default function EsportsPage() {
   const [historyRows, setHistoryRows] = useState<HistoryRow[]>([]);
   const [gender, setGender] = useState<Gender>("ชาย");
   const [tab, setTab] = useState<Tab>("groups");
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "registration") setTab("registration");
+  }, []);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");
   const [error, setError] = useState("");
@@ -847,6 +855,7 @@ export default function EsportsPage() {
         <button type="button" className={tabButtonClass("schedule", tab)} aria-pressed={tab === "schedule"} onClick={() => setTab("schedule")}>ตารางโปรแกรม</button>
         <button type="button" className={tabButtonClass("standings", tab)} aria-pressed={tab === "standings"} onClick={() => setTab("standings")}>ตารางคะแนน</button>
         <button type="button" className={tabButtonClass("knockout", tab)} aria-pressed={tab === "knockout"} onClick={() => setTab("knockout")}>สาย Knockout</button>
+        <button type="button" className={tabButtonClass("registration", tab)} aria-pressed={tab === "registration"} onClick={() => setTab("registration")}>ลงทะเบียนนักกีฬา</button>
         {admin && <button type="button" className={tabButtonClass("history", tab)} aria-pressed={tab === "history"} onClick={() => setTab("history")}>ประวัติการแก้ไข</button>}
         {admin && <button type="button" className={tabButtonClass("prelaunch", tab)} aria-pressed={tab === "prelaunch"} onClick={() => setTab("prelaunch")}>เตรียมใช้จริง / รีเซตทดสอบ</button>}
         {mainAdmin && <button type="button" className={tabButtonClass("admins", tab)} aria-pressed={tab === "admins"} onClick={() => setTab("admins")}>ผู้ดูแล E-Sport</button>}
@@ -854,7 +863,9 @@ export default function EsportsPage() {
         <button type="button" className={secondary} disabled={loading || !!busyId} onClick={() => void load()}>รีเฟรชข้อมูล</button>
       </div>
 
-      {!loading && !currentEvent && <div className={`${panel} text-center text-sm text-slate-600`}>ยังไม่มีรายการ E-Sport ที่เผยแพร่ หรือไม่พบข้อมูลรายการแข่งขันในฐานข้อมูล {admin ? "โปรดตรวจสอบ event_code GS3-ES-SM / GS3-ES-SF" : "โปรดกลับมาตรวจสอบเมื่อผู้จัดเผยแพร่ข้อมูล"}</div>}
+      {tab === "registration" && <SportRegistrationEmbed sport="esports" title="E-Sport (RoV)" />}
+
+      {!loading && !currentEvent && tab !== "registration" && <div className={`${panel} text-center text-sm text-slate-600`}>ยังไม่มีรายการ E-Sport ที่เผยแพร่ หรือไม่พบข้อมูลรายการแข่งขันในฐานข้อมูล {admin ? "โปรดตรวจสอบ event_code GS3-ES-SM / GS3-ES-SF" : "โปรดกลับมาตรวจสอบเมื่อผู้จัดเผยแพร่ข้อมูล"}</div>}
 
       {currentEvent && tab === "groups" && <section className="grid gap-4 md:grid-cols-2">
         {email && roster && <section className={`${panel} md:col-span-2`}><div className="flex justify-between"><strong>รายชื่อที่อนุมัติ · {roster.school}</strong><button onClick={()=>setRoster(null)}>ปิด</button></div><p>{roster.coach}</p><ol className="list-decimal pl-6">{roster.players.map((name,i)=><li key={i}>{name}</li>)}</ol></section>}

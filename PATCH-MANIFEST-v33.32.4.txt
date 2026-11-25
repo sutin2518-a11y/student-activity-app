@@ -1,0 +1,17 @@
+v33.32.4 — patch contents
+Added:
+- src/components/group-sports/SportRegistrationEmbed.tsx
+- apply-v33.32.4.cjs
+- tests/registration-embed-v33.32.4.test.mjs
+- README-v33.32.4.txt
+
+The script updates these 9 existing files:
+- src/lib/group-sports/registration-hub.ts
+- src/components/group-sports/GroupSportsDashboard.tsx
+- src/components/group-sports/VolleyballDashboard.tsx
+- src/components/group-sports/TakrawDashboard.tsx
+- src/components/group-sports/PetanqueDashboard.tsx
+- src/components/group-sports/TableTennisDashboard.tsx
+- src/components/group-sports/BoxingDashboard.tsx
+- src/components/group-sports/AthleticsDashboard.tsx
+- src/app/group-sports/esports/page.tsx

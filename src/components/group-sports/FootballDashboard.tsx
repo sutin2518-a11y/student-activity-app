@@ -113,7 +113,7 @@ export default function FootballDashboard(){
   }catch(cause){setError(`${errorText(cause)} — หากยังไม่ได้ติดตั้ง SQL 0026 โปรดรัน Migration ก่อน`);}
   finally{setLoading(false);}
  },[]);
- useEffect(()=>{void refresh();},[refresh]);
+ useEffect(()=>{void refresh();const params=new URLSearchParams(window.location.search);if(params.get("tab")==="registration")setTab("registration");},[refresh]);
  useEffect(()=>{setMessage("");setError("");setSelectedEntry(null);setSavedEntries([]);setPlayers([newPlayer()]);setCoaches([newCoach()]);setManagerName("");setManagerPhone("");setImportPreview(null);setEditMatch(null);setHistory([]);},[code]);
  useEffect(()=>{if(eligibleSchools.length&&!eligibleSchools.some(s=>s.id===schoolId))setSchoolId(eligibleSchools[0].id);},[schoolId,eligibleSchools]);
  const loadEntries=useCallback(async()=>{if(!selectedEvent?.id||!email)return;
