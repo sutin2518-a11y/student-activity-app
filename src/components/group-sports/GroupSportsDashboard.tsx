@@ -458,6 +458,7 @@ export default function GroupSportsDashboard() {
   const [exportingEntries,setExportingEntries] = useState(false);
   const [photoFiles,setPhotoFiles] = useState<Record<number,File>>({});
   const [rosterImportBusy,setRosterImportBusy] = useState(false);
+  const [rosterFileError,setRosterFileError] = useState("");
   const [rosterImportPreview,setRosterImportPreview] = useState<{fileName:string;athletes:ImportedAthlete[]} | null>(null);
   const [editEntry,setEditEntry] = useState<Entry | null>(null);
   const [eventChoice,setEventChoice] = useState("");
@@ -1047,7 +1048,7 @@ export default function GroupSportsDashboard() {
         }
       }
       setPhotoFiles({});
-      setEditEntry(null); setDetail(null); setRosterImportPreview(null);
+      setEditEntry(null); setDetail(null); setRosterFileError(""); setRosterImportPreview(null);
       if (failedPhotos.length) setError(`บันทึกใบสมัครสำเร็จ แต่ยังแนบรูปบางคนไม่ได้ (${failedPhotos.join("; ")}) กรุณาเปิด “ดูรายชื่อ” เพื่อแนบรูปอีกครั้ง`);
       setNotice(individualBatch ? `${isDemo ? "นำเข้าในโหมดสาธิต" : "รับข้อมูลลงทะเบียน"}กีฬาเดี่ยว ${batchSaved.length} คน (แยกใบสมัครรายคน) เรียบร้อยแล้ว · ตรวจตัวจริงที่สนามแข่งขัน` : isDemo ? "บันทึกการลงทะเบียนในโหมดสาธิตแล้ว" : "รับข้อมูลลงทะเบียนแล้ว · ตรวจตัวนักกีฬาและหลักฐานที่สนามแข่งขันในวันแข่งขันจริง");
       setFormOpen(false);
@@ -1190,7 +1191,7 @@ export default function GroupSportsDashboard() {
         setEditEntry(entry);
         setEventChoice(entry.event_id);
         setPlayers(list.map(editPlayerName));
-        setRosterImportPreview(null);
+        setRosterFileError(""); setRosterImportPreview(null);
         setPhotoFiles({});
         setFormOpen(true);
         window.scrollTo({top:0,behavior:"smooth"});
@@ -1390,7 +1391,7 @@ export default function GroupSportsDashboard() {
         <div className="grid gap-3 md:grid-cols-2">
           <label><span className={labelClass}>รายการแข่งขัน *</span><select name="event_id" required disabled={rosterImportBusy} className={inputClass} value={eventChoice} onChange={e=>{
             const id=e.target.value;
-            setRosterImportPreview(null); setRegistrationError("");
+            setRosterFileError(""); setRosterImportPreview(null); setRegistrationError("");
             // Separate competitions should never inherit another event's roster.
             if (id !== eventChoice && !editEntry) {
               setPlayers(isRov(events.find(item=>item.id===id))
@@ -1441,16 +1442,19 @@ export default function GroupSportsDashboard() {
                 const file = ev.currentTarget.files?.[0];
                 ev.currentTarget.value = ""; // Permit selecting the same file after correction.
                 if (!file || !chosenEvent) return;
-                setRosterImportPreview(null);
+                setRosterFileError(""); setRosterImportPreview(null);
                 setRosterImportBusy(true); setError("");
                 void readRosterExcel(file,chosenEvent).then(athletes=>{
                   setRosterImportPreview({fileName:file.name,athletes});
-                }).catch((err:unknown)=>setError(err instanceof Error ? err.message : "อ่านไฟล์ Excel ไม่สำเร็จ"))
+                 }).catch((err:unknown)=>{
+                    setRosterFileError(file.name + " — " + (err instanceof Error ? err.message : "อ่านไฟล์ Excel ไม่สำเร็จ"));
+                  })
                   .finally(()=>setRosterImportBusy(false));
               }}/>
             </label>
             <p className="text-xs text-slate-500">รองรับไฟล์ไม่เกิน 5 MB · ไม่รวมข้อมูลชั้นและเพศ · ยังไม่บันทึกลงฐานข้อมูล</p>
           </div>
+          {rosterFileError && <p role="alert" className="mt-3 rounded-lg border border-red-300 bg-red-50 p-3 font-semibold text-red-900">{rosterFileError}</p>}
           {rosterImportBusy && <p role="status" className="mt-3 text-sm font-semibold text-red-700">กำลังตรวจสอบรายชื่อในไฟล์...</p>}
           {rosterImportPreview && <div className="mt-4 rounded-xl border border-emerald-200 bg-white p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1460,7 +1464,7 @@ export default function GroupSportsDashboard() {
                 <button type="button" disabled={busy} className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-50" onClick={()=>{
                   setPlayers(rosterImportPreview.athletes);
                   setPhotoFiles({});
-                  setRosterImportPreview(null);
+                  setRosterFileError(""); setRosterImportPreview(null);
                   setNotice("นำเข้ารายชื่อนักกีฬาในแบบฟอร์มแล้ว กรุณาตรวจสอบอีกครั้งและกดส่งข้อมูลลงทะเบียนเพื่อบันทึก");
                 }}>ใช้รายชื่อ {rosterImportPreview.athletes.length} คนแทนรายชื่อในฟอร์ม</button>
               </div>
@@ -1594,7 +1598,7 @@ export default function GroupSportsDashboard() {
     setEditEntry(null);
     setDetail(null);
     setRosterError("");
-    setRosterImportPreview(null);setPhotoFiles({});
+    setRosterFileError(""); setRosterImportPreview(null);setPhotoFiles({});
     setPlayers([blankPlayer()]);
     setCoaches([{name:"",phone:""}]);
     setEventChoice("");
