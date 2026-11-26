@@ -1,1 +1,19 @@
-v33.37.1: install after v33.37. Copy apply-v33.37.1.cjs to project root; run node apply-v33.37.1.cjs, npm run build. No new SQL. Two TSX files only. Existing records not changed by installer. Staff DOB hidden, not printed. Print links require saved entry. STOP if source differs. Remove installer before commit.
+อัปเดต SQL 054 v2 — เจ้าหน้าที่ทีมตะกร้อและบาสเกตบอล
+ใช้แทน ZIP และ SQL 054 เดิมที่ขึ้น STOP เท่านั้น
+
+1. สำรองฐานข้อมูลและโค้ดก่อน ถ้ามีฐานทดสอบให้ทดลองที่นั่นก่อน
+2. Supabase SQL Editor > New query > คัดลอกไฟล์ migration ทั้งหมดแล้ว Run โดยไม่กด Pretty SQL
+   ต้องได้ READY ทั้งสองคอลัมน์ ถ้าขึ้น STOP หรือ error ให้หยุดและอย่า Deploy
+3. ใช้ src จาก ZIP นี้ หรือ src จาก ZIP optional-staff-fix เดิม (เหมือนกันทุกไบต์)
+   วางทับเฉพาะ 3 ไฟล์ ตรวจว่าไม่มีการแก้ไฟล์เหล่านี้เพิ่มเติมในเครื่องหลัง ZIP เดิม
+4. npm run build แล้วทดสอบส่งใหม่โดยผู้ฝึกสอนคนเดียวในฐานทดสอบ
+   บาส: ชื่อและเบอร์ผู้ฝึกสอนบังคับ ถ้าระบุผู้ช่วยหรือผู้จัดการต้องกรอกชื่อและเบอร์ครบ
+   ตะกร้อ: ชื่อผู้ฝึกสอนบังคับ ผู้จัดการและผู้ช่วยเว้นว่างได้
+   คงเงื่อนไขนักกีฬาและสิทธิ์เดิม ตรวจใบสมัครเดิม การแนบรูป และพิมพ์ใบสมัคร
+5. เมื่อผ่านจึง Commit/Push และตรวจ production domain
+
+SQL เปลี่ยนนิยาม RPC สองตัวเท่านั้นใน transaction ตรวจ fingerprint ของนิยามจาก CSV จริงก่อนแก้ทั้งคู่
+และตรวจซ้ำก่อน commit ไม่เรียก RPC บันทึกใบสมัคร ไม่แก้ไขแถวข้อมูลเดิมขณะติดตั้ง
+ไม่เปลี่ยนสถานะรายการแข่งขัน/สิทธิ์ลงทะเบียน/กติกานักกีฬา/โปรแกรมการแข่งขัน
+ไม่เพิ่มสิทธิ์แก้ไขหรือถอนใบสมัครในครั้งนี้ การแก้ใบสมัครเดิมยังใช้กลไกเดิมของระบบ
+ยังไม่ได้รันกับ PostgreSQL/Supabase จริงหรือ build เต็ม
