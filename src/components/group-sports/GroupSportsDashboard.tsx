@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import hero from "./PhulangkaHero.module.css";
 import { REGISTRATION_SPORTS, registrationSport, registrationHref, eventRegistrationSport, allowsRegistrationPhotos, duplicateNames, sameAthlete, type RegistrationSport } from "@/lib/group-sports/registration-hub";
 import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
@@ -1970,11 +1971,13 @@ export default function GroupSportsDashboard() {
             </div>
           </details>
         </div>
-        {tab === "overview" ? <div>
-          <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
-          <button type="button" className="mx-auto block w-1/3 cursor-pointer p-0 focus-visible:outline-4 focus-visible:-outline-offset-4" aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
-            <img src="/images/group-sports/phulangka-games-30-hero.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30 ประจำปี 2569 นักกีฬาจังหวัดพะเยาและผู้เล่น RoV" width={2171} height={724} className="block h-auto w-full" />
-          </button>
+        {tab === "overview" ? <div className={hero.banner}>
+          <div className={hero.copy}>
+            <h1><span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><small>ครั้งที่ 30 • ประจำปี 2569</small></h1>
+            <button type="button" className={hero.schedule} onClick={() => goToSportsSection("program")}>ดูโปรแกรมวันนี้ ›</button>
+          </div>
+          <img className={hero.logo} src="/images/group-sports/phulangka-30.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30" />
+          <img className={hero.athletes} src="/images/group-sports/phulangka-sports-table-tennis.webp" alt="นักกรีฑา ฟุตบอล บาสเกตบอล เทเบิลเทนนิส วอลเลย์บอล และผู้เล่น RoV" />
         </div> : <div className="sports-games-inner-banner">
           <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
           <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>

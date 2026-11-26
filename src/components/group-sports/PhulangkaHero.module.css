@@ -1,0 +1,31 @@
+.banner {
+  position: relative;
+  isolation: isolate;
+  display: grid;
+  grid-template-columns: 42% 18% 40%;
+  align-items: center;
+  width: 100%;
+  aspect-ratio: 9 / 1;
+  background: linear-gradient(112deg, #071c51, #0758aa 41%, #38b4eb 59%, #049bea);
+}
+.copy { padding-left: 5vw; color: white; }
+.copy h1 { margin: 0; font-size: 1.55vw; font-weight: 800; line-height: 1.15; }
+.copy h1 span, .copy h1 strong, .copy h1 small { display: block; }
+.copy h1 strong { font-size: 2.85vw; color: #ffeb37; }
+.copy h1 small { font-size: 1.12vw; }
+.schedule {
+  margin-top: .45vw; border: 0; border-radius: 2em; padding: .24em 1em;
+  background: #ffdf35; color: #101d40; font-size: 1.05vw; font-weight: 800; cursor: pointer;
+}
+.schedule::after { content: ""; position: absolute; inset: 0; z-index: 1; }
+.schedule:focus-visible::after { outline: 3px solid white; outline-offset: -4px; }
+.logo { justify-self: center; width: 95%; height: 92%; min-height: 0; object-fit: contain; }
+.athletes { display: block; width: 100%; height: auto; mask-image: linear-gradient(to right, transparent, black 2%); }
+@media (max-width: 700px) {
+  .banner { grid-template-columns: 69% 31%; aspect-ratio: auto; }
+  .copy { padding: 9px 0 7px 4vw; }
+  .copy h1 { font-size: clamp(14px, 3.3vw, 20px); }
+  .copy h1 strong { font-size: 1.6em; }
+  .copy h1 small, .schedule { font-size: 12px; }
+  .athletes { grid-column: 1 / -1; mask-image: none; }
+}
