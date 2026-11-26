@@ -429,7 +429,9 @@ export default function GroupSportsDashboard() {
   const [homeSpecialMatches, setHomeSpecialMatches] = useState<{
     id:string;event_id:string;round_name:string;scheduled_at:string|null;
     venue_name:string|null;status:string;display_team_a:string;display_team_b:string;
-    score_a:number|null;score_b:number|null;special_source:"football"|"esports"|"boxing";
+    score_a:number|null;score_b:number|null;
+    special_source:"football"|"esports"|"boxing"|"athletics";
+    special_code?:string|null;special_number?:string|null;is_session?:boolean;status_label?:string;
   }[]>([]);
 
   const [roles, setRoles] = useState<UserRole[]>([]);
@@ -583,7 +585,10 @@ export default function GroupSportsDashboard() {
         supabase.from("sports_esports_group_teams")
           .select("id,school_name").eq("competition_id",activeCompetition.id).limit(600),
         supabase.rpc("sports_boxing_public",{p_comp:activeCompetition.id}),
-      ]).then(([football,esports,teams,boxing])=>{
+        // Read-only public athletics schedule. This RPC returns only published
+        // sessions for public visitors and never exposes student registration data.
+        supabase.rpc("sports_ath_public",{p_comp:activeCompetition.id}),
+      ]).then(([football,esports,teams,boxing,athletics])=>{
         type FootballRow = {id:string;event_id:string;stage:string;group_code:string|null;team1_name:string;team2_name:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;status:string;score1:number|null;score2:number|null};
         type EsportsRow = {id:string;event_id:string;stage:string;team1_id:string;team2_id:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;match_status:string;score1:number|null;score2:number|null};
         const teamById = new Map(((teams.data || []) as {id:string;school_name:string}[]).map(t=>[t.id,t.school_name]));
@@ -602,7 +607,20 @@ export default function GroupSportsDashboard() {
         }));
         type BoxingRow={id:string;event_id:string;round_name:string;scheduled_date:string|null;start_time:string|null;venue_name:string|null;status:string;red_school:string;blue_school:string;winner_school:string|null};
         const boxingMatches=boxing.error?[]:((boxing.data||[]) as BoxingRow[]).map(m=>({id:`boxing:${m.id}`,event_id:m.event_id,round_name:m.round_name+(m.winner_school?` · ผู้ชนะ ${m.winner_school}`:""),scheduled_at:when(m.scheduled_date,m.start_time),venue_name:m.venue_name,status:m.status==="completed"?"completed":"scheduled",display_team_a:m.red_school,display_team_b:m.blue_school,score_a:null,score_b:null,special_source:"boxing" as const}));
-        setHomeSpecialMatches([...footballMatches,...esportsMatches,...boxingMatches]);
+        type AthleticsSessionRow={id:string;event_id:string;code:string;label:string;no:string;day:string;report:string;start:string;round:string;kind:string;phase:string;state:string;status:string};
+        const athleticsSessions=athletics.error?[]:((athletics.data||[]) as AthleticsSessionRow[]).map(session=>{
+          const stateLabel=session.state==="open"?"กำลังเรียกรายงานตัว":session.state==="closed"?"เข้าสนามแล้ว":session.state==="finished"?"เสร็จสิ้น":"รอเรียก";
+          const status=session.state==="open"||session.state==="closed"?"in_progress":session.state==="finished"?"completed":"scheduled";
+          return {
+            id:`athletics:${session.id}`,event_id:session.event_id,
+            round_name:session.round||"ช่วงการแข่งขัน",
+            scheduled_at:when(session.day,session.start),venue_name:"สนามกีฬาโรงเรียนเชียงคำวิทยาคม",
+            status,display_team_a:"",display_team_b:"",score_a:null,score_b:null,
+            special_source:"athletics" as const,special_code:session.code,special_number:session.no,
+            is_session:true,status_label:stateLabel,
+          };
+        });
+        setHomeSpecialMatches([...footballMatches,...esportsMatches,...boxingMatches,...athleticsSessions]);
       });
       void supabase.from("sports_school_information")
         .select("id,title,details,published_at")
@@ -686,6 +704,8 @@ export default function GroupSportsDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_matches" }, refreshPublicResults)
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_football_matches" }, refreshPublicResults)
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_esports_matches" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_ath_rounds" }, refreshPublicResults)
+      .on("postgres_changes", { event: "*", schema: "public", table: "sports_schedule_sessions" }, refreshPublicResults)
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_school_information" }, refreshPublicResults)
       .subscribe();
     // Polling fallback: Supabase Realtime may not be enabled for every public table.
