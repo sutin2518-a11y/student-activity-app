@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import hero from "./PhulangkaHero.module.css";
 import { REGISTRATION_SPORTS, registrationSport, registrationHref, eventRegistrationSport, allowsRegistrationPhotos, duplicateNames, sameAthlete, type RegistrationSport } from "@/lib/group-sports/registration-hub";
 import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
 import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
@@ -1971,13 +1970,11 @@ export default function GroupSportsDashboard() {
             </div>
           </details>
         </div>
-        {tab === "overview" ? <div className={hero.banner}>
-          <div className={hero.copy}>
-            <h1><span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><small>ครั้งที่ 30 • ประจำปี 2569</small></h1>
-            <button type="button" className={hero.schedule} onClick={() => goToSportsSection("program")}>ดูโปรแกรมวันนี้ ›</button>
-          </div>
-          <img className={hero.logo} src="/images/group-sports/phulangka-30.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30" />
-          <img className={hero.athletes} src="/images/group-sports/phulangka-sports-table-tennis.webp" alt="นักกรีฑา ฟุตบอล บาสเกตบอล เทเบิลเทนนิส วอลเลย์บอล และผู้เล่น RoV" />
+        {tab === "overview" ? <div>
+          <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
+          <button type="button" style={{ display: "block", width: "100%", padding: 0, border: 0, cursor: "pointer" }} aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
+            <img src="/images/group-sports/phulangka-original-table-tennis.png" width={2171} height={724} style={{ display: "block", width: "100%", height: "auto" }} alt="ภูลังกาเกมส์ ครั้งที่ 30" />
+          </button>
         </div> : <div className="sports-games-inner-banner">
           <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
           <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>
