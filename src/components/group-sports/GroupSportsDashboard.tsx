@@ -1972,7 +1972,7 @@ export default function GroupSportsDashboard() {
         </div>
         {tab === "overview" ? <div>
           <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
-          <button type="button" className="block w-full cursor-pointer p-0 focus-visible:outline-4 focus-visible:-outline-offset-4" aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
+          <button type="button" className="mx-auto block w-1/3 cursor-pointer p-0 focus-visible:outline-4 focus-visible:-outline-offset-4" aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
             <img src="/images/group-sports/phulangka-games-30-hero.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30 ประจำปี 2569 นักกีฬาจังหวัดพะเยาและผู้เล่น RoV" width={2171} height={724} className="block h-auto w-full" />
           </button>
         </div> : <div className="sports-games-inner-banner">
