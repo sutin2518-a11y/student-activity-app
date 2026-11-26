@@ -1716,7 +1716,7 @@ export default function GroupSportsDashboard() {
       <header className="sports-games-masthead">
         <div className="sports-games-topbar" aria-label="เมนูหลักภูลังกาเกมส์">
           <button type="button" className="sports-games-logo" onClick={()=>goToSportsSection("overview")} aria-label="ภูลังกาเกมส์ — หน้าหลัก">
-            <img src="/images/group-sports/phayao-games-logo-reference.webp" alt="PHAYAO GAMES" />
+            <img src="/images/group-sports/phulangka-30.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30" />
           </button>
           <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="33.12-text-only-existing-tabs" className="sports-games-unified-nav">
           <div data-sports-nav-items className="sports-games-unified-items">
@@ -1970,14 +1970,11 @@ export default function GroupSportsDashboard() {
             </div>
           </details>
         </div>
-        {tab === "overview" ? <div className="sports-games-banner">
+        {tab === "overview" ? <div>
           <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
-          <img src="/images/group-sports/phayao-games-hero-reference.webp" alt="ภูลังกาเกมส์ 2569 สนามกรีฑาและนักวิ่ง ภูเขาพะเยา" />
-          <button type="button" className="sports-games-banner-hit" aria-label="ดูโปรแกรมวันนี้" onClick={()=>goToSportsSection("program")} />
-          <div className="sports-games-mobile-banner">
-            <span>กีฬากลุ่มโรงเรียนมัธยมศึกษา</span><strong>จังหวัดพะเยา</strong><em>ครั้งที่ 30 • ประจำปี 2569</em>
-            <button type="button" onClick={()=>goToSportsSection("program")}>ดูโปรแกรมวันนี้ ❯</button>
-          </div>
+          <button type="button" className="block w-full cursor-pointer p-0 focus-visible:outline-4 focus-visible:-outline-offset-4" aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
+            <img src="/images/group-sports/phulangka-games-30-hero.webp" alt="ภูลังกาเกมส์ ครั้งที่ 30 ประจำปี 2569 นักกีฬาจังหวัดพะเยาและผู้เล่น RoV" width={2171} height={724} className="block h-auto w-full" />
+          </button>
         </div> : <div className="sports-games-inner-banner">
           <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
           <div className="sports-games-inner-actions">{headerAction()}<ParadeRouteShortcut competitionId={competition?.id ?? null} canManage={canManageAccounts}/></div>
