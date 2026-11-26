@@ -738,17 +738,17 @@ export default function GroupSportsDashboard() {
     }
   }, []);
 
-  // The registration form is above the saved applications. After a user clicks
-  // "ดูรายชื่อ" / "แนบรูปใบสมัครเดิม", reveal the result (or error) right away.
+  // Keep the selected application header and its action buttons in view.
   useEffect(() => {
     if (tab !== "entries" || (!detail && !rosterError)) return;
+    const entryId = detail?.entry.id || rosterTargetId;
+    if (!entryId) return;
     const frame = window.requestAnimationFrame(() => {
-      const id = detail && rosterPanelView === "photos" ? "sports-saved-roster-photos" : "sports-saved-roster-response";
-      const target = document.getElementById(id) || document.getElementById("sports-saved-roster-response");
-      target?.scrollIntoView({ behavior: "smooth", block: "start" });
+      const target = document.getElementById(`sports-saved-entry-${entryId}`);
+      target?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth", block: "start" });
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [tab, detail, rosterError, rosterPanelView]);
+  }, [tab, detail, rosterError, rosterTargetId, rosterPanelView]);
 
   const completedMatches = useMemo(() => matches.filter((match) => match.status === "completed"), [matches]);
   const totalMedals = medals.length;
@@ -1699,30 +1699,32 @@ export default function GroupSportsDashboard() {
                 </div>
                 <div className="divide-y divide-slate-100">
                   {registrationRows.map(entry => (
-                    <article key={entry.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+                    <article key={entry.id} id={`sports-saved-entry-${entry.id}`} className={`scroll-mt-24 py-3 ${detail?.entry.id === entry.id || (rosterTargetId === entry.id && rosterError) ? "rounded-xl bg-blue-50/60 px-3 ring-1 ring-blue-300" : ""}`}>
+                      <div className="flex flex-wrap items-center justify-between gap-3">
                       <div className="min-w-0">
                         <strong>{schoolById.get(entry.school_id)?.name || "โรงเรียน"} · {entry.entry_name}</strong>
                         <p className="mt-1 text-sm text-slate-600">{eventById.get(entry.event_id)?.sport_name || "รายการแข่งขัน"} · {entry.coach_name || "ไม่ระบุครูผู้ควบคุม"} · {entry.athlete_count} คน</p>
                         <p className="mt-1 text-xs font-bold text-emerald-800">{statusLabel(entry.status)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" disabled={busy} onClick={() => void openRoster(entry)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-blue-50 disabled:opacity-50">ดูรายชื่อ</button>
+                        <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={() => {if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-blue-50 disabled:opacity-50">{detail?.entry.id===entry.id ? "ปิดรายชื่อ" : busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
                         {!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#0755ce] px-3 py-2 text-sm font-bold text-white hover:bg-blue-800">พิมพ์ใบสมัคร</Link>}
                       </div>
+                      </div>
+                      {rosterTargetId === entry.id && rosterError && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{rosterError}<button type="button" onClick={()=>{setRosterError("");setRosterTargetId(null);}} className="ml-3 font-bold underline">ปิดข้อความ</button></div>}
+                      {detail?.entry.id === entry.id && <section id={`sports-saved-roster-response-${entry.id}`} className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div><strong>รายชื่อนักกีฬา · {schoolById.get(entry.school_id)?.name || entry.entry_name}</strong><p className="mt-1 text-sm font-bold text-blue-800">{eventById.get(entry.event_id)?.sport_name || "รายการแข่งขัน"}</p></div>
+                          <button type="button" onClick={() => {setDetail(null);setRosterTargetId(null);}} className="text-sm font-bold text-blue-800 underline">ปิดรายชื่อ</button>
+                        </div>
+                        <p className="mt-1 text-sm text-slate-600">{detail.entry.coach_name || "ไม่ระบุครูผู้ควบคุม"}</p>
+                        <ol className="mt-3 list-decimal space-y-1 pl-6 text-sm">{detail.players.map((player, index) => <li key={`${player.student_code || player.full_name}-${index}`}>{[player.student_code, player.full_name].filter(Boolean).join(" · ")}</li>)}</ol>
+                        {!isDemo && canManageSchool && !isVolleyball(eventById.get(detail.entry.event_id)) && allowsRegistrationPhotos(eventById.get(detail.entry.event_id)) && <div className="mt-4"><AthletePhotoManager entryId={detail.entry.id} athletes={detail.players} /></div>}
+                      </section>}
                     </article>
                   ))}
                   {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5 text-sm text-slate-600">ยังไม่มีใบสมัครของกีฬาประเภทนี้</p>}
                 </div>
-                {rosterError && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{rosterError}</div>}
-                {detail && <section className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <strong>รายชื่อนักกีฬา · {detail.entry.entry_name}</strong>
-                    <button type="button" onClick={() => setDetail(null)} className="text-sm font-bold text-blue-800 underline">ปิดรายชื่อ</button>
-                  </div>
-                  <p className="mt-1 text-sm text-slate-600">{detail.entry.coach_name || "ไม่ระบุครูผู้ควบคุม"}</p>
-                  <ol className="mt-3 list-decimal space-y-1 pl-6 text-sm">{detail.players.map((player, index) => <li key={`${player.student_code || player.full_name}-${index}`}>{[player.student_code, player.full_name].filter(Boolean).join(" · ")}</li>)}</ol>
-                  {!isDemo && canManageSchool && !isVolleyball(eventById.get(detail.entry.event_id)) && allowsRegistrationPhotos(eventById.get(detail.entry.event_id)) && <div className="mt-4"><AthletePhotoManager entryId={detail.entry.id} athletes={detail.players} /></div>}
-                </section>}
               </section>
             </>
           )}
@@ -2113,11 +2115,12 @@ export default function GroupSportsDashboard() {
                   <select aria-label="รายการแข่งขัน" className="rounded-lg border p-2" value={eventFilter} onChange={e=>setEventFilter(e.target.value)}><option value="">{activeRegistrationSport ? `ทุกรายการ${activeRegistrationSport.name}` : "ทุกรายการแข่งขัน"}</option>{listEvents.map(e=><option key={e.id} value={e.id}>{e.sport_name}</option>)}</select>
                 </div>
                 {canManageSchool && <div className="mb-3 flex flex-wrap items-center justify-between gap-2"><p className="text-sm text-slate-600">พบ {registrationRows.length} ใบสมัครตามตัวกรอง</p><button type="button" disabled={busy||!registrationRows.length||registrationRows.length>50} onClick={()=>void printFilteredRosters()} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-800 disabled:opacity-50">พิมพ์บัญชีรายชื่อตามตัวกรอง</button>{registrationRows.length>50&&<p className="w-full text-xs text-slate-500">กรองให้เหลือไม่เกิน 50 ใบสมัครต่อการพิมพ์หนึ่งครั้ง</p>}</div>}
-                {registrationRows.map(entry=><article key={entry.id} className="flex flex-wrap items-center justify-between gap-3 border-t py-3">
+                {registrationRows.map(entry=><article key={entry.id} id={`sports-saved-entry-${entry.id}`} className={`scroll-mt-24 border-t py-3 ${detail?.entry.id === entry.id || (rosterTargetId === entry.id && rosterError) ? "rounded-xl bg-blue-50/60 px-3 ring-1 ring-blue-300" : ""}`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
                   <div><strong>{schoolById.get(entry.school_id)?.name} · {entry.entry_name}</strong><p className="text-sm">{eventById.get(entry.event_id)?.sport_name} · {entry.coach_name||"ไม่ระบุครูผู้ควบคุม"} · {entry.athlete_count} คน</p>
                     <p className="text-sm font-bold text-emerald-800">{statusLabel(entry.status)}</p></div>
                   <div className="flex flex-wrap items-center gap-3">
-                    <button type="button" disabled={busy} onClick={()=>void openRoster(entry)} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50">{busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
+                    <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={()=>{if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50">{busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : detail?.entry.id===entry.id ? "ปิดรายชื่อ" : "ดูรายชื่อ"}</button>
                     {!isDemo && canManageSchool && !isVolleyball(eventById.get(entry.event_id)) && allowsRegistrationPhotos(eventById.get(entry.event_id)) &&
                       <button type="button" disabled={busy} onClick={()=>void openRoster(entry,false,"photos")} className="rounded-lg bg-red-700 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-50">
                         {busy && rosterTargetId===entry.id ? "กำลังดึงนักกีฬา..." : "แนบรูปใบสมัครเดิม"}
@@ -2129,23 +2132,24 @@ export default function GroupSportsDashboard() {
                     {canManageAccounts && !isVolleyball(eventById.get(entry.event_id)) && !isTakraw(eventById.get(entry.event_id)) && !isTableTennis(eventById.get(entry.event_id)) && <Link href={`/group-sports/admin?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-bold text-amber-900 hover:bg-amber-100">Admin แก้ไขใบสมัคร</Link>}
                     {canManageAccounts && <Link href={`/group-sports/reset?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50">ลบใบสมัคร</Link>}
                   </div>
+                  </div>
+                  {rosterTargetId === entry.id && rosterError && <div id={`sports-saved-roster-response-${entry.id}`} role="alert" tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
+                    <strong className="block">ยังเปิดรายชื่อนักกีฬาจากใบสมัครเดิมไม่ได้</strong>
+                    <p className="mt-1 whitespace-pre-wrap">{rosterError}</p>
+                    <p className="mt-2 text-xs">ตรวจสอบว่ากดใบสมัครของโรงเรียนตัวเองและเข้าสู่ระบบ Production หากยังไม่ได้ให้ส่งข้อความนี้มา โดยไม่ต้องลงทะเบียนซ้ำ</p>
+                    <button type="button" onClick={()=>{setRosterError("");setRosterTargetId(null);}} className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-bold">ปิดข้อความ</button>
+                  </div>}
+                  {detail?.entry.id === entry.id && <section id={`sports-saved-roster-response-${entry.id}`} tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border bg-rose-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><div><strong>รายชื่อจากใบสมัครเดิม · {schoolById.get(entry.school_id)?.name || entry.entry_name}</strong><p className="mt-1 text-sm font-bold text-blue-800">{eventById.get(entry.event_id)?.sport_name || "รายการแข่งขัน"}</p></div><div className="flex items-center gap-3">{!isDemo && <Link href={`${isBasketball(eventById.get(detail.entry.event_id))?"/group-sports/basketball/print":isFutsal(eventById.get(detail.entry.event_id))?"/group-sports/futsal/print":isFootball(eventById.get(detail.entry.event_id))?"/group-sports/football/print":"/group-sports/print"}?entry=${encodeURIComponent(detail.entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800">พิมพ์ / บันทึก PDF</Link>}<button type="button" onClick={()=>{setDetail(null);setRosterTargetId(null);}} className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-bold">ปิดรายชื่อ</button></div></div>
+                    {detail.entry.coaches?.length ? detail.entry.coaches.map((c,i)=><p key={i}>ครูผู้ควบคุมทีม {i+1} · {c.name} {c.phone}</p>) : <p>ผู้ฝึกสอน {detail.entry.coach_name||"—"} {detail.entry.assistant_coach && ` · ผู้ช่วย ${detail.entry.assistant_coach}`}</p>}
+                    <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">รับข้อมูลการสมัครแล้ว · กรรมการจะตรวจตัวนักกีฬาและเอกสารหลักฐาน ณ สนามแข่งขันในวันแข่งขันจริง</p>
+                    <ol className="my-3 list-decimal pl-6">{detail.players.map((p,i)=><li key={i}>{[p.student_code,p.full_name,...(isRov(eventById.get(detail.entry.event_id)) ? [p.team_role,p.ign,p.play_position] : [])].filter(Boolean).join(" · ")}</li>)}</ol>
+                    {!isDemo && canManageSchool && !isVolleyball(eventById.get(detail.entry.event_id)) && allowsRegistrationPhotos(eventById.get(detail.entry.event_id)) &&
+                      <div id={`sports-saved-roster-photos-${entry.id}`} className="scroll-mt-4">
+                        <AthletePhotoManager entryId={detail.entry.id} athletes={detail.players} />
+                      </div>}
+                  </section>}
                 </article>)}
                 {!registrationRows.length && <p className="rounded-xl bg-slate-50 p-5">ยังไม่มีใบสมัครตามเงื่อนไขนี้</p>}
-                {rosterError && <div id="sports-saved-roster-response" role="alert" tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
-                  <strong className="block">ยังเปิดรายชื่อนักกีฬาจากใบสมัครเดิมไม่ได้</strong>
-                  <p className="mt-1 whitespace-pre-wrap">{rosterError}</p>
-                  <p className="mt-2 text-xs">ตรวจสอบว่ากดใบสมัครของโรงเรียนตัวเองและเข้าสู่ระบบ Production หากยังไม่ได้ให้ส่งข้อความนี้มา โดยไม่ต้องลงทะเบียนซ้ำ</p>
-                  <button type="button" onClick={()=>{setRosterError("");setRosterTargetId(null);}} className="mt-2 rounded-lg border border-red-300 bg-white px-3 py-1.5 font-bold">ปิดข้อความ</button>
-                </div>}
-                {detail && <section id="sports-saved-roster-response" tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border bg-rose-50 p-4"><div className="flex flex-wrap items-center justify-between gap-3"><strong>รายชื่อจากใบสมัครเดิม · {detail.entry.entry_name}</strong><div className="flex items-center gap-3">{!isDemo && <Link href={`${isBasketball(eventById.get(detail.entry.event_id))?"/group-sports/basketball/print":isFutsal(eventById.get(detail.entry.event_id))?"/group-sports/futsal/print":isFootball(eventById.get(detail.entry.event_id))?"/group-sports/football/print":"/group-sports/print"}?entry=${encodeURIComponent(detail.entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-red-700 px-3 py-2 text-xs font-bold text-white hover:bg-red-800">พิมพ์ / บันทึก PDF</Link>}<button onClick={()=>setDetail(null)}>ปิด</button></div></div>
-                  {detail.entry.coaches?.length ? detail.entry.coaches.map((c,i)=><p key={i}>ครูผู้ควบคุมทีม {i+1} · {c.name} {c.phone}</p>) : <p>ผู้ฝึกสอน {detail.entry.coach_name||"—"} {detail.entry.assistant_coach && ` · ผู้ช่วย ${detail.entry.assistant_coach}`}</p>}
-                  <p className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm font-semibold text-emerald-900">รับข้อมูลการสมัครแล้ว · กรรมการจะตรวจตัวนักกีฬาและเอกสารหลักฐาน ณ สนามแข่งขันในวันแข่งขันจริง</p>
-                  <ol className="my-3 list-decimal pl-6">{detail.players.map((p,i)=><li key={i}>{[p.student_code,p.full_name,...(isRov(eventById.get(detail.entry.event_id)) ? [p.team_role,p.ign,p.play_position] : [])].filter(Boolean).join(" · ")}</li>)}</ol>
-                  {!isDemo && canManageSchool && !isVolleyball(eventById.get(detail.entry.event_id)) && allowsRegistrationPhotos(eventById.get(detail.entry.event_id)) &&
-                    <div id="sports-saved-roster-photos" className="scroll-mt-4">
-                      <AthletePhotoManager entryId={detail.entry.id} athletes={detail.players} />
-                    </div>}
-                </section>}
               </section>
             )}
 
