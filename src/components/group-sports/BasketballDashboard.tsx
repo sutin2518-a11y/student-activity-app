@@ -29,6 +29,7 @@ type SavedEntry = { id: string; school_id: string; school_name: string; athlete_
 type RosterDetails = { id:string;event_id:string;school_id:string;school_name:string;sport_name:string;director_name?:string|null;players: {full_name:string;student_code:string|null;grade_level:string|null;birth_date:string|null;jersey_number:number|null;player_role:string;player_note:string}[];coaches:Coach[] };
 type History = { id:number; changed_at:string; before_data:Record<string,unknown>; after_data:Record<string,unknown>; changed_by:string|null };
 const newPlayer = (): Player => ({ prefix: "", name: "", student_code: "", grade_level:"", birth_date: "", jersey_number: "", player_role: "", player_note: "" });
+const hasPlayerData = (p: Player) => Boolean(p.prefix.trim() || p.name.trim() || p.student_code?.trim() || p.grade_level || p.birth_date || String(p.jersey_number ?? "").trim() || p.player_role || p.player_note?.trim() || p.photo);
 const newCoach = (): Coach => ({ name: "", phone: "" });
 const stageNames: Record<Match["stage"],string> = { group: "รอบแบ่งกลุ่ม", quarter: "รอบ 8 ทีม", semifinal: "รอบรองชนะเลิศ", final: "รอบชิงชนะเลิศ" };
 const statusNames: Record<Match["status"],string> = { draft: "ฉบับร่าง", published: "เผยแพร่แล้ว", completed: "แข่งขันเสร็จสิ้น", cancelled: "ยกเลิก" };
@@ -182,10 +183,11 @@ export default function BasketballDashboard(){
   setManagerName(details.coaches?.[0]?.manager_name||"");setManagerPhone(details.coaches?.[0]?.manager_phone||"");setManagerPhoto(undefined);setImportPreview(null);setTab("registration");
  }catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function register(e:FormEvent<HTMLFormElement>){e.preventDefault();if(busy||!selectedEvent||!schoolId||!canRegister)return;
-  if(players.length<7 || players.length>12){setError("ต้องลงทะเบียนนักกีฬา 7–12 คนต่อทีม");return;}
+  const submittedPlayers=players.filter((p,i)=>i<7||hasPlayerData(p));
+  if(submittedPlayers.length<7 || submittedPlayers.length>12){setError("ต้องลงทะเบียนนักกีฬา 7–12 คนต่อทีม");return;}
   if(importPreview){setError("กรุณากด ใช้รายชื่อในฟอร์ม หลังตรวจ Excel ก่อนส่งใบสมัคร");return;}
-  if(players.some(p=>!p.prefix||!p.name.trim()||!/^(?:[0-9]|[1-9][0-9])$/.test(p.jersey_number))){setError("กรุณาระบุคำนำหน้า ชื่อ–สกุล และเบอร์เสื้อของนักกีฬาทุกคน");return;}
-  const numbers=players.map(p=>p.jersey_number);if(new Set(numbers).size!==numbers.length){setError("หมายเลขเสื้อนักกีฬาซ้ำกัน กรุณาตรวจสอบ");return;}
+  if(submittedPlayers.some(p=>!p.prefix||!p.name.trim()||!/^(?:[0-9]|[1-9][0-9])$/.test(p.jersey_number))){setError("กรุณาระบุคำนำหน้า ชื่อ–สกุล และเบอร์เสื้อของนักกีฬาทุกคน");return;}
+  const numbers=submittedPlayers.map(p=>p.jersey_number);if(new Set(numbers).size!==numbers.length){setError("หมายเลขเสื้อนักกีฬาซ้ำกัน กรุณาตรวจสอบ");return;}
   if(coaches.length!==2||!coaches[0]?.name.trim()||coaches.some(c=>(c.name.trim()||c.phone.trim()||c.photo)&&(!c.name.trim()||!/^\+?\d{9,15}$/.test(c.phone.replace(/[ ()-]/g,""))))){setError("กรุณากรอกชื่อและเบอร์โทรศัพท์ผู้ฝึกสอนอย่างน้อย 1 คน และกรอกข้อมูลผู้ช่วยให้ครบเฉพาะกรณีที่มี");return;}
   if((managerName.trim()||managerPhone.trim()||managerPhoto)&&(!managerName.trim()||!/^\+?\d{9,15}$/.test(managerPhone.replace(/[ ()-]/g,"")))){setError("หากระบุผู้จัดการทีม กรุณากรอกชื่อและเบอร์โทรศัพท์ให้ครบ");return;}
   if(selectedEntry&&selectedEntry.school_id!==schoolId){setError("ไม่สามารถเปลี่ยนโรงเรียนของใบสมัครเดิมได้");return;}
@@ -196,7 +198,7 @@ export default function BasketballDashboard(){
     if(current.error||!Array.isArray(current.data))throw new Error(current.error?.message||"ตรวจใบสมัครเดิมไม่สำเร็จ");
     const existing=(current.data as SavedEntry[]).filter(x=>x.school_id===schoolId);
     if(existing.length>1||(!selectedEntry&&existing.length)||(selectedEntry&&(existing.length!==1||existing[0].id!==selectedEntry.id)))throw new Error("ข้อมูลใบสมัครเปลี่ยนไป กรุณารีเฟรชและเปิดใบสมัครเดิม");
-    const roster=players.map(p=>({full_name:p.prefix+p.name.trim(),student_code:p.student_code.trim()||null,grade_level:p.grade_level||null,birth_date:p.birth_date||null,jersey_number:p.jersey_number,player_role:p.player_role,player_note:p.player_note}));
+    const roster=submittedPlayers.map(p=>({full_name:p.prefix+p.name.trim(),student_code:p.student_code.trim()||null,grade_level:p.grade_level||null,birth_date:p.birth_date||null,jersey_number:p.jersey_number,player_role:p.player_role,player_note:p.player_note}));
     const staff=coaches.map((c,i)=>({name:c.name.trim(),phone:c.phone.trim(),...(i===0?{manager_name:managerName.trim(),manager_phone:managerPhone.trim()}: {})}));
     const result=await supabase.rpc("sports_basketball_register",{p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:staff});
     if(result.error)throw result.error;
@@ -206,8 +208,8 @@ export default function BasketballDashboard(){
     const saved=check.data as RosterDetails|null;
     if(check.error||!saved||saved.id!==entryId||saved.event_id!==selectedEvent.id||saved.school_id!==schoolId){setMessage("บันทึกใบสมัครแล้ว แต่ยังตรวจรายชื่อเพื่อแนบรูปไม่ได้ กรุณาเปิดใบสมัครเดิม ไม่ต้องสมัครใหม่");await loadEntries();return;}
     const failures:string[]=[];
-    for(let i=0;i<players.length;i++){
-      const file=players[i].photo;if(!file)continue;
+    for(let i=0;i<submittedPlayers.length;i++){
+      const file=submittedPlayers[i].photo;if(!file)continue;
       const actual=saved.players[i],expected=roster[i];
       if(!actual||actual.full_name.trim()!==expected.full_name.trim()||(actual.student_code||"").trim()!==(expected.student_code||"").trim()||String(actual.jersey_number)!==expected.jersey_number){failures.push(`นักกีฬา ${i+1}: ข้อมูลไม่ตรง`);continue;}
       try{await uploadAthletePhoto(entryId,i,actual,file);}catch(e){failures.push(`นักกีฬา ${i+1}: ${errorText(e)}`);}
@@ -342,9 +344,9 @@ export default function BasketballDashboard(){
           void importBasketballRosterExcel(file,code).then(rows=>{setImportPreview(rows);setError("");}).catch(err=>{setError(errorText(err));setImportPreview(null);});}}/>
          {importPreview&&<div className="mt-3 rounded-lg border border-emerald-300 bg-white p-3"><p className="text-sm font-bold">ตรวจพบ {importPreview.length} คน จาก Excel กรุณาตรวจชื่อและหมายเลขเสื้อก่อนนำมาใช้</p><div className="mt-2 max-h-40 overflow-y-auto text-xs">{importPreview.map((p,i)=><p key={i}>{i+1}. {p.prefix}{p.name} · เสื้อ {p.jersey_number}</p>)}</div><div className="mt-3 flex gap-2"><button type="button" className={primaryButton} onClick={()=>{if(players.some(p=>p.photo)&&!window.confirm("การนำเข้า Excel จะแทนที่รายชื่อและรูปที่เลือกแต่ยังไม่บันทึก ยืนยันหรือไม่?"))return;setPlayers(importPreview.map(p=>{const prior=players.find(x=>x.prefix===p.prefix&&x.name.trim()===p.name.trim());return {...p,student_code:prior?.student_code||"",grade_level:prior?.grade_level||"",birth_date:prior?.birth_date||"",player_role:prior?.player_role||"",player_note:prior?.player_note||""};}));setImportPreview(null);}}>ใช้รายชื่อในฟอร์ม</button><button type="button" className={ghostButton} onClick={()=>setImportPreview(null)}>ยกเลิก</button></div></div>}
         </div>
-       <div className="rounded-xl border border-slate-200 p-3"><div className="mb-3 flex flex-wrap justify-between gap-2"><div><h3 className="font-extrabold">รายชื่อนักกีฬา ({players.length}/12)</h3><p className="text-xs text-slate-500">กรอกชื่อ–สกุล หมายเลขเสื้อ และแนบรูปนักกีฬา 7–12 คน · รุ่น 15 ปี ตรวจคุณสมบัติจากสำเนาบัตรประชาชน ณ สนาม</p></div><button type="button" disabled={players.length>=12} onClick={()=>setPlayers(prev=>[...prev,newPlayer()])} className={ghostButton}>+ เพิ่มนักกีฬา</button></div>
-        <div className="space-y-3">{players.map((p,i)=><div key={i} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-extrabold">นักกีฬาคนที่ {i+1}</span><button type="button" disabled={players.length===1} onClick={()=>setPlayers(prev=>prev.filter((_,n)=>n!==i))} className="text-xs font-bold text-red-800 disabled:text-slate-400">ลบคนนี้</button></div>
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_2fr_1fr]"><label className="text-xs font-bold">คำนำหน้าชื่อ<select required className={control} value={p.prefix} onChange={e=>editPlayer(i,"prefix",e.target.value)}><option value="">เลือกคำนำหน้า</option>{FOOTBALL_NAME_PREFIXES.map(x=><option key={x} value={x}>{x}</option>)}</select></label><label className="text-xs font-bold sm:col-span-1">ชื่อ–สกุล<input required className={control} value={p.name} onChange={e=>editPlayer(i,"name",e.target.value)} placeholder="ชื่อ–สกุล"/></label><label className="text-xs font-bold">เบอร์เสื้อ<input type="number" min="0" max="99" required className={control} value={p.jersey_number} onChange={e=>editPlayer(i,"jersey_number",e.target.value)}/></label></div>
+       <div className="rounded-xl border border-slate-200 p-3"><div className="mb-3 flex flex-wrap justify-between gap-2"><div><h3 className="font-extrabold">รายชื่อนักกีฬา ({players.filter(hasPlayerData).length}/12)</h3><p className="text-xs text-slate-500">กรอกชื่อ–สกุล หมายเลขเสื้อ อย่างน้อย 7 คน · เพิ่มได้อีก 0–5 คน (ไม่บังคับ) · แนบรูปตามจริง · รุ่น 15 ปี ตรวจคุณสมบัติจากสำเนาบัตรประชาชน ณ สนาม</p></div><button type="button" disabled={players.length>=12} onClick={()=>setPlayers(prev=>[...prev,newPlayer()])} className={ghostButton}>+ เพิ่มนักกีฬา</button></div>
+        <div className="space-y-3">{players.map((p,i)=><div key={i} className="rounded-lg border border-slate-200 bg-slate-50/50 p-3"><div className="mb-2 flex items-center justify-between"><span className="text-xs font-extrabold">{i<7?`นักกีฬาคนที่ ${i+1} *`:`นักกีฬาเพิ่มเติมคนที่ ${i+1} (ไม่บังคับ)`}</span><button type="button" disabled={players.length<=7} onClick={()=>setPlayers(prev=>prev.filter((_,n)=>n!==i))} className="text-xs font-bold text-red-800 disabled:text-slate-400">ลบคนนี้</button></div>
+          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-[1fr_2fr_1fr]"><label className="text-xs font-bold">คำนำหน้าชื่อ<select required={i<7||hasPlayerData(p)} className={control} value={p.prefix} onChange={e=>editPlayer(i,"prefix",e.target.value)}><option value="">เลือกคำนำหน้า</option>{FOOTBALL_NAME_PREFIXES.map(x=><option key={x} value={x}>{x}</option>)}</select></label><label className="text-xs font-bold sm:col-span-1">ชื่อ–สกุล<input required={i<7||hasPlayerData(p)} className={control} value={p.name} onChange={e=>editPlayer(i,"name",e.target.value)} placeholder="ชื่อ–สกุล"/></label><label className="text-xs font-bold">เบอร์เสื้อ<input type="number" min="0" max="99" required={i<7||hasPlayerData(p)} className={control} value={p.jersey_number} onChange={e=>editPlayer(i,"jersey_number",e.target.value)}/></label></div>
           <FootballPhotoPicker file={p.photo} onChange={file=>setPlayers(prev=>prev.map((item,j)=>j===i?{...item,photo:file}:item))} label={`รูปนักกีฬาคนที่ ${i+1}`} enabled={!busy}/>
         </div>)}</div>
        </div>
