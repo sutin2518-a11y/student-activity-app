@@ -1972,8 +1972,8 @@ export default function GroupSportsDashboard() {
         </div>
         {tab === "overview" ? <div>
           <h1 className="sr-only">กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา ครั้งที่ 30 ประจำปี 2569</h1>
-          <button type="button" style={{ display: "block", width: "100%", aspectRatio: "6513 / 724", padding: 0, border: 0, cursor: "pointer", background: "linear-gradient(110deg, #082760, #119cde 48%, #082760)" }} aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
-            <img src="/images/group-sports/phulangka-original-table-tennis.png" width={2171} height={724} style={{ display: "block", width: "100%", height: "100%", objectFit: "fill" }} alt="ภูลังกาเกมส์ ครั้งที่ 30" />
+          <button type="button" style={{ display: "block", width: "100%", padding: 0, border: 0, cursor: "pointer" }} aria-label="ดูโปรแกรมวันนี้" onClick={() => goToSportsSection("program")}>
+            <img src="/images/group-sports/phulangka-1899x211.webp" width={1899} height={211} style={{ display: "block", width: "100%", height: "auto" }} alt="ภูลังกาเกมส์ ครั้งที่ 30 ประจำปี 2569" />
           </button>
         </div> : <div className="sports-games-inner-banner">
           <div><small>PHAYAO GAMES 2026</small><h1>กีฬากลุ่มโรงเรียนมัธยมศึกษาจังหวัดพะเยา</h1><p>ระบบบริหารจัดการแข่งขัน ครั้งที่ 30 • ประจำปี 2569</p></div>
