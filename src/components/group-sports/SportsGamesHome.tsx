@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { supabase } from "@/lib/supabase";
 import "./sports-games-home.css";
 
 type School = { id: string; name: string };
-type Event = { id: string; sport_name: string; event_type: string; venue_name?: string | null };
+type Event = { id: string; sport_name: string; event_type: string; event_code?: string | null; status?: string; venue_name?: string | null };
 type Match = {
   id: string; event_id: string; round_name: string; group_name?: string | null;
   school_a_id?: string | null; school_b_id?: string | null;
@@ -13,6 +14,9 @@ type Match = {
   special_source?:"football"|"esports"|"boxing"|"athletics";
   special_code?:string|null; special_number?:string|null;
   is_session?:boolean; status_label?:string;
+  sport_name?:string; scheduled_day?:string|null; scheduled_time?:string|null;
+  winner_school?:string|null; updated_at?:string|null; can_manage?:boolean; operator?:boolean;
+  live_version?:string|null; fixture_version?:string|null;
 };
 type Result = { match_id: string; score_a: number; score_b: number };
 type Medal = { school_id: string; event_id: string; medal_type: "gold" | "silver" | "bronze" };
@@ -77,6 +81,42 @@ const SPORT_ORDER = ["E-Sport (RoV)","ฟุตบอล","ฟุตซอล","
 const isLiveMatch = (match: Match) => match.status === "live" || match.status === "in_progress";
 const isHiddenFromLiveBoard = (match: Match) => ["cancelled","canceled","completed","draft","postponed"].includes(match.status);
 
+function matchDay(m:Match) { return m.scheduled_day || dateParts(m.scheduled_at).key; }
+function matchTime(m:Match) { return m.scheduled_time?.slice(0,5) || dateParts(m.scheduled_at).time; }
+function matchDate(m:Match) { return m.scheduled_day ? dateParts(`${m.scheduled_day}T12:00:00+07:00`).date : dateParts(m.scheduled_at).date; }
+function orderMatches(a:Match,b:Match) { return (matchDay(a)||"9999-12-31").localeCompare(matchDay(b)||"9999-12-31") || (matchTime(a)==="--:--"?"99:99":matchTime(a)).localeCompare(matchTime(b)==="--:--"?"99:99":matchTime(b)) || a.id.localeCompare(b.id); }
+function matchLabel(m:Match) { return m.status_label || (isLiveMatch(m)?"กำลังแข่งขัน":m.status==="awaiting_result"?"รอผลทางการ":m.status==="completed"?"จบการแข่งขัน":"รอแข่งขัน"); }
+function LiveControls({match,reload}:{match:Match;reload:()=>Promise<Match[]|undefined>}) {
+  const [a,setA]=useState(String(match.score_a??0));
+  const [b,setB]=useState(String(match.score_b??0));
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
+  // Keep the version that belongs to the draft score, not the latest poll's version.
+  const [expected,setExpected]=useState(match.live_version??null);
+  const changed=expected!==(match.live_version??null);
+  const live=isLiveMatch(match);
+  const today=matchDay(match)===todayBangkok();
+  const scoreOK=/^\d{1,3}$/.test(a)&&/^\d{1,3}$/.test(b);
+  async function act(action:"start"|"score"|"stop") {
+    if(busy||changed||!match.can_manage||!match.fixture_version||!match.special_source)return;
+    if(action!=="score"&&!window.confirm(action==="start"?"ยืนยันเริ่มแสดง LIVE คู่นี้บนหน้าสาธารณะ?":"หยุด LIVE และรอผลทางการ? ต้องบันทึกผลจริงในหน้ากีฬาเดิม"))return;
+    setBusy(true);setError("");
+    try {
+      const r=await supabase.rpc("sports_live_action_v1",{p_source:match.special_source,p_match:match.id.split(":")[1],p_action:action,p_score_a:action==="score"?Number(a):null,p_score_b:action==="score"?Number(b):null,p_fixture_version:match.fixture_version,p_expected:expected});
+      if(r.error)throw r.error;
+      const fresh=await reload(); const current=fresh?.find(m=>m.id===match.id); if(current){setExpected(current.live_version??null);setA(String(current.score_a??0));setB(String(current.score_b??0));}
+    } catch(e) {setError(typeof e==="object"&&e&&"message" in e?String(e.message):"บันทึกไม่สำเร็จ");}
+    finally {setBusy(false);}
+  }
+  return <div className="phg-live-controls">
+    <strong>ควบคุมการแข่งขัน · เฉพาะผู้มีสิทธิ์</strong>
+    {changed?<div role="status">ข้อมูลสดเปลี่ยนแล้ว <button type="button" onClick={()=>{setA(String(match.score_a??0));setB(String(match.score_b??0));setExpected(match.live_version??null);setError("");}}>โหลดคะแนนล่าสุด</button></div>:null}
+    {live && match.special_source!=="boxing" && <div className="phg-score-edit"><label>ทีม A<input inputMode="numeric" value={a} onChange={e=>setA(e.target.value)} disabled={busy||changed} /></label><span>:</span><label>ทีม B<input inputMode="numeric" value={b} onChange={e=>setB(e.target.value)} disabled={busy||changed}/></label><button type="button" disabled={busy||changed||!scoreOK} onClick={()=>void act("score")}>อัปเดตคะแนนสด</button></div>}
+    <div className="phg-live-actions">{live?<button type="button" disabled={busy||changed} onClick={()=>void act("stop")}>หยุด LIVE / รอผลทางการ</button>:<button type="button" disabled={busy||changed||!today} onClick={()=>void act("start")}>{match.status==="awaiting_result"?"กลับมา LIVE":"เริ่มแข่งขัน LIVE"}</button>}{!live&&!today&&<small>เริ่ม LIVE ได้เมื่อถึงวันแข่งขันเท่านั้น</small>}</div>
+    <small>{match.special_source==="esports"?"RoV: จำนวนเกมที่ชนะ (0–2) · ":""}คะแนนสดไม่ใช่ผลทางการ · บันทึกผลจริงในหน้าจัดการกีฬาตามเดิม</small>{error&&<p role="alert" className="phg-live-error">{error}</p>}
+  </div>;
+}
+
 function StatGlyph({kind}:{kind:"schools"|"events"|"athletes"|"live"}) {
   const common = {viewBox:"0 0 24 24",width:42,height:42,fill:"none",stroke:"currentColor",strokeWidth:2.2,strokeLinecap:"round" as const,strokeLinejoin:"round" as const,"aria-hidden":true as const};
   if (kind === "schools") return <svg {...common}><circle cx="8" cy="8" r="3"/><circle cx="17" cy="8" r="2.5"/><path d="M2 20v-2c0-3 2.7-5 6-5s6 2 6 5v2H2Zm13-7c3.3 0 7 1.6 7 5v2h-5"/><path d="M11 6c.6-1 1.6-1.7 3-1.7"/></svg>;
@@ -93,6 +133,51 @@ export default function SportsGamesHome({
   const [sportFilter, setSportFilter] = useState("all");
   const [liveSportFilter, setLiveSportFilter] = useState("all");
   const [schoolFilter, setSchoolFilter] = useState("all");
+  const [venueFilter,setVenueFilter]=useState("all");
+  const [liveDateFilter,setLiveDateFilter]=useState("all");
+  const [activeId,setActiveId]=useState("");
+  const [showAll,setShowAll]=useState(false);
+  const [board,setBoard]=useState<Match[]|null>(null);
+  const [boardError,setBoardError]=useState(false);
+  const [lastRefresh,setLastRefresh]=useState<string|null>(null);
+  const requestRef=useRef(0);
+  const signatureRef=useRef<string|null>(null);
+  const refreshBoard=useCallback(async()=>{
+    const revision=++requestRef.current;
+    try {
+      const pulse=await supabase.rpc("sports_live_pulse_v1");
+      if(revision!==requestRef.current)return;
+      if(pulse.error||typeof pulse.data!=="string"){setBoardError(true);return;}
+      const r=await supabase.rpc("sports_live_board_v1");
+      if(revision!==requestRef.current)return;
+      if(r.error||!Array.isArray(r.data)) {setBoardError(true);return;}
+      signatureRef.current=pulse.data;setBoard(r.data as Match[]);setBoardError(false);setLastRefresh(new Date().toISOString());return r.data as Match[];
+    } catch {if(revision===requestRef.current)setBoardError(true);}
+  },[]);
+  useEffect(()=>{
+    void refreshBoard();
+    let polling=false;
+    const poll=async()=>{
+      if(document.hidden||polling)return;
+      polling=true;
+      const revision=requestRef.current;
+      try {
+        const r=await supabase.rpc("sports_live_pulse_v1");
+        if(revision!==requestRef.current)return;
+        if(r.error||typeof r.data!=="string"){setBoardError(true);return;}
+        if(signatureRef.current!==r.data)await refreshBoard();
+        else {setBoardError(false);setLastRefresh(new Date().toISOString());}
+      } catch {if(revision===requestRef.current)setBoardError(true);}
+      finally {polling=false;}
+    };
+    const timer=window.setInterval(()=>void poll(),20_000);
+    const visible=()=>{if(!document.hidden)void poll();};
+    document.addEventListener("visibilitychange",visible);
+    let authTimer:number|undefined;
+    let lastUser:string|undefined;
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{const uid=session?.user?.id||"";if(lastUser===uid)return;lastUser=uid;setBoard(null);signatureRef.current=null;requestRef.current++;window.clearTimeout(authTimer);authTimer=window.setTimeout(()=>void refreshBoard(),0);});
+    return()=>{requestRef.current++;window.clearInterval(timer);document.removeEventListener("visibilitychange",visible);window.clearTimeout(authTimer);subscription.unsubscribe();};
+  },[refreshBoard]);
   const schoolById = useMemo(() => new Map(schools.map(s => [s.id, s.name])), [schools]);
   const eventById = useMemo(() => new Map(events.map(e => [e.id, e])), [events]);
   const resultByMatch = useMemo(() => new Map(results.map(r => [r.match_id, r])), [results]);
@@ -109,8 +194,8 @@ export default function SportsGamesHome({
     return { id: s.id, name: s.name, gold, silver, bronze, total: mine.length };
   }).sort((a,b) => b.gold-a.gold || b.silver-a.silver || b.bronze-a.bronze || a.name.localeCompare(b.name,"th")), [schools,medalsFiltered]);
   const getSchool = (id?: string | null) => (id ? schoolById.get(id) : null) || "รอระบุโรงเรียน";
-  const getEvent = (id: string) => eventById.get(id)?.sport_name || "รายการแข่งขัน";
-  const allMatches = [...matches, ...specialMatches];
+  const getEvent = (id: string) => eventById.get(id)?.sport_name || board?.find(m=>m.event_id===id)?.sport_name || "รายการแข่งขัน";
+  const allMatches = board === null ? [...matches, ...specialMatches.filter(m=>m.special_source!=="athletics")] : [...matches.filter(m=>!eventById.get(m.event_id)?.event_code?.startsWith("GS3-")), ...board];
   const goMatch = (m: Match) => {
     if (m.special_source === "football") window.location.assign(getEvent(m.event_id).includes("เทเบิลเทนนิส") ? "/group-sports/table-tennis" : getEvent(m.event_id).includes("เปตอง") ? "/group-sports/petanque" : getEvent(m.event_id).includes("เซปักตะกร้อ") ? "/group-sports/takraw" : getEvent(m.event_id).includes("วอลเลย์บอล") ? "/group-sports/volleyball" : getEvent(m.event_id).includes("บาสเกตบอล") ? "/group-sports/basketball" : getEvent(m.event_id).includes("ฟุตซอล") ? "/group-sports/futsal" : "/group-sports/football");
     else if (m.special_source === "boxing") window.location.assign("/group-sports/boxing");
@@ -123,42 +208,36 @@ export default function SportsGamesHome({
   const matchScore = (m:Match) => m.special_source
     ? (m.score_a == null || m.score_b == null ? null : { score_a:m.score_a, score_b:m.score_b })
     : resultByMatch.get(m.id) || null;
-  const now = Date.now();
-  const liveBoardMatches = allMatches.filter(m => !isHiddenFromLiveBoard(m) && !!m.scheduled_at);
-  const liveSportGroups = [...new Set([...events.map(e => sportGroup(e.sport_name)), ...allMatches.map(m => sportGroup(getEvent(m.event_id)))])]
-    .filter(Boolean)
-    .sort((a,b) => {
-      const ai = SPORT_ORDER.indexOf(a), bi = SPORT_ORDER.indexOf(b);
-      if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
-      return a.localeCompare(b,"th");
-    });
-  const matchesForSelectedSport = liveBoardMatches.filter(m => liveSportFilter === "all" || sportGroup(getEvent(m.event_id)) === liveSportFilter);
-  const ongoing = liveBoardMatches.filter(isLiveMatch);
-  const soon = liveBoardMatches.filter(m => !isLiveMatch(m))
-    .sort((a,b)=>new Date(a.scheduled_at||0).getTime()-new Date(b.scheduled_at||0).getTime());
-  const selectedLive = matchesForSelectedSport.filter(isLiveMatch)
-    .sort((a,b)=>new Date(a.scheduled_at||0).getTime()-new Date(b.scheduled_at||0).getTime());
-  const selectedUpcoming = matchesForSelectedSport.filter(m => !isLiveMatch(m))
-    .sort((a,b)=>new Date(a.scheduled_at||0).getTime()-new Date(b.scheduled_at||0).getTime());
-  const featured = selectedLive[0] || selectedUpcoming.find(m => new Date(m.scheduled_at||0).getTime() >= now) || selectedUpcoming[0];
-  const otherMatches = liveSportFilter === "all"
-    ? [...selectedLive.filter(m=>m.id!==featured?.id), ...selectedUpcoming.filter(m=>m.id!==featured?.id)].slice(0,3)
-    // When a sport is selected, keep every currently active fixture visible;
-    // add only the next three scheduled fixtures after those active fixtures.
-    : [...selectedLive.filter(m=>m.id!==featured?.id), ...selectedUpcoming.filter(m=>m.id!==featured?.id).slice(0,3)];
-  const latestResults = allMatches.filter(m => m.status === "completed" && !!matchScore(m)).slice().sort((a,b)=>new Date(b.scheduled_at||0).getTime()-new Date(a.scheduled_at||0).getTime()).slice(0,3);
-  const selectedLiveCount = selectedLive.length;
-  const selectedUpcomingCount = selectedUpcoming.length;
-  const recentIndividual = eventResults.filter(r => r.rank === 1).slice(0,3);
-  const todayKey = todayBangkok();
-  const todayMatches = [...allMatches].filter(m => dateParts(m.scheduled_at).key === todayKey && m.status !== "cancelled").sort((a,b)=>new Date(a.scheduled_at||0).getTime()-new Date(b.scheduled_at||0).getTime());
-  const chosenSchoolName = schoolFilter === "all" ? "" : (schoolById.get(schoolFilter) || "");
-  const displayedSchedule = (todayMatches.length ? todayMatches : soon)
-    .filter(m => schoolFilter === "all" || m.school_a_id === schoolFilter || m.school_b_id === schoolFilter ||
-      (chosenSchoolName.length>0 && [m.display_team_a,m.display_team_b].some(label =>
-        !!label && (label.includes(chosenSchoolName) || chosenSchoolName.includes(label)))))
-    .slice(0,5);
-  const scheduleHeading = todayMatches.length ? "โปรแกรมวันนี้" : "โปรแกรมการแข่งขันถัดไป";
+  const now=Date.now();
+  const todayKey=todayBangkok();
+  const liveBoardMatches=allMatches.filter(m=>!isHiddenFromLiveBoard(m)&&(!!matchDay(m)||isLiveMatch(m)||m.status==="awaiting_result")&&eventById.get(m.event_id)?.status!=="draft");
+  const liveSportGroups=[...new Set([...SPORT_ORDER,...events.filter(e=>e.status!=="draft").map(e=>sportGroup(e.sport_name)),...liveBoardMatches.map(m=>sportGroup(getEvent(m.event_id)))])];
+  const sportMatches=liveBoardMatches.filter(m=>liveSportFilter==="all"||sportGroup(getEvent(m.event_id))===liveSportFilter);
+  const venues=[...new Set(sportMatches.map(m=>m.venue_name||eventById.get(m.event_id)?.venue_name||"รอกำหนดสนาม"))].sort((a,b)=>a.localeCompare(b,"th"));
+  const chosenVenue=venues.includes(venueFilter)?venueFilter:"all";
+  const selected=sportMatches.filter(m=>(chosenVenue==="all"||(m.venue_name||eventById.get(m.event_id)?.venue_name||"รอกำหนดสนาม")===chosenVenue)&&(liveDateFilter==="all"||matchDay(m)===todayKey));
+  const ongoing=liveBoardMatches.filter(isLiveMatch);
+  const selectedLive=selected.filter(isLiveMatch).sort(orderMatches);
+  const pending=selected.filter(m=>m.status==="awaiting_result").sort(orderMatches);
+  const selectedUpcoming=selected.filter(m=>!isLiveMatch(m)&&m.status!=="awaiting_result").sort(orderMatches);
+  const upcomingFuture=selectedUpcoming.filter(m=>matchDay(m)>todayKey||(matchDay(m)===todayKey&&(!m.scheduled_at||new Date(m.scheduled_at).getTime()>=now)));
+  const upcomingPast=selectedUpcoming.filter(m=>!upcomingFuture.includes(m));
+  const ordered=[...selectedLive,...upcomingFuture,...pending,...upcomingPast];
+  const featured=ordered.find(m=>m.id===activeId)||ordered[0];
+  const otherMatches=[...selectedLive,...pending,...upcomingFuture,...upcomingPast].filter(m=>m.id!==featured?.id);
+  const activeOthers=otherMatches.filter(m=>isLiveMatch(m)||m.status==="awaiting_result");
+  const remaining=otherMatches.filter(m=>!activeOthers.includes(m));
+  const visibleOthers=showAll?otherMatches:[...activeOthers,...remaining.slice(0,3)];
+  const latestResults=allMatches.filter(m=>m.status==="completed"&&(!!matchScore(m)||!!m.winner_school)).slice().sort((a,b)=>new Date(b.updated_at||b.scheduled_at||0).getTime()-new Date(a.updated_at||a.scheduled_at||0).getTime()).slice(0,3);
+  const selectedLiveCount=selectedLive.length;
+  const selectedUpcomingCount=selectedUpcoming.length;
+  const recentIndividual=eventResults.filter(r=>r.rank===1).slice(0,3);
+  const soon=liveBoardMatches.filter(m=>!isLiveMatch(m)&&m.status!=="awaiting_result"&&matchDay(m)>=todayKey).sort(orderMatches);
+  const chosenSchoolName=schoolFilter==="all"?"":(schoolById.get(schoolFilter)||"");
+  const schoolSchedule=soon.filter(m=>schoolFilter==="all"||m.school_a_id===schoolFilter||m.school_b_id===schoolFilter||(chosenSchoolName.length>0&&[m.display_team_a,m.display_team_b].some(label=>!!label&&(label.includes(chosenSchoolName)||chosenSchoolName.includes(label)))));
+  const todayMatches=schoolSchedule.filter(m=>matchDay(m)===todayKey);
+  const displayedSchedule=(todayMatches.length?todayMatches:schoolSchedule).slice(0,5);
+  const scheduleHeading=todayMatches.length?"โปรแกรมวันนี้":"โปรแกรมการแข่งขันถัดไป";
   const medalNumber = medalsFiltered.length;
   const registrations = athleteCount ?? (entries.length ? entries.reduce((n,e)=>n+(e.athlete_count||0),0) : null);
 
@@ -179,10 +258,10 @@ export default function SportsGamesHome({
       <div className="phg-left">
         <section className="phg-panel phg-live-panel">
           <div className="phg-panel-heading phg-live-heading">
-            <div><h2>กำลังแข่งขัน</h2><p>เลือกประเภทกีฬาเพื่อติดตามคู่แข่งขันและโปรแกรมถัดไป</p></div>
+            <div><h2>ศูนย์ติดตามการแข่งขัน</h2><p>สถานะจริงจากกรรมการ · เลือกกีฬาและสนามได้</p></div>
             <div className="phg-live-tools">
               <label className="phg-live-filter"><span>ประเภทกีฬา</span>
-                <select aria-label="เลือกประเภทกีฬาในหน้าต่างกำลังแข่งขัน" value={liveSportFilter} onChange={e=>setLiveSportFilter(e.target.value)}>
+                <select aria-label="เลือกประเภทกีฬาในหน้าต่างกำลังแข่งขัน" value={liveSportFilter} onChange={e=>{setLiveSportFilter(e.target.value);setVenueFilter("all");setActiveId("");setShowAll(false);}}>
                   <option value="all">ทุกประเภทกีฬา ({liveBoardMatches.length})</option>
                   {liveSportGroups.map(group=>{
                     const count=liveBoardMatches.filter(m=>sportGroup(getEvent(m.event_id))===group).length;
@@ -193,34 +272,41 @@ export default function SportsGamesHome({
               <button className="phg-inline-link" type="button" onClick={()=>onNavigate("schedule")}>โปรแกรมทั้งหมด →</button>
             </div>
           </div>
+          <div className="phg-live-filterbar"><label>สนาม <select value={chosenVenue} onChange={e=>{setVenueFilter(e.target.value);setActiveId("");}}><option value="all">ทุกสนาม</option>{venues.map(v=><option key={v} value={v}>{v}</option>)}</select></label><label>วันที่ <select value={liveDateFilter} onChange={e=>{setLiveDateFilter(e.target.value);setActiveId("");}}><option value="all">ทุกวัน</option><option value="today">วันนี้</option></select></label><button type="button" className="phg-inline-link" onClick={()=>void refreshBoard()}>↻ รีเฟรช</button>{activeId&&<button type="button" className="phg-inline-link" onClick={()=>setActiveId("")}>กลับไปเลือกคู่อัตโนมัติ</button>}</div>
+          {boardError?<div className="phg-live-error" role="status">เชื่อมข้อมูลสดไม่ได้ · แสดงข้อมูลล่าสุดที่มี (ยังไม่ยืนยันสถานะสดใหม่)</div>:board===null?<small>กำลังโหลดโปรแกรมที่เผยแพร่แล้ว…</small>:<small className="phg-live-refresh">อัปเดต {dateParts(lastRefresh).time} น. · ตรวจการเปลี่ยนแปลงทุก 20 วินาทีขณะเปิดหน้า</small>}
           <div className="phg-live-summary" aria-live="polite">
             {liveSportFilter === "all" ? "ทุกประเภทกีฬา" : liveSportFilter}
             <span> · กำลังดำเนินการ {selectedLiveCount} รายการ</span>
-            <span> · รอแข่งขัน {selectedUpcomingCount} รายการ</span>
+            <span> · รอแข่งขัน {selectedUpcomingCount} รายการ</span><span> · รอผลทางการ {pending.length} รายการ</span>
           </div>
           <div className="phg-live-grid">
             <div className="phg-featured-match">
               {featured ? <>
-                <div className="phg-featured-top"><span>{sportGlyph(getEvent(featured.event_id))} {getEvent(featured.event_id)}</span><span className={`phg-status-chip ${isLiveMatch(featured)?"is-live":""}`}>{isLiveMatch(featured)?`● ${featured.status_label || "LIVE · กำลังแข่งขัน"}`:"◷ โปรแกรมถัดไป"}</span></div>
+                <div className="phg-featured-top"><span>{sportGlyph(getEvent(featured.event_id))} {getEvent(featured.event_id)}</span><span className={`phg-status-chip ${isLiveMatch(featured)?"is-live":""}`}>{isLiveMatch(featured)?`● ${featured.status_label || "LIVE · กำลังแข่งขัน"}`:featured.status==="awaiting_result"?"รอผลทางการ":upcomingPast.includes(featured)?"รอยืนยันเริ่มแข่งขัน":"◷ โปรแกรมถัดไป"}</span></div>
                 {featured.is_session ? <div className="phg-session-feature">
                   <strong>{featured.round_name}</strong>
                   <span>ช่วงที่ {featured.special_number || "-"}</span>
-                  <small>เวลาเริ่ม {dateParts(featured.scheduled_at).time} น. · {featured.venue_name || "สนามกรีฑา"}</small>
+                  <small>เวลาเริ่ม {matchTime(featured)} น. · {featured.venue_name || "สนามกรีฑา"}</small>
                 </div> : <div className="phg-scoreline"><strong>{displaySchoolA(featured)}</strong><span className="phg-score">{matchScore(featured)?`${matchScore(featured)?.score_a} : ${matchScore(featured)?.score_b}`:"VS"}</span><strong>{displaySchoolB(featured)}</strong></div>}
-                <div className="phg-match-meta">{featured.round_name} · {featured.venue_name||eventById.get(featured.event_id)?.venue_name||"รอกำหนดสนาม"} · {dateParts(featured.scheduled_at).date} {dateParts(featured.scheduled_at).time}</div>
+                <div className="phg-match-meta">{featured.special_number?`คู่/ช่วง ${featured.special_number} · `:""}{featured.round_name} · {featured.venue_name||eventById.get(featured.event_id)?.venue_name||"รอกำหนดสนาม"} · {matchDate(featured)} {matchTime(featured)==="--:--"?"รอกำหนดเวลา":matchTime(featured)}</div>
+                {(isLiveMatch(featured)||featured.status==="awaiting_result")&&!featured.is_session&&<small className="phg-live-refresh">{featured.status==="awaiting_result"?"สิ้นสุดการแสดง LIVE · รอกรรมการบันทึกผลทางการ":matchScore(featured)?"คะแนนสด · ยังไม่ใช่ผลทางการ":"กำลังแข่งขัน · ยังไม่มีคะแนนสด"}</small>}
+                {featured.operator&&!featured.can_manage&&<small className="phg-live-refresh">ยังควบคุม LIVE ไม่ได้ · ต้องระบุคู่แข่งขันจริงในโปรแกรมก่อน</small>}
+                <button type="button" className="phg-inline-link" onClick={()=>goMatch(featured)}>เปิดหน้ากีฬานี้ →</button>
+                {featured.can_manage&&!boardError&&board!==null&&<LiveControls key={`${featured.id}:${featured.fixture_version}`} match={featured} reload={refreshBoard}/>}
               </> : <div className="phg-empty"><strong>{liveSportFilter === "all" ? "ยังไม่มีคู่แข่งขันในโปรแกรม" : `ยังไม่มีโปรแกรม${liveSportFilter}`}</strong><span>เมื่อผู้จัดการแข่งขันเผยแพร่โปรแกรม ระบบจะแสดงข้อมูลของประเภทกีฬาที่เลือกตรงนี้</span></div>}
             </div>
-            <div className="phg-up-next">{otherMatches.length ? otherMatches.map(m=><button type="button" className={`phg-next-match ${isLiveMatch(m)?"is-live": ""}`} key={m.id} onClick={()=>goMatch(m)}>
-              <time>{dateParts(m.scheduled_at).time}</time><span><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><small>{m.is_session ? `${m.round_name} · ช่วง ${m.special_number || "-"}` : `${m.round_name} · ${displaySchoolA(m)} พบ ${displaySchoolB(m)}`}</small></span><em>{m.status_label || (isLiveMatch(m)?"กำลังแข่งขัน":"รอแข่งขัน")}</em>
-            </button>) : <div className="phg-empty phg-small-empty">{featured ? "ยังไม่มีรายการอื่นในประเภทกีฬาที่เลือก" : "ยังไม่มีโปรแกรมในประเภทกีฬานี้"}</div>}</div>
+            <div className="phg-up-next">{visibleOthers.length ? visibleOthers.map(m=><button type="button" className={`phg-next-match ${isLiveMatch(m)?"is-live": ""}`} key={m.id} onClick={()=>setActiveId(m.id)}>
+              <time><small>{matchDate(m)}</small>{matchTime(m)==="--:--"?"รอเวลา":matchTime(m)}</time><span><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><small>{m.is_session?`${m.round_name} · ช่วง ${m.special_number||"-"}`:`${displaySchoolA(m)} พบ ${displaySchoolB(m)}`}</small><small>📍 {m.venue_name||"รอกำหนดสนาม"}</small></span><em>{isLiveMatch(m)&&matchScore(m)?`${matchScore(m)?.score_a} : ${matchScore(m)?.score_b}`:matchLabel(m)}</em>
+            </button>) : <div className="phg-empty phg-small-empty">ยังไม่มีรายการอื่นในเงื่อนไขที่เลือก</div>}{remaining.length>3&&<button type="button" className="phg-inline-link" onClick={()=>setShowAll(v=>!v)}>{showAll?"แสดงเฉพาะคู่ถัดไป":"ดูคู่อื่นทั้งหมด ("+otherMatches.length+")"}</button>}</div>
           </div>
+          <p className="phg-live-refresh">แสดงเฉพาะโปรแกรมที่เผยแพร่แล้ว · เวลาถึงกำหนดไม่ถือว่าเริ่มแข่งจนกว่ากรรมการยืนยัน · กรีฑาใช้สถานะรายงานตัวเดิม</p>
         </section>
 
         <section className="phg-panel phg-results-panel">
           <div className="phg-panel-heading"><h2>⚡ ผลการแข่งขันล่าสุด</h2><button type="button" className="phg-inline-link" onClick={()=>onNavigate("matches")}>ดูผลการแข่งขันทั้งหมด →</button></div>
           <div className="phg-recent-grid">{latestResults.length ? latestResults.map(m => {
             const score=matchScore(m);
-            return <button key={m.id} type="button" onClick={()=>goMatch(m)} className="phg-result-tile"><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><span>{displaySchoolA(m)} <b>{score?.score_a} - {score?.score_b}</b> {displaySchoolB(m)}</span><small>จบการแข่งขัน · {m.round_name}</small></button>;
+            return <button key={m.id} type="button" onClick={()=>goMatch(m)} className="phg-result-tile"><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><span>{m.winner_school?`ชนะ: ${m.winner_school}`:<>{displaySchoolA(m)} <b>{score?.score_a} - {score?.score_b}</b> {displaySchoolB(m)}</>}</span><small>จบการแข่งขัน · {m.round_name}</small></button>;
           }) : recentIndividual.length ? recentIndividual.map(r=><button key={r.id} type="button" onClick={()=>onNavigate("matches")} className="phg-result-tile"><strong>{sportGlyph(getEvent(r.event_id))} {getEvent(r.event_id)}</strong><span>{getSchool(r.school_id)}</span><small>อันดับ 1 · {r.performance_value??""} {r.performance_unit||""}</small></button>) : <div className="phg-empty">ยังไม่มีผลการแข่งขันที่ประกาศแล้ว</div>}</div>
         </section>
 
@@ -228,7 +314,7 @@ export default function SportsGamesHome({
           <section className="phg-panel phg-schedule-panel">
             <div className="phg-panel-heading"><h2>🗓 {scheduleHeading}</h2><select aria-label="เลือกโรงเรียน" value={schoolFilter} onChange={e=>setSchoolFilter(e.target.value)}><option value="all">ทุกโรงเรียน</option>{schools.map(s=><option key={s.id} value={s.id}>{s.name}</option>)}</select></div>
             <div className="phg-schedule-list">{displayedSchedule.length ? displayedSchedule.map(m=><button type="button" className="phg-schedule-row" onClick={()=>goMatch(m)} key={m.id}>
-              <b>{dateParts(m.scheduled_at).time} น.</b><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><span>{m.is_session ? `${m.round_name} · ช่วง ${m.special_number || "-"}` : `${displaySchoolA(m)} / ${displaySchoolB(m)}`}</span><small>📍 {m.venue_name||"รอสนาม"}</small>
+              <b>{matchDate(m)}<br/>{matchTime(m)==="--:--"?"รอเวลา":matchTime(m)+" น."}</b><strong>{sportGlyph(getEvent(m.event_id))} {getEvent(m.event_id)}</strong><span>{m.is_session ? `${m.round_name} · ช่วง ${m.special_number || "-"}` : `${displaySchoolA(m)} / ${displaySchoolB(m)}`}</span><small>📍 {m.venue_name||"รอสนาม"}</small>
             </button>) : <div className="phg-empty">ยังไม่มีโปรแกรมในเงื่อนไขที่เลือก</div>}</div>
           </section>
           <section className="phg-panel phg-news-panel">

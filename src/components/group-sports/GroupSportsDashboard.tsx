@@ -2032,6 +2032,7 @@ export default function GroupSportsDashboard() {
             }}>
               {canAccessSystemMenu ? <>
                 {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
+                {canManageCompetition && <Link href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
                 {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
                 {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
                 {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}

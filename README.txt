@@ -1,7 +1,35 @@
-Volleyball optional reserve rows — targeted UI patch
-Copy only src/ into student-activity-app. Back up the current VolleyballRegistration.tsx first.
-No SQL migration, no registration status change. Based on project archive v33.38 and migration 050.
-The first 6 player slots remain mandatory. Slots 7–12 are optional if entirely blank; partially filled slots are validated. Existing coach requirements remain unchanged (1 coach required, assistants optional, assistant 1 before assistant 2).
-Excel import already skips blank rows and is unchanged. Existing permissions, database functions and print templates are unchanged.
-Local checks: TypeScript transpile syntax and isolated roster filter/validator tests passed. Full build and live Supabase submission not tested.
-Test npm run build, then use a test database or an actual intended new school application. Localhost can point at production; do not submit dummy applications there.
+PHULANGKA GAMES 2026 — Central Publish v3 / SQL 061
+ต่อยอดจาก group-sports-central-publish-v2.zip และโปรเจค(4).zip
+
+ติดตั้ง
+1. สำรองโค้ด/ฐานข้อมูล และทดสอบในฐานทดสอบก่อน ห้ามใช้ข้อมูลทดสอบปะปนกับใบสมัครจริง
+2. ตรวจว่า SQL 060 ติดตั้งแล้ว จากนั้นรัน supabase/migrations/202611270061_sports_partial_publish.sql ทั้งไฟล์ ใน SQL Editor
+   คาดหวัง partial_publish_ready = READY หาก error ให้หยุด ไม่ต้องรัน SQL รุ่นเก่าซ้ำ
+3. คัดลอก src ไปวางทับโปรเจกต์ (ดู GitHub Desktop Changes ก่อน Replace)
+   SportsScheduleContent.tsx ใช้ไฟล์จากโปรเจค(4).zip เป็นฐาน เพิ่มลิงก์เดียว หากแก้ไฟล์นี้เองหลังจากนั้น ให้เก็บไฟล์ปัจจุบันและเพิ่มลิงก์ /group-sports/preliminary เองแทนการวางทับ
+4. npm run build แล้ว npm run dev
+5. เข้าด้วยแม่แอดมิน /group-sports/publish
+   - เผยแพร่ทั้งรุ่น: ใช้ปุ่มเดิม SQL 060
+   - เผยแพร่คู่พร้อมเบื้องต้น: เลือกเฉพาะคู่ที่ข้อมูลครบและตรวจแล้ว
+   - จัดการรายคู่ / ดูข้อสังเกต: เลือกการดำเนินการ อ่านหมายเหตุ ตรวจเทียบเอกสาร แล้วเลือกคู่
+   - ยืนยันตรวจสอบข้อสังเกต: หลายคู่ในรุ่นเดียวกันได้ แต่เฉพาะคู่ที่ข้อมูลพื้นฐานครบ ไม่เติมข้อมูลแทน
+   - แสดงโปรแกรมเบื้องต้น: ทราบวันแต่ยังไม่มีเวลา มีชื่อคู่ครบ และแม่แอดมินกดยืนยันเอง
+   - ถอนประกาศเบื้องต้น: เลือกคู่ที่ประกาศแล้ว
+   - ผู้ชมดูที่ /group-sports/preliminary หรือลิงก์บนหน้าตารางโปรแกรม
+6. ทดสอบหนึ่งรุ่นก่อน: ตรวจ sports_events.status ก่อน/หลัง ตรวจว่าใบสมัครใหม่ยังส่งได้ในฐานทดสอบ
+   หลีกเลี่ยงกดเผยแพร่กับข้อมูลจริงระหว่างทดสอบถ้ายังไม่ได้ตรวจเอกสาร
+7. เมื่อผ่านแล้ว Commit & Push
+
+ขอบเขตและข้อจำกัด
+- เผยแพร่รายคู่รองรับ ฟุตบอล ฟุตซอล บาส วอลเลย์ ตะกร้อ ปิงปอง
+- เปตองใช้เผยแพร่ทั้งรุ่นเดิมเพื่อรักษาการจัดสายและ BYE; ยืนยันข้อสังเกตคู่ที่ข้อมูลครบและประกาศเบื้องต้นได้
+- RoV และกรีฑาคงวิธีเผยแพร่เดิม (060); มวยสากลจัดการเฉพาะกีฬา
+- ปุ่มพร้อมเบื้องต้นไม่ใช่การรับรองผ่าน SQL: ยังตรวจจำนวนคู่ เวลา/สนามซ้อน ลำดับรอบ เงื่อนไขเฉพาะกีฬา และสถานะรับสมัครที่เซิร์ฟเวอร์อีกครั้ง
+- แต่ละคำสั่งส่งไม่เกิน 100 คู่ต่อธุรกรรม หากรายการใดในชุดไม่ผ่าน ยกเลิกทั้งชุดนั้น เลือกเฉพาะคู่ที่ผ่านแล้วลองใหม่; ชุดก่อนหน้าที่สำเร็จจะยังมีผล
+- หากข้อมูลคู่เปลี่ยนหลังโหลด ระบบปฏิเสธการแก้ไข และให้รีเฟรช
+- ประกาศเบื้องต้นไม่เปลี่ยน status ของคู่ (draft) ไม่ส่งเข้า LIVE/ตารางคะแนน/เหรียญ และจะหายจากหน้าสาธารณะเมื่อข้อมูลคู่ถูกแก้หรือเผยแพร่ทางการ
+- SQL ใหม่เพิ่มตารางประกาศและ RPC แยก ไม่แก้ฟังก์ชันลงทะเบียน/ตารางนักกีฬา/สถานะรับสมัคร การติดตั้งยังไม่เผยแพร่คู่ใด
+- การยืนยันข้อสังเกตและเผยแพร่ใช้ตารางโปรแกรมเดิม ซึ่งมี trigger บันทึกประวัติเดิม
+- ไม่เปลี่ยน GroupSportsDashboard.tsx, SportsGamesHome.tsx, Excel, รูปภาพหรือแบนเนอร์
+
+ผลตรวจ: TypeScript transpile syntax ผ่าน 3 ไฟล์; ทดสอบตัวกรอง UI 16 กรณีผ่าน; ยังไม่ได้รัน SQL ใน PostgreSQL จริงหรือ npm run build เต็ม เนื่องจากไม่มีฐานทดสอบและ dependencies ในสภาพแวดล้อมนี้
