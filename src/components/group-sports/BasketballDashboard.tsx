@@ -200,7 +200,7 @@ export default function BasketballDashboard(){
     if(existing.length>1||(!selectedEntry&&existing.length)||(selectedEntry&&(existing.length!==1||existing[0].id!==selectedEntry.id)))throw new Error("ข้อมูลใบสมัครเปลี่ยนไป กรุณารีเฟรชและเปิดใบสมัครเดิม");
     const roster=submittedPlayers.map(p=>({full_name:p.prefix+p.name.trim(),student_code:p.student_code.trim()||null,grade_level:p.grade_level||null,birth_date:p.birth_date||null,jersey_number:p.jersey_number,player_role:p.player_role,player_note:p.player_note}));
     const staff=coaches.map((c,i)=>({name:c.name.trim(),phone:c.phone.trim(),...(i===0?{manager_name:managerName.trim(),manager_phone:managerPhone.trim()}: {})}));
-    const result=await supabase.rpc("sports_basketball_register",{p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:staff});
+    const result=selectedEntry&&!isAdmin?await supabase.rpc("sports_school_edit_team_v1",{p_entry:selectedEntry.id,p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:staff,p_sport:"basketball"}):await supabase.rpc("sports_basketball_register",{p_event:selectedEvent.id,p_school:schoolId,p_players:roster,p_coaches:staff});
     if(result.error)throw result.error;
     const entryId=result.data as string;
     setMessage("บันทึกใบสมัครแล้ว กำลังแนบรูปที่เลือก…");

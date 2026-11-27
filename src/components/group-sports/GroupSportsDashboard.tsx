@@ -1043,7 +1043,7 @@ export default function GroupSportsDashboard() {
         if (!Array.isArray(records) || records.length !== athletes.length) throw new Error("ผลการนำเข้าจากฐานข้อมูลไม่ครบ กรุณาตรวจสอบใบสมัคร");
         batchSaved = records.map(row=>({...payload,id:row.id,entry_name:row.entry_name,assistant_coach:assistant,coaches:normalizedCoaches,athlete_count:1} as Entry));
       } else {
-        const result = await supabase.rpc("sports_register_roster",{p_entry:id||null,p_event:eventId,p_school:schoolId,p_name:entryName,p_coach:payload.coach_name,p_assistant:assistant||null,p_players:athletes,p_coaches:normalizedCoaches});
+        const result = await supabase.rpc(editEntry && !rosterAdmin ? "sports_school_edit_roster_v1" : "sports_register_roster",{p_entry:id||null,p_event:eventId,p_school:schoolId,p_name:entryName,p_coach:payload.coach_name,p_assistant:assistant||null,p_players:athletes,p_coaches:normalizedCoaches});
         if (result.error) throw new Error(result.error.message);
         id = result.data as string;
       }
@@ -1241,6 +1241,34 @@ export default function GroupSportsDashboard() {
       {move.error && <p role="alert" className="rounded-lg bg-red-50 p-2 font-bold text-red-800">{move.error}</p>}
       <div className="flex flex-wrap gap-2"><button type="button" disabled={busy || !options.some(ev=>ev.id===move.to) || !move.updatedAt || !move.confirmed || move.reason.trim().length<8} onClick={()=>void saveAthleticsMove(entry)} className="rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-40">{busy?"กำลังบันทึก...":"ยืนยันเปลี่ยนรายการ"}</button><button type="button" disabled={busy} onClick={()=>setAthMove(null)} className="rounded-lg border border-blue-200 bg-white px-3 py-2 font-bold">ยกเลิก</button></div>
     </section>;
+  }
+
+  function schoolCanEditEntry(entry: Entry) {
+    return !isDemo && !rosterAdmin && entrySchools.some(s=>s.id===entry.school_id) &&
+      eventById.get(entry.event_id)?.status === "registration" && ["approved","submitted","rejected"].includes(entry.status);
+  }
+  async function schoolDeleteEntry(entry: Entry) {
+    if (busy || !schoolCanEditEntry(entry)) return;
+    if (!window.confirm(`ยืนยันลบใบสมัคร ${eventById.get(entry.event_id)?.sport_name || ""} ของ ${schoolById.get(entry.school_id)?.name || "โรงเรียน"} จำนวน ${entry.athlete_count || 0} คน? จะลบเฉพาะใบสมัครนี้ และเก็บประวัติไว้สำหรับผู้ดูแล`)) return;
+    setBusy(true); setRosterError(""); setError(""); setRosterTargetId(entry.id);
+    try {
+      const r=await supabase.rpc("sports_school_delete_entry_v1",{p_entry:entry.id,p_expected_updated_at:entry.updated_at || null});
+      if(r.error) throw new Error(r.error.message);
+      setEntries(rows=>rows.filter(x=>x.id!==entry.id));
+      if(detail?.entry.id===entry.id)setDetail(null);
+      if(editEntry?.id===entry.id){setEditEntry(null);setFormOpen(false);}
+      setNotice("ลบใบสมัครของโรงเรียนเรียบร้อยแล้ว สามารถลงทะเบียนใหม่ได้หากยังเปิดรับสมัคร");
+      await loadData(true);
+    } catch(cause) {setRosterError(cause instanceof Error?cause.message:"ลบใบสมัครไม่สำเร็จ");}
+    finally {setBusy(false);}
+  }
+  function renderSchoolEntryActions(entry: Entry) {
+    if(!schoolCanEditEntry(entry))return null;
+    const ev=eventById.get(entry.event_id);
+    const sport=isFootball(ev)?"football":isFutsal(ev)?"futsal":isBasketball(ev)?"basketball":isVolleyball(ev)?"volleyball":isTakraw(ev)?"takraw":isTableTennis(ev)?"table-tennis":null;
+    const cls="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 disabled:opacity-50";
+    return <>{sport?<Link className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}
+      <button type="button" disabled={busy} onClick={()=>void schoolDeleteEntry(entry)} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50 disabled:opacity-50">ลบใบสมัครของโรงเรียน</button></>;
   }
 
   async function openRoster(entry: Entry, edit = false, view: "roster" | "photos" = "roster") {
@@ -1777,6 +1805,7 @@ export default function GroupSportsDashboard() {
                       </div>
                       <div className="flex flex-wrap gap-2">
                         {renderAthleticsMoveButton(entry)}
+                    {renderSchoolEntryActions(entry)}
                     <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={() => {if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-blue-50 disabled:opacity-50">{detail?.entry.id===entry.id ? "ปิดรายชื่อ" : busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
                         {!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#0755ce] px-3 py-2 text-sm font-bold text-white hover:bg-blue-800">พิมพ์ใบสมัคร</Link>}
                       </div>
@@ -2193,6 +2222,7 @@ export default function GroupSportsDashboard() {
                     <p className="text-sm font-bold text-emerald-800">{statusLabel(entry.status)}</p></div>
                   <div className="flex flex-wrap items-center gap-3">
                     {renderAthleticsMoveButton(entry)}
+                    {renderSchoolEntryActions(entry)}
                     <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={()=>{if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50">{busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : detail?.entry.id===entry.id ? "ปิดรายชื่อ" : "ดูรายชื่อ"}</button>
                     {!isDemo && canManageSchool && !isVolleyball(eventById.get(entry.event_id)) && allowsRegistrationPhotos(eventById.get(entry.event_id)) &&
                       <button type="button" disabled={busy} onClick={()=>void openRoster(entry,false,"photos")} className="rounded-lg bg-red-700 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-50">
