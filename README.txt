@@ -1,12 +1,7 @@
-แก้ดรอปดาวน์เปลี่ยนรายการกรีฑา — ใช้ต่อจาก group-sports-athletics-event-change.zip
-
-สาเหตุในโค้ดเดิม: บังคับ max_athletes_per_entry === 1 สำหรับกีฬาเดี่ยว ทั้งที่เป็นเพดานจำนวนคน ไม่ใช่ประเภทการแข่งขัน
-แก้เฉพาะตัวกรองของหน้าต่างเปลี่ยนรายการ: ใช้ชื่อรายการวิ่งผลัด (4x...) แยกเดี่ยว/ผลัด และตรวจโควตา >= จำนวนผู้เล่นจริง คงเพศ สถานะ registration และการแข่งขันเดียวกัน
-SQL 055 ยังตรวจประเภทจริงจาก sports_ath_rounds และเงื่อนไขล็อกรายชื่อ/ผลการแข่งขันตามเดิม
-
-ติดตั้ง: สำรองไฟล์ปัจจุบัน แล้ววาง src ทับเฉพาะ GroupSportsDashboard.tsx จากนั้น npm run build และ npm run dev
-ไม่ต้องรัน SQL ใหม่หรือ 055 ซ้ำ หากติดตั้ง 055 สำเร็จแล้ว
-ทดสอบ: วิ่ง 200 เมตร ไม่จำกัดอายุ ชาย -> วิ่ง 200 เมตร ไม่เกิน 15 ปี ชาย (ทั้งสองต้องเปิดรับสมัคร โควตารองรับ และยังไม่ล็อกรายชื่อ)
-ตรวจด้วยบัญชีแม่แอดมินก่อน Push ใช้ใบสมัครจริงที่ได้รับอนุญาตให้แก้หรือฐานทดสอบ
-หากยังไม่พบรายการ ตรวจ SELECT event_code, sport_name, status, gender_rule, max_athletes_per_entry FROM public.sports_events WHERE event_code IN ('GS3-AT-023','GS3-AT-012');
-ข้อจำกัด: ตรวจ syntax และตัวกรองด้วยชุดข้อมูลจำลองจากรายการต้นฉบับ ไม่ได้ build เต็มหรือเชื่อมฐานจริง
+Volleyball optional reserve rows — targeted UI patch
+Copy only src/ into student-activity-app. Back up the current VolleyballRegistration.tsx first.
+No SQL migration, no registration status change. Based on project archive v33.38 and migration 050.
+The first 6 player slots remain mandatory. Slots 7–12 are optional if entirely blank; partially filled slots are validated. Existing coach requirements remain unchanged (1 coach required, assistants optional, assistant 1 before assistant 2).
+Excel import already skips blank rows and is unchanged. Existing permissions, database functions and print templates are unchanged.
+Local checks: TypeScript transpile syntax and isolated roster filter/validator tests passed. Full build and live Supabase submission not tested.
+Test npm run build, then use a test database or an actual intended new school application. Localhost can point at production; do not submit dummy applications there.
