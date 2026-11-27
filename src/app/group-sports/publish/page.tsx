@@ -82,11 +82,23 @@ function rowIssues(v:View,r:ScheduleRow):string[]{
  if(v.sport==="TT"&&(!r.start||!r.tt_end_time||r.tt_end_time<=r.start||![3,5,7].includes(Number(r.tt_best_of))))a.push("เวลาเลิก/จำนวนเกมไม่ครบ");
  return a;
 }
+// Mirror the earlier-round guard in migration 061. Unknown times must not
+// silently qualify a knockout fixture, but review/preview remain independent.
+const roundOrder=["group","quarter","semifinal","final"];
+function publishIssues(v:View,r:ScheduleRow):string[]{
+ const issues=rowIssues(v,r);
+ const rank=roundOrder.indexOf(r.stage||"");
+ if(rank>0){
+  const missing=v.rows.filter(o=>o.status!=="cancelled"&&roundOrder.indexOf(o.stage||"")>=0&&roundOrder.indexOf(o.stage||"")<rank&&(!o.date||!o.start||(v.sport==="BB"&&!o.basketball_end_time)||(v.sport==="TT"&&!o.tt_end_time)));
+  if(missing.length)issues.push(`รอรอบก่อนหน้ากำหนดเวลา (คู่ ${missing.map(o=>o.match_no??"?").join(", ")})`);
+ }
+ return issues;
+}
 function allowed(v:View,r:ScheduleRow,action:PartialAction):boolean {
  if(!["registration","scheduled","closed"].includes(v.event.status)||r.status!=="draft"||!r.updated_at)return false;
  const field=reviewedField[v.sport];
  if(action==="review")return !!field&&r[field]!==true&&!rowIssues(v,r).length;
- if(action==="publish")return partialSports.includes(v.sport)&&!rowIssues(v,r).length&&(!field||r[field]===true);
+ if(action==="publish")return partialSports.includes(v.sport)&&!publishIssues(v,r).length&&(!field||r[field]===true);
  if(action==="preview")return [...partialSports,"PT"].includes(v.sport)&&!!r.date&&!r.start&&!r.petanque_bye&&!!r.team1_name?.trim()&&!!r.team2_name?.trim()&&!r.preliminary;
  return [...partialSports,"PT"].includes(v.sport)&&r.preliminary===true;
 }
@@ -98,12 +110,12 @@ function PartialPanel({v,disabled,run}:{v:View;disabled:boolean;run:(v:View,rows
  if(![...partialSports,"PT"].includes(v.sport)||!rows.length)return null;
  return <div className="mt-3 border-t border-blue-100 pt-3"><div className="flex flex-wrap gap-2 items-center">
  <button type="button" className={outline} disabled={disabled} onClick={()=>setOpen(x=>!x)}>{open?"ปิดรายละเอียดคู่":"จัดการรายคู่ / ดูข้อสังเกต"} ({rows.length})</button>
- <button type="button" className={blue} disabled={disabled||!ready.length} onClick={()=>void run(v,ready,"publish")}>เผยแพร่คู่พร้อมเบื้องต้น ({ready.length})</button>
+ <button type="button" className={blue} disabled={disabled||!ready.length} onClick={()=>void run(v,ready,"publish")}>เผยแพร่คู่ที่ผ่านเบื้องต้น ({ready.length})</button>
  <span className="text-xs text-slate-600">รอยืนยันข้อสังเกตที่ข้อมูลครบ {needReview.length} · รอกำหนดเวลาที่ยังไม่ประกาศ {preview.length}</span></div>
  {v.sport==="PT"&&<p className="mt-2 text-xs text-amber-800">เปตองยืนยันข้อสังเกต/ประกาศเบื้องต้นได้ แต่เผยแพร่จริงทั้งรุ่นเท่านั้นเพื่อรักษาการจัดสายและ BYE</p>}
  {open&&<div className="mt-3 rounded-xl border border-blue-100 bg-slate-50 p-3"><div className="flex flex-wrap gap-2 items-end"><label className="text-xs font-bold">การดำเนินการ<select className="mt-1 block rounded-lg border border-blue-200 bg-white p-2 text-sm" value={mode} disabled={disabled} onChange={e=>{setMode(e.target.value as PartialAction);setChosen([])}}>{(Object.keys(actionLabels) as PartialAction[]).filter(a=>a!=="publish"||v.sport!=="PT").filter(a=>a!=="review"||!!reviewedField[v.sport]).map(a=><option key={a} value={a}>{actionLabels[a]}</option>)}</select></label><button className={outline} disabled={disabled||!options.length} onClick={()=>setChosen(options.map(r=>r.id))}>เลือกคู่ที่ทำได้ ({options.length})</button><button className={outline} disabled={disabled||!chosen.length} onClick={()=>setChosen([])}>ล้าง</button><button className={blue} disabled={disabled||!picked.length} onClick={()=>void run(v,picked,mode)}>{actionLabels[mode]} ({picked.length})</button></div>
- <p className="my-2 text-xs text-slate-600">อ่านข้อสังเกตและตรวจเอกสารก่อนยืนยัน · การยืนยันไม่เติมวันเวลาให้เอง · คู่ที่ยังไม่พร้อมจะคงฉบับร่าง · แสดงเบื้องต้นเป็นประกาศแยก ไม่ใช่ LIVE</p>
- <div className="max-h-[440px] overflow-auto"><table className="w-full min-w-[680px] text-left text-xs"><thead className="sticky top-0 bg-blue-50"><tr>{["เลือก","คู่ / รอบ","คู่แข่งขัน","วัน / เวลา / สนาม","ข้อสังเกต / ความพร้อม"].map(x=><th className="p-2" key={x}>{x}</th>)}</tr></thead><tbody>{rows.map(r=>{const can=allowed(v,r,mode),issues=rowIssues(v,r),field=reviewedField[v.sport],note=noteField[v.sport];return <tr key={r.id} className="border-t border-slate-200 bg-white align-top"><td className="p-2"><input aria-label={`เลือกคู่ ${r.match_no}`} type="checkbox" checked={chosen.includes(r.id)&&can} disabled={disabled||!can} onChange={e=>setChosen(old=>e.target.checked?[...old,r.id]:old.filter(id=>id!==r.id))}/></td><td className="p-2 font-bold">{r.match_no} · {stageLabel[r.stage||""]||r.stage}</td><td className="p-2">{r.team1_name||"—"} พบ {r.team2_name||"—"}</td><td className="p-2">{thaiDate(r.date||"")} · {r.start?.slice(0,5)||"รอกำหนดเวลา"}<br/>{r.venue||"รอยืนยันสนาม"}</td><td className="p-2"><p className={issues.length?"text-amber-800":"text-emerald-700"}>{issues.join(" · ")||"ข้อมูลพื้นฐานครบ"}</p>{field&&<p>{r[field]===true?"ยืนยันแล้ว":"ยังไม่ยืนยัน"}</p>}{r.preliminary&&<p className="font-bold text-blue-800">ประกาศเบื้องต้นแล้ว</p>}{note&&r[note]&&<p className="mt-1 whitespace-pre-wrap text-amber-900">{String(r[note])}</p>}</td></tr>})}</tbody></table></div></div>}
+ <p className="my-2 text-xs text-slate-600">อ่านข้อสังเกตและตรวจเอกสารก่อนยืนยัน · การยืนยันไม่เติมวันเวลาให้เอง · คู่ที่ยังไม่พร้อมจะคงฉบับร่าง · เผยแพร่รายคู่แยกธุรกรรม · แสดงเบื้องต้นเป็นประกาศแยก ไม่ใช่ LIVE</p>
+ <div className="max-h-[440px] overflow-auto"><table className="w-full min-w-[680px] text-left text-xs"><thead className="sticky top-0 bg-blue-50"><tr>{["เลือก","คู่ / รอบ","คู่แข่งขัน","วัน / เวลา / สนาม","ข้อสังเกต / ความพร้อม"].map(x=><th className="p-2" key={x}>{x}</th>)}</tr></thead><tbody>{rows.map(r=>{const can=allowed(v,r,mode),issues=mode==="publish"?publishIssues(v,r):rowIssues(v,r),field=reviewedField[v.sport],note=noteField[v.sport];return <tr key={r.id} className="border-t border-slate-200 bg-white align-top"><td className="p-2"><input aria-label={`เลือกคู่ ${r.match_no}`} type="checkbox" checked={chosen.includes(r.id)&&can} disabled={disabled||!can} onChange={e=>setChosen(old=>e.target.checked?[...old,r.id]:old.filter(id=>id!==r.id))}/></td><td className="p-2 font-bold">{r.match_no} · {stageLabel[r.stage||""]||r.stage}</td><td className="p-2">{r.team1_name||"—"} พบ {r.team2_name||"—"}</td><td className="p-2">{thaiDate(r.date||"")} · {r.start?.slice(0,5)||"รอกำหนดเวลา"}<br/>{r.venue||"รอยืนยันสนาม"}</td><td className="p-2"><p className={issues.length?"text-amber-800":"text-emerald-700"}>{issues.join(" · ")||"ข้อมูลพื้นฐานครบ"}</p>{field&&<p>{r[field]===true?"ยืนยันแล้ว":"ยังไม่ยืนยัน"}</p>}{r.preliminary&&<p className="font-bold text-blue-800">ประกาศเบื้องต้นแล้ว</p>}{note&&r[note]&&<p className="mt-1 whitespace-pre-wrap text-amber-900">{String(r[note])}</p>}</td></tr>})}</tbody></table></div></div>}
  </div>;
 }
 export default function CentralPublishPage(){
@@ -166,11 +178,38 @@ export default function CentralPublishPage(){
   async function partial(v:View,rows:ScheduleRow[],action:PartialAction){
     if(running.current||loading||!authorized||!rows.length)return;
     const chosen=rows.filter(r=>allowed(v,r,action));if(chosen.length!==rows.length)return;
-    if(!window.confirm(`${actionLabels[action]} ${v.event.sport_name} จำนวน ${rows.length} คู่?\nยืนยันว่าได้ตรวจเอกสารและข้อสังเกตทุกคู่ที่เลือกแล้ว\n${action==="preview"?"คู่จะปรากฏในหน้าประกาศเบื้องต้นสำหรับผู้ชม โดยยังไม่เผยแพร่ทางการ":action==="publish"?"ระบบจะตรวจซ้ำในฐานข้อมูล หากไม่ผ่านจะไม่เผยแพร่ชุดนั้น":"ไม่เปลี่ยนสถานะรับสมัครหรือข้อมูลนักกีฬา"}`))return;
+    if(!window.confirm(`${actionLabels[action]} ${v.event.sport_name} จำนวน ${rows.length} คู่?\nยืนยันว่าได้ตรวจเอกสารและข้อสังเกตทุกคู่ที่เลือกแล้ว\n${action==="preview"?"คู่จะปรากฏในหน้าประกาศเบื้องต้นสำหรับผู้ชม โดยยังไม่เผยแพร่ทางการ":action==="publish"?"ระบบตรวจซ้ำทีละคู่ คู่ที่ไม่ผ่านจะคงฉบับร่าง และคู่ที่ผ่านจะเผยแพร่ได้":"ไม่เปลี่ยนสถานะรับสมัครหรือข้อมูลนักกีฬา"}`))return;
     running.current=true;setBusy(true);setError("");setResults([]);
-    try{let total=0;for(let i=0;i<rows.length;i+=100){const batch=rows.slice(i,i+100);setProgress(`${v.event.sport_name} · ${i+1}–${i+batch.length}/${rows.length}`);const r=await supabase.rpc("sports_central_partial_action",{p_event:v.event.id,p_rows:batch.map(m=>({id:m.id,version:m.updated_at})),p_action:action});if(r.error)throw new Error(`${r.error.message} (สำเร็จก่อนหน้า ${total} คู่)`);total+=Number(r.data);}
-    setResults([{id:v.event.id,title:v.event.sport_name,ok:true,message:`${actionLabels[action]} ${total} คู่สำเร็จ`}]);}
-    catch(e){setResults([{id:v.event.id,title:v.event.sport_name,ok:false,message:errText(e)}]);}finally{setProgress("");await load();setBusy(false);running.current=false;}
+    let total=0;
+    try{
+      if(action==="publish"){
+        // Each RPC is its own transaction. Keep all database checks intact.
+        // Continue only for explicit, match-specific validation failures.
+        // Permission, network, global guards and unexpected errors stop the run.
+        const ordered=[...chosen].sort((a,b)=>(a.date||"").localeCompare(b.date||"")||(a.start||"").localeCompare(b.start||"")||(a.match_no||0)-(b.match_no||0));
+        const blocked:Result[]=[];
+        for(let i=0;i<ordered.length;i++){
+          const m=ordered[i];setProgress(`${v.event.sport_name} · ${i+1}/${ordered.length} · คู่ ${m.match_no??"?"}`);
+          const r=await supabase.rpc("sports_central_partial_action",{p_event:v.event.id,p_rows:[{id:m.id,version:m.updated_at}],p_action:action});
+          if(r.error){
+            const msg=r.error.message;
+            if(r.error.code==="P0001"&&/^คู่ที่ \d+ (เปลี่ยนแปลงแล้ว|ข้อมูลวัน|ยังไม่ได้ยืนยันข้อสังเกต|วันเวลาและสนามซ้อนกัน|ลำดับรอบไม่ถูกต้อง|ยังมีรอบก่อนหน้าที่ไม่กำหนดเวลา|เวลาไม่สอดคล้องกับคู่ต้นทาง\/ปลายทาง)/.test(msg)){
+              blocked.push({id:m.id,title:`${v.event.sport_name} · คู่ ${m.match_no??"?"}`,ok:false,message:msg});
+              setResults([...(total?[{id:v.event.id,title:v.event.sport_name,ok:true,message:`เผยแพร่แล้ว ${total} คู่`}]:[]),...blocked]);
+              continue;
+            }
+            setResults([...(total?[{id:v.event.id,title:v.event.sport_name,ok:true,message:`เผยแพร่แล้ว ${total} คู่`}]:[]),...blocked]);
+            throw new Error(`${msg} — หยุดที่คู่ ${m.match_no??"?"} กรุณาตรวจสอบและรีเฟรชก่อนทำต่อ`);
+          }
+          if(Number(r.data)!==1)throw new Error(`ผลตอบกลับคู่ ${m.match_no??"?"} ไม่ตรงจำนวน กรุณาตรวจสอบและรีเฟรชก่อนทำต่อ`);
+          total++;
+          setResults([{id:v.event.id,title:v.event.sport_name,ok:true,message:`เผยแพร่แล้ว ${total} คู่`},...blocked]);
+        }
+      }else{
+        for(let i=0;i<rows.length;i+=100){const batch=rows.slice(i,i+100);setProgress(`${v.event.sport_name} · ${i+1}–${i+batch.length}/${rows.length}`);const r=await supabase.rpc("sports_central_partial_action",{p_event:v.event.id,p_rows:batch.map(m=>({id:m.id,version:m.updated_at})),p_action:action});if(r.error)throw new Error(r.error.message);if(Number(r.data)!==batch.length)throw new Error("ผลตอบกลับไม่ตรงจำนวน กรุณารีเฟรชก่อนทำต่อ");total+=Number(r.data);}
+        setResults([{id:v.event.id,title:v.event.sport_name,ok:true,message:`${actionLabels[action]} ${total} คู่สำเร็จ`}]);
+      }
+    }catch(e){setResults(prev=>[...prev,{id:`${v.event.id}-stop`,title:v.event.sport_name,ok:false,message:`${errText(e)} (ยืนยันสำเร็จก่อนหน้า ${total} คู่)`}]);}finally{setProgress("");await load();setBusy(false);running.current=false;}
   }
   const disabled=busy||loading||!authorized;
   return <main className="min-h-screen bg-[#eaf5ed] text-[#0b174b] pb-12">
@@ -190,7 +229,7 @@ export default function CentralPublishPage(){
           <div className="mt-4 space-y-2">{filtered.map(v=>{const meta=SPORTS.find(([key])=>key===v.sport)!;const eligible=!!v.drafts.length&&!v.issues.length;return <article key={v.event.id} className="rounded-xl border border-slate-200 p-3"><div className="flex flex-wrap items-start gap-3"><input type="checkbox" aria-label={`เลือก ${v.event.sport_name}`} className="mt-1 h-4 w-4" disabled={disabled||!eligible} checked={selected.includes(v.event.id)} onChange={e=>setSelected(old=>e.target.checked?[...old,v.event.id]:old.filter(id=>id!==v.event.id))}/><div className="min-w-[220px] flex-1"><h2 className="font-black">{v.event.sport_name}</h2><p className="mt-1 text-xs text-slate-600">{v.event.event_code} · {thaiDate(v.first)} · <span className={v.event.status==="registration"?"font-bold text-emerald-700":""}>{statusText[v.event.status]||v.event.status}</span></p><p className="mt-1 text-xs">{v.sport==="BX"?"ใช้หน้าเฉพาะกีฬา":`ฉบับร่าง ${v.drafts.length} · เผยแพร่/กำหนดแล้ว/จบ ${v.published}`}</p>{v.issues.length>0&&<p className="mt-2 rounded-md bg-amber-50 p-2 text-xs text-amber-900">{v.issues.join(" · ")}</p>}{eligible&&<p className="mt-1 text-xs font-bold text-emerald-700">ผ่านการตรวจเบื้องต้น · รอตรวจจริงก่อนเผยแพร่</p>}</div><div className="flex flex-wrap gap-2"><Link href={`/group-sports/${meta[2]}${v.event.event_code?`?code=${encodeURIComponent(v.event.event_code)}`:""}`} className={outline}>ตรวจในหน้ากีฬา ↗</Link>{v.sport!=="BX"&&<button disabled={disabled||!eligible} onClick={()=>void publish([v])} className={blue}>เผยแพร่รุ่นนี้</button>}</div></div><PartialPanel v={v} disabled={disabled} run={partial}/></article>;})}{!filtered.length&&<p className="p-4 text-center text-sm text-slate-500">ไม่พบรายการตามตัวกรอง</p>}</div>
         </section>
       </>}
-      {results.length>0&&<section className={panel}><h2 className="font-black">ผลดำเนินการ: สำเร็จ {results.filter(r=>r.ok).length} · ต้องตรวจสอบ {results.filter(r=>!r.ok).length}</h2><p className="mt-1 text-xs text-slate-600">ดำเนินการแยกต่อรุ่น รุ่นที่ไม่ผ่านจะไม่ถูกเผยแพร่ รุ่นที่สำเร็จแล้วจะยังคงเผยแพร่อยู่</p>{results.map(r=><div key={r.id} className={`mt-2 rounded-lg p-3 text-sm ${r.ok?"bg-emerald-50 text-emerald-900":"bg-rose-50 text-rose-900"}`}><b>{r.ok?"สำเร็จ":"ตรวจสอบ"} · {r.title}</b><p>{r.message}</p></div>)}</section>}
+      {results.length>0&&<section className={panel}><h2 className="font-black">ผลดำเนินการ: สำเร็จ {results.filter(r=>r.ok).length} · ต้องตรวจสอบ {results.filter(r=>!r.ok).length}</h2><p className="mt-1 text-xs text-slate-600">เผยแพร่รายคู่หรือรายรุ่นตามที่เลือก · รายการที่ไม่ผ่านจะคงฉบับร่าง · รายการที่สำเร็จแล้วจะยังคงเผยแพร่อยู่</p>{results.map(r=><div key={r.id} className={`mt-2 rounded-lg p-3 text-sm ${r.ok?"bg-emerald-50 text-emerald-900":"bg-rose-50 text-rose-900"}`}><b>{r.ok?"สำเร็จ":"ตรวจสอบ"} · {r.title}</b><p>{r.message}</p></div>)}</section>}
     </div>
   </main>;
 }
