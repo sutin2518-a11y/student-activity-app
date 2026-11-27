@@ -101,6 +101,7 @@ type Entry = {
   assistant_coach?: string;
   coaches?: Coach[];
   athlete_count?: number;
+  updated_at?: string;
 };
 
 type Match = {
@@ -466,6 +467,7 @@ export default function GroupSportsDashboard() {
   const [eventChoice,setEventChoice] = useState("");
   const [detail,setDetail] = useState<{entry: Entry; players: AthleteInput[]} | null>(null);
   const [rosterError,setRosterError] = useState("");
+  const [athMove,setAthMove] = useState<{entryId:string;from:string;updatedAt:string;to:string;reason:string;confirmed:boolean;error:string}|null>(null);
   const [rosterPanelView,setRosterPanelView] = useState<"roster" | "photos">("roster");
   const [rosterTargetId,setRosterTargetId] = useState<string | null>(null);
   const [demoRosters,setDemoRosters] = useState<Record<string,AthleteInput[]>>({});
@@ -1174,6 +1176,73 @@ export default function GroupSportsDashboard() {
     finally{setBusy(false);}
   }
 
+  // Admin-only athletics correction. No roster, registration-status or photo writes.
+  const canMoveAthletics = (entry: Entry) => canManageAccounts && !isDemo &&
+    events.some(ev=>ev.id===entry.event_id && ev.event_type==="athletics" && ev.event_code?.startsWith("GS3-AT-")) &&
+    ["approved","submitted"].includes(entry.status);
+  // A quota is an upper bound, not the number of athletes required in a race.
+  // Migration 047 identifies relay races as 4x100 / 4x300 / 4x400.
+  function isAthleticsRelay(ev: SportEvent) {
+    return /วิ่ง\s*4\s*[x×X]\s*\d+/u.test(ev.sport_name);
+  }
+  function athleticsMoveOptions(entry: Entry) {
+    const source=events.find(ev=>ev.id===entry.event_id);
+    if(!source || source.status!=="registration") return [];
+    const relay=isAthleticsRelay(source);
+    const n=entry.athlete_count;
+    if(n!==(relay?4:1)) return [];
+    return events.filter(ev=>ev.id!==source.id && ev.competition_id===entry.competition_id &&
+      ev.event_type==="athletics" && ev.event_code?.startsWith("GS3-AT-") && ev.status==="registration" &&
+      ev.gender_rule===source.gender_rule && isAthleticsRelay(ev)===relay &&
+      Number(ev.max_athletes_per_entry ?? (relay ? 0 : 1))>=n)
+      .sort((a,b)=>a.sport_name.localeCompare(b.sport_name,"th"));
+  }
+  async function saveAthleticsMove(entry: Entry) {
+    const move=athMove;
+    if(busy || !canMoveAthletics(entry) || !move || move.entryId!==entry.id) return;
+    const destination=athleticsMoveOptions(entry).find(ev=>ev.id===move.to);
+    if(!destination || !move.confirmed || move.reason.trim().length<8 || !move.updatedAt || move.from!==entry.event_id || move.updatedAt!==entry.updated_at) {
+      setAthMove({...move,error:"ตรวจสอบรายการใหม่ คุณสมบัติ เหตุผล และข้อมูลล่าสุดก่อนบันทึก (หากข้อมูลเปลี่ยนให้ปิดแล้วเปิดใหม่)"});return;
+    }
+    if(!window.confirm(`ยืนยันเปลี่ยนรายการของ ${entry.entry_name}\n${eventById.get(entry.event_id)?.sport_name} → ${destination.sport_name}\nโดยคงใบสมัครและรูปเดิม?`)) return;
+    setBusy(true);setAthMove({...move,error:""});
+    try {
+      const r=await supabase.rpc("sports_admin_move_athletics_entry",{p_entry:entry.id,p_from_event:move.from,p_to_event:move.to,p_expected_updated_at:move.updatedAt,p_reason:move.reason.trim(),p_eligibility_confirmed:move.confirmed});
+      if(r.error) throw new Error(r.error.message);
+      if(!r.data || r.data.entry_id!==entry.id || r.data.event_id!==destination.id) throw new Error("ยังยืนยันผลไม่ได้ กรุณารีเฟรชและตรวจรายการก่อนลองใหม่");
+      const moved={...entry,event_id:destination.id,updated_at:String(r.data.updated_at)};
+      setEntries(rows=>rows.map(row=>row.id===entry.id?{...row,event_id:moved.event_id,updated_at:moved.updated_at}:row));
+      setDetail(old=>old?.entry.id===entry.id?{...old,entry:{...old.entry,event_id:moved.event_id,updated_at:moved.updated_at}}:old);
+      setEventFilter("");setAthMove(null);setNotice(`เปลี่ยนรายการกรีฑาเป็น ${destination.sport_name} สำเร็จ · คงใบสมัครและรูปเดิม`);
+      await loadData(true);
+      window.requestAnimationFrame(()=>document.getElementById(`sports-saved-entry-${entry.id}`)?.scrollIntoView({block:"start",behavior:"smooth"}));
+    } catch(err) {
+      setAthMove({...move,error:err instanceof Error?err.message:"เปลี่ยนรายการไม่สำเร็จ กรุณาตรวจสอบข้อมูลล่าสุด"});
+    } finally {setBusy(false);}
+  }
+  function renderAthleticsMoveButton(entry: Entry) {
+    if(!canMoveAthletics(entry)) return null;
+    return <button type="button" disabled={busy} aria-expanded={athMove?.entryId===entry.id} onClick={()=>setAthMove(athMove?.entryId===entry.id?null:{entryId:entry.id,from:entry.event_id,updatedAt:entry.updated_at||"",to:"",reason:"",confirmed:false,error:""})} className="rounded-lg border border-blue-400 bg-blue-50 px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-100 disabled:opacity-50">{athMove?.entryId===entry.id?"ปิดเปลี่ยนรายการ":"เปลี่ยนรายการกรีฑา"}</button>;
+  }
+  function renderAthleticsMovePanel(entry: Entry) {
+    const move=athMove;
+    if(!move || move.entryId!==entry.id || !canMoveAthletics(entry)) return null;
+    const options=athleticsMoveOptions(entry);
+    return <section className="mt-3 space-y-3 rounded-xl border border-blue-300 bg-blue-50 p-4 text-sm">
+      <div className="font-black text-blue-900">เปลี่ยนรายการแข่งขันกรีฑา · {entry.entry_name}</div>
+      <p>รายการเดิม: <strong>{eventById.get(entry.event_id)?.sport_name}</strong> · {entry.athlete_count} คน</p>
+      <label className="block font-bold">รายการใหม่<select disabled={busy} className="mt-1 block w-full rounded-lg border border-blue-300 bg-white p-2" value={move.to} onChange={e=>setAthMove({...move,to:e.target.value,confirmed:false,error:""})}><option value="">เลือกรายการกรีฑาที่ถูกต้อง</option>{options.map(ev=><option key={ev.id} value={ev.id}>{ev.sport_name}</option>)}</select></label>
+      {options.length>0 && <p className="text-xs text-blue-800">พบ {options.length} รายการที่ตรงเพศและประเภทเดี่ยว/ผลัด · ระบบจะตรวจเงื่อนไขการแข่งขันซ้ำก่อนบันทึก</p>}
+      {!options.length && <div className="rounded-lg bg-amber-50 p-2 text-amber-900">{eventById.get(entry.event_id)?.status!=="registration" ? "รายการเดิมไม่ได้อยู่ในสถานะเปิดรับสมัคร จึงไม่สามารถย้ายได้" : entry.athlete_count!==(eventById.get(entry.event_id) && isAthleticsRelay(eventById.get(entry.event_id)!)?4:1) ? "จำนวนผู้เล่นในใบสมัครไม่ตรงกับประเภทเดี่ยว/ผลัด กรุณาตรวจรายชื่อ" : "ไม่พบรายการที่ยังเปิดรับสมัครและตรงเพศ ประเภทเดี่ยว/ผลัด และโควตา กรุณาตรวจสถานะรายการและโควตาโดยไม่เปลี่ยนข้อมูลรับสมัคร"}</div>}
+      {!move.updatedAt && <p className="text-amber-900">กรุณารีเฟรชหน้าเว็บก่อนเปลี่ยนรายการ</p>}
+      <label className="block font-bold">เหตุผลการแก้ไข<textarea disabled={busy} className="mt-1 block w-full rounded-lg border border-blue-300 bg-white p-2" rows={2} maxLength={1000} value={move.reason} onChange={e=>setAthMove({...move,reason:e.target.value})} placeholder="เช่น ลงรุ่นอายุผิด ตรวจเอกสารแล้ว"/></label>
+      <label className="flex items-start gap-2"><input type="checkbox" disabled={busy} checked={move.confirmed} onChange={e=>setAthMove({...move,confirmed:e.target.checked})}/>ตรวจสอบอายุ เพศ คุณสมบัติ โควตา และระเบียบรายการใหม่แล้ว (ระบบไม่มีข้อมูลวันเกิดครบทุกใบสมัคร)</label>
+      <p className="text-xs text-blue-800">คงรหัสใบสมัคร รายชื่อนักกีฬา ครู และรูปถ่ายเดิม ไม่สร้างใบสมัครใหม่ · ไม่อนุญาตเมื่อจัดรายงานตัวหรือมีผลแล้ว</p>
+      {move.error && <p role="alert" className="rounded-lg bg-red-50 p-2 font-bold text-red-800">{move.error}</p>}
+      <div className="flex flex-wrap gap-2"><button type="button" disabled={busy || !options.some(ev=>ev.id===move.to) || !move.updatedAt || !move.confirmed || move.reason.trim().length<8} onClick={()=>void saveAthleticsMove(entry)} className="rounded-lg bg-blue-700 px-4 py-2 font-bold text-white disabled:opacity-40">{busy?"กำลังบันทึก...":"ยืนยันเปลี่ยนรายการ"}</button><button type="button" disabled={busy} onClick={()=>setAthMove(null)} className="rounded-lg border border-blue-200 bg-white px-3 py-2 font-bold">ยกเลิก</button></div>
+    </section>;
+  }
+
   async function openRoster(entry: Entry, edit = false, view: "roster" | "photos" = "roster") {
     if (busy) return;
     setBusy(true);
@@ -1707,11 +1776,13 @@ export default function GroupSportsDashboard() {
                         <p className="mt-1 text-xs font-bold text-emerald-800">{statusLabel(entry.status)}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={() => {if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-blue-50 disabled:opacity-50">{detail?.entry.id===entry.id ? "ปิดรายชื่อ" : busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
+                        {renderAthleticsMoveButton(entry)}
+                    <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={() => {if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:bg-blue-50 disabled:opacity-50">{detail?.entry.id===entry.id ? "ปิดรายชื่อ" : busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : "ดูรายชื่อ"}</button>
                         {!isDemo && <Link href={`/group-sports/print?entry=${encodeURIComponent(entry.id)}`} target="_blank" rel="noopener noreferrer" className="rounded-lg bg-[#0755ce] px-3 py-2 text-sm font-bold text-white hover:bg-blue-800">พิมพ์ใบสมัคร</Link>}
                       </div>
                       </div>
-                      {rosterTargetId === entry.id && rosterError && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{rosterError}<button type="button" onClick={()=>{setRosterError("");setRosterTargetId(null);}} className="ml-3 font-bold underline">ปิดข้อความ</button></div>}
+                      {renderAthleticsMovePanel(entry)}
+                  {rosterTargetId === entry.id && rosterError && <div role="alert" className="mt-3 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-900">{rosterError}<button type="button" onClick={()=>{setRosterError("");setRosterTargetId(null);}} className="ml-3 font-bold underline">ปิดข้อความ</button></div>}
                       {detail?.entry.id === entry.id && <section id={`sports-saved-roster-response-${entry.id}`} className="mt-4 rounded-xl border border-blue-100 bg-blue-50/60 p-4">
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <div><strong>รายชื่อนักกีฬา · {schoolById.get(entry.school_id)?.name || entry.entry_name}</strong><p className="mt-1 text-sm font-bold text-blue-800">{eventById.get(entry.event_id)?.sport_name || "รายการแข่งขัน"}</p></div>
@@ -2120,6 +2191,7 @@ export default function GroupSportsDashboard() {
                   <div><strong>{schoolById.get(entry.school_id)?.name} · {entry.entry_name}</strong><p className="text-sm">{eventById.get(entry.event_id)?.sport_name} · {entry.coach_name||"ไม่ระบุครูผู้ควบคุม"} · {entry.athlete_count} คน</p>
                     <p className="text-sm font-bold text-emerald-800">{statusLabel(entry.status)}</p></div>
                   <div className="flex flex-wrap items-center gap-3">
+                    {renderAthleticsMoveButton(entry)}
                     <button type="button" disabled={busy} aria-expanded={detail?.entry.id === entry.id} onClick={()=>{if(detail?.entry.id===entry.id){setDetail(null);setRosterTargetId(null);}else void openRoster(entry);}} className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-800 hover:border-rose-200 hover:bg-rose-50 disabled:opacity-50">{busy && rosterTargetId===entry.id ? "กำลังดึงรายชื่อ..." : detail?.entry.id===entry.id ? "ปิดรายชื่อ" : "ดูรายชื่อ"}</button>
                     {!isDemo && canManageSchool && !isVolleyball(eventById.get(entry.event_id)) && allowsRegistrationPhotos(eventById.get(entry.event_id)) &&
                       <button type="button" disabled={busy} onClick={()=>void openRoster(entry,false,"photos")} className="rounded-lg bg-red-700 px-3 py-2 text-sm font-bold text-white transition hover:bg-red-800 disabled:opacity-50">
@@ -2133,6 +2205,7 @@ export default function GroupSportsDashboard() {
                     {canManageAccounts && <Link href={`/group-sports/reset?entry=${encodeURIComponent(entry.id)}`} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50">ลบใบสมัคร</Link>}
                   </div>
                   </div>
+                  {renderAthleticsMovePanel(entry)}
                   {rosterTargetId === entry.id && rosterError && <div id={`sports-saved-roster-response-${entry.id}`} role="alert" tabIndex={-1} className="mt-4 scroll-mt-4 rounded-xl border border-red-300 bg-red-50 p-4 text-sm text-red-900">
                     <strong className="block">ยังเปิดรายชื่อนักกีฬาจากใบสมัครเดิมไม่ได้</strong>
                     <p className="mt-1 whitespace-pre-wrap">{rosterError}</p>
