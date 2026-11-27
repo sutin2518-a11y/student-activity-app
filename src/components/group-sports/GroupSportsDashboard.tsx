@@ -1247,28 +1247,12 @@ export default function GroupSportsDashboard() {
     return !isDemo && !rosterAdmin && entrySchools.some(s=>s.id===entry.school_id) &&
       eventById.get(entry.event_id)?.status === "registration" && ["approved","submitted","rejected"].includes(entry.status);
   }
-  async function schoolDeleteEntry(entry: Entry) {
-    if (busy || !schoolCanEditEntry(entry)) return;
-    if (!window.confirm(`ยืนยันลบใบสมัคร ${eventById.get(entry.event_id)?.sport_name || ""} ของ ${schoolById.get(entry.school_id)?.name || "โรงเรียน"} จำนวน ${entry.athlete_count || 0} คน? จะลบเฉพาะใบสมัครนี้ และเก็บประวัติไว้สำหรับผู้ดูแล`)) return;
-    setBusy(true); setRosterError(""); setError(""); setRosterTargetId(entry.id);
-    try {
-      const r=await supabase.rpc("sports_school_delete_entry_v1",{p_entry:entry.id,p_expected_updated_at:entry.updated_at || null});
-      if(r.error) throw new Error(r.error.message);
-      setEntries(rows=>rows.filter(x=>x.id!==entry.id));
-      if(detail?.entry.id===entry.id)setDetail(null);
-      if(editEntry?.id===entry.id){setEditEntry(null);setFormOpen(false);}
-      setNotice("ลบใบสมัครของโรงเรียนเรียบร้อยแล้ว สามารถลงทะเบียนใหม่ได้หากยังเปิดรับสมัคร");
-      await loadData(true);
-    } catch(cause) {setRosterError(cause instanceof Error?cause.message:"ลบใบสมัครไม่สำเร็จ");}
-    finally {setBusy(false);}
-  }
   function renderSchoolEntryActions(entry: Entry) {
     if(!schoolCanEditEntry(entry))return null;
     const ev=eventById.get(entry.event_id);
     const sport=isFootball(ev)?"football":isFutsal(ev)?"futsal":isBasketball(ev)?"basketball":isVolleyball(ev)?"volleyball":isTakraw(ev)?"takraw":isTableTennis(ev)?"table-tennis":null;
     const cls="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 disabled:opacity-50";
-    return <>{sport?<Link className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}
-      <button type="button" disabled={busy} onClick={()=>void schoolDeleteEntry(entry)} className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-bold text-red-800 hover:bg-red-50 disabled:opacity-50">ลบใบสมัครของโรงเรียน</button></>;
+    return <>{sport?<Link className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}</>;
   }
 
   async function openRoster(entry: Entry, edit = false, view: "roster" | "photos" = "roster") {
