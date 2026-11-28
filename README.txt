@@ -1,28 +1,26 @@
-GROUP SPORTS — MODERN CONFIRMATION v1
-ภูลังกาเกมส์ ครั้งที่ 30 / Performance v2 compatible
+School Emblems v1 — ภูลังกาเกมส์ ครั้งที่ 30
+สถานะ: ชุดติดตั้งและรายการแหล่งภาพ 19 โรงเรียน ไม่ได้บรรจุไฟล์ตราจริง เนื่องจากสภาพแวดล้อมที่จัดทำ ZIP ดาวน์โหลดภาพภายนอกไม่สำเร็จ
 
-1. แตก ZIP ไว้ข้างโฟลเดอร์ student-activity-app (ไม่ต้องวางทับ src)
-   ตัวอย่าง D:\ระบบ\group-sports-dialog-v1\
-2. เปิด CMD ใน D:\ระบบ\student-activity-app
-3. ตรวจสอบก่อน (ไม่แก้ไฟล์):
-   node "..\group-sports-dialog-v1\install-sports-dialogs.cjs"
-   หากมี ERROR หรือ SKIP ให้หยุดและตรวจสอบก่อน
-4. ติดตั้ง:
-   node "..\group-sports-dialog-v1\install-sports-dialogs.cjs" --apply
-5. หยุด npm run dev/start (Ctrl+C) แล้ว npm run build
-   เมื่อผ่าน npm run start แล้วทดสอบหน้าลงทะเบียนและยืนยัน/ยกเลิก
-6. ตรวจ Changes ใน GitHub Desktop แล้ว commit เฉพาะไฟล์ src ที่แก้ไข
-   ตัวติดตั้งและสำเนาสำรองอยู่นอกโปรเจกต์ ไม่ต้อง commit
+1. แตก ZIP คัดลอก install-school-emblems.cjs ไปไว้ที่โฟลเดอร์ student-activity-app (ข้าง package.json)
+2. เปิด CMD ที่โฟลเดอร์โปรเจกต์ แล้วรัน node install-school-emblems.cjs --check
+3. หาก CHECK READY ให้รัน node install-school-emblems.cjs --download
+   ตัวติดตั้งเรียกไฟล์ภาพจากแหล่งที่ตรวจพบในเว็บทางการ/เว็บโรงเรียนด้วยอินเทอร์เน็ตของเครื่องคุณ แล้วใช้ sharp ที่ Next.js ติดตั้งไว้แปลงเป็น WebP 256x256 พิกเซล (รักษาสัดส่วน) เก็บไว้ในโฟลเดอร์ข้างโปรเจกต์ school-logo-review เท่านั้น
+   ถ้า sharp ไม่พร้อม ให้หยุดและส่งข้อความผิดพลาด ไม่จำเป็นต้องติดตั้งแพ็กเกจเพิ่มโดยพลการ
+4. เปิดไฟล์ด้วย start "" "..\school-logo-review\review.html" ตรวจชื่อและตราทีละโรงเรียนก่อนติดตั้ง (ลิงก์จากเว็บเขตพื้นที่เป็นไฟล์ปี 2565 ยังไม่ได้ตรวจภาพจริงในสภาพแวดล้อมนี้) ตรวจสิทธิ์ใช้ตราและความเป็นปัจจุบันด้วย หากไม่ถูกต้องให้ลบเฉพาะรูปใน school-logo-review ไม่ใช่ข้อมูล Supabase
+5. โรงเรียนที่ขาดไฟล์ สามารถนำรูป PNG/JPG/WebP ที่ได้รับอนุญาตมาใส่ใน school-logo-review ตามชื่อไฟล์ที่ระบุใน review.html เช่น pinit.png, satit.png; หากเป็นโรงเรียนอื่นที่ไม่อยู่ในรายการ ใช้ชื่อเต็มตรงกับทะเบียน เช่น โรงเรียนชื่อจริง.png แล้วรัน node install-school-emblems.cjs --review เพื่อแสดงตัวอย่างใหม่
+   หากมีไฟล์มากกว่าหนึ่งนามสกุลสำหรับโรงเรียนเดียวกัน ให้เก็บเพียงไฟล์ที่เลือกก่อนติดตั้ง
+6. เมื่อตรวจภาพทุกไฟล์ที่อยู่ในโฟลเดอร์นี้แล้ว รัน node install-school-emblems.cjs --apply
+   สำรองไฟล์ที่เขียนทับไว้ที่ school-logo-review/backup-*; เพิ่ม SchoolEmblem.tsx, school-emblems.json, รูป WebP ใน public/images/schools และแก้เฉพาะ import กับไอคอนใน GroupSportsDashboard.tsx; ไม่แก้ SQL
+   สามารถทำซ้ำเพื่อเพิ่มตราได้ โดยเก็บไฟล์ภาพที่ผ่านการตรวจสอบเดิมใน school-logo-review ไว้ ตัวติดตั้งสร้าง manifest ใหม่จากไฟล์ในโฟลเดอร์นี้ทุกครั้ง
+7. หยุดเซิร์ฟเวอร์เดิมด้วย Ctrl+C; npm run build; npm run start
+8. ทดสอบเมนูโรงเรียน ตรวจทุกตราและสถิติเดิม ก่อน Commit & Push เฉพาะ src และ public ที่เกี่ยวข้อง
 
-ขอบเขต:
-- เปลี่ยน window.confirm ใน client TSX ของ src/app/group-sports และ src/components/group-sports เฉพาะบริบท async หรือ JSX handler ที่รองรับ
-- ข้ามไฟล์สำรอง -updated, merged, backup, .bak
-- ใช้ SweetAlert2 ที่มีอยู่แล้วใน dependencies; dynamic import เฉพาะเมื่อเรียกใช้
-- ไม่แก้ข้อความยืนยันเดิม ไม่แก้ SQL, สถานะรับสมัคร, RPC หรือเงื่อนไขสิทธิ์
-- ไม่แก้ข้อความ error/success แบบ inline, alert/prompt ที่อาจมีในไฟล์นอกขอบเขต
-- fallback ไปยัง window.confirm เฉพาะเมื่อโหลด UI ใหม่ล้มเหลว
-- สำรองไฟล์ก่อนเขียนไว้ที่โฟลเดอร์ student-activity-app-dialog-backups ข้างโปรเจกต์
-- หากติดตั้งแล้ว รันซ้ำจะไม่เปลี่ยน call ที่แปลงแล้ว
+แหล่งข้อมูล: https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/ (18 โรงเรียน)
+เชียงคำ: https://mis.chiangkham.ac.th/?Cont=StudentService&Id=8
+เชียงม่วน: https://www.cmw.ac.th/cmwweb/CMW/CMWHistory.html
+ราชประชานุเคราะห์ 24: https://plan138.wixsite.com/rpk24/home
+พินิตประสาธน์: พบภาพ placeholder ในไดเรกทอรี ไม่ใช้
+สาธิตมหาวิทยาลัยพะเยา: https://satit.up.ac.th/terms.php ระบุข้อกำหนดเรื่องการใช้ตรา ให้ขออนุญาตและขอไฟล์จากโรงเรียน
+ทะเบียนจริง 22 โรงเรียนยังไม่ได้อ่านจากฐานข้อมูลปัจจุบัน จึงไม่ยืนยันชื่อโรงเรียนลำดับสุดท้ายจากเอกสารเดิม; ใช้ชื่อจริงจากเมนูโรงเรียนเพื่อเพิ่มไฟล์ได้
 
-ผลทดสอบกับ snapshot ที่ประกอบจากไฟล์โครงการและ ZIP ล่าสุด: 79 จุด 27 ไฟล์, 0 skipped / 0 errors, TypeScript transpile ผ่าน, ทดสอบการตอบรับ/ยกเลิก/ซ้ำด้วย mock ผ่าน
-ยังไม่ได้ full build หรือทดสอบเบราว์เซอร์จริงของเครื่องผู้ใช้
+การทดสอบ: ตัวติดตั้งตรวจสอบผ่านกับ Dashboard ชุด Performance v2 + Central Standings + School Stats ที่จัดทำไว้ก่อนหน้า; ทดสอบ apply ด้วยตัวแปลงภาพจำลอง, ตรวจ diff เฉพาะ 2 จุด, ตรวจไวยากรณ์ TSX และการจับคู่ชื่อ/เลขไทย/กรณีไม่มีรูปผ่าน ไม่ได้ทดสอบดาวน์โหลดจริง, sharp จริง, npm run build ทั้งโปรเจกต์ หรือ Production

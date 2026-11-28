@@ -1,0 +1,179 @@
+[
+  {
+    "id": "ppk",
+    "name": "โรงเรียนพะเยาพิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนพะเยาพิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "fkw",
+    "name": "โรงเรียนฟากกว๊านวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนฟากกว๊านวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "pypw",
+    "name": "โรงเรียนพะเยาประสาธน์วิทย์",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนพะเยาประสาธน์วิทย์.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "dkt",
+    "name": "โรงเรียนดอกคำใต้วิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนดอกคำใต้วิทยาคม.png"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "tpw",
+    "name": "โรงเรียนถ้ำปินวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนถ้ำปินวิทยาคม.png"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "ngw",
+    "name": "โรงเรียนงำเมืองวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนงำเมืองวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "mcw",
+    "name": "โรงเรียนแม่ใจวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนแม่ใจวิทยาคม.png"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "djw",
+    "name": "โรงเรียนดงเจนวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนดงเจนวิทยาคม-1024x1024.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "swp",
+    "name": "โรงเรียนเฉลิมพระเกียรติสมเด็จพระศรีนครินทร์ พะเยา",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนเฉลิมพระเกียรติสมเด็จพระศรีนครินทร์-พะเยา.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/",
+    "aliases": [
+      "เฉลิมพระเกียรติฯ พะเยา",
+      "เฉลิมพระเกียรติฯพะเยา"
+    ]
+  },
+  {
+    "id": "cwk",
+    "name": "โรงเรียนจุนวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนจุนวิทยาคม.png"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "plw",
+    "name": "โรงเรียนพญาลอวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนพญาลอวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "ckw",
+    "name": "โรงเรียนเชียงคำวิทยาคม",
+    "urls": [
+      "https://mis.chiangkham.ac.th/schoolmin/gallery/logo/school_logo.png?v=0001",
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนเชียงคำวิทยาคม-722x1024.gif"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "faw",
+    "name": "โรงเรียนฝายกวางวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตรา-โรงเรียนฝายกวางวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "cmw",
+    "name": "โรงเรียนเชียงม่วนวิทยาคม",
+    "urls": [
+      "https://www.cmw.ac.th/cmwweb/CMW/ita2568/LogoCMW.png",
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนเชียงม่วนวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "prp",
+    "name": "โรงเรียนปงรัชดาภิเษก",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนปงรัชดาภิเษก-1011x1024.png"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "ppw",
+    "name": "โรงเรียนปงพัฒนาวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนปงพัฒนาวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "kwk",
+    "name": "โรงเรียนขุนควรวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนขุนควรวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "psw",
+    "name": "โรงเรียนภูซางวิทยาคม",
+    "urls": [
+      "https://www.sesapy.go.th/wp-content/uploads/2022/10/ตราโรงเรียนภูซางวิทยาคม.jpg"
+    ],
+    "source": "https://www.sesapy.go.th/ข้อมูลโรงเรียนในสังกัด/"
+  },
+  {
+    "id": "rpk24",
+    "name": "โรงเรียนราชประชานุเคราะห์ 24 จังหวัดพะเยา",
+    "urls": [
+      "https://static.wixstatic.com/media/4c67de_db4a0bb3a0ca4424a05d6f3033e65620~mv2.jpg"
+    ],
+    "source": "https://plan138.wixsite.com/rpk24/home",
+    "aliases": [
+      "ราชประชานุเคราะห์ 24",
+      "ราชประชานุเคราะห์ 24 จ.พะเยา",
+      "ราชประชานุเคราะห์ 24 พะเยา"
+    ]
+  },
+  {
+    "id": "pinit",
+    "name": "โรงเรียนพินิตประสาธน์",
+    "urls": [],
+    "source": "https://www.educationofthailand.com/โรงเรียนสามัญ/โรงเรียนพินิตประสาธน์.html",
+    "note": "ภาพบนเว็บเป็นภาพ placeholder ไม่ใช่ตราจริง ต้องขอไฟล์จากโรงเรียน"
+  },
+  {
+    "id": "satit",
+    "name": "โรงเรียนสาธิตมหาวิทยาลัยพะเยา",
+    "urls": [],
+    "source": "https://www.satit.up.ac.th/",
+    "note": "ขอไฟล์ตราจากโรงเรียนและยืนยันการอนุญาตใช้ก่อนเผยแพร่ (terms.php)"
+  }
+]
