@@ -422,7 +422,10 @@ export default function EsportsPage() {
   const [gender, setGender] = useState<Gender>("ชาย");
   const [tab, setTab] = useState<Tab>("groups");
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("tab") === "registration") setTab("registration");
+    /* unified-navigation-v1: esports */const params=new URLSearchParams(window.location.search);
+    const code=params.get("code");
+    if(code==="GS3-ES-SM")setGender("ชาย");else if(code==="GS3-ES-SF")setGender("หญิง");
+    if(params.get("tab")==="registration")setTab("registration");else if(params.get("tab")==="matches")setTab("matches");
   }, []);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState("");

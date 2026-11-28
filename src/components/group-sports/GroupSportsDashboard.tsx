@@ -231,7 +231,7 @@ const sportsSubTabs: { key: SportsManagementTab; label: string; icon: (props: Ic
 const tabs: { key: NavKey; label: string; icon: (props: IconProps) => ReactElement }[] = [
   { key: "overview", label: "หน้าหลัก", icon: HomeIcon },
   { key: "school_info", label: "ข้อมูลทั่วไป", icon: FileUploadIcon },
-  { key: "sports", label: "จัดการแข่งขัน", icon: CalendarGearIcon },
+  { key: "sports", label: "การแข่งขัน", icon: CalendarGearIcon },
   { key: "schools", label: "โรงเรียน", icon: SchoolIcon },
   { key: "entries", label: "ลงทะเบียน", icon: ClipboardCheckIcon },
   { key: "standings", label: "ตารางคะแนน", icon: BarChartIcon },
@@ -1896,7 +1896,7 @@ export default function GroupSportsDashboard() {
           </button>
           <nav ref={schoolInfoNavRef} aria-label="เมนูกีฬากลุ่ม" data-menu-version="33.12-text-only-existing-tabs" className="sports-games-unified-nav">
           <div data-sports-nav-items className="sports-games-unified-items">
-            {tabs.filter((item) => item.key !== "accounts" || canManageAccounts).map((item) => {
+            {tabs.filter((item) => item.key !== "accounts").map((item) => {
               const isSportsGroup = item.key === "sports";
               const isSchoolInfoGroup = item.key === "school_info";
               const isActive = isSportsGroup
@@ -2005,36 +2005,7 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
-                  {canManageCertificates && <>
-                    <Link prefetch={false} href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
-                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
-                      <span className="flex min-w-0 items-center gap-3"><TrophyIcon className="h-5 w-5 shrink-0 text-blue-800"/><span>บันทึกอันดับรางวัล</span></span>
-                    </Link>
-                  </>}
-                  {(canManageCertificates || canAdminCertificates) && <Link prefetch={false} href="/group-sports/test" tabIndex={sportsMenuOpen ? 0 : -1} onClick={()=>{setSportsMenuOpen(false);setSchoolInfoMenuOpen(false);}} className="flex min-h-12 items-center rounded-xl bg-amber-100 px-3 py-3 text-sm font-bold text-amber-950">ศูนย์ทดสอบระบบ (TEST)</Link>}
-                  {canAdminCertificates && <>
-                    <Link prefetch={false} href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
-                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><span>มอบหมายกรรมการกีฬา</span></span>
-                    </Link>
-                    <Link prefetch={false} href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
-                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
-                    </Link>
-                    <Link prefetch={false} href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
-                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
-                    </Link>
-                    <Link prefetch={false} href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
-                      onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
-                      className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
-                      <span className="flex min-w-0 items-center gap-3"><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
-                    </Link>
-                  </>}
+
                 </div>
               </div>
             </div>
@@ -2077,18 +2048,14 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
-                  {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
-                    onClick={() => { setSchoolInfoMenuOpen(false); setSportsMenuOpen(false); }}
-                    className="flex min-h-12 w-full items-center justify-between rounded-xl border-t border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100">
-                    <span>จัดการภาพและข้อความ (Admin)</span>
-                  </Link>}
+
                   <button type="button" tabIndex={schoolInfoMenuOpen ? 0 : -1}
                     onClick={()=>goToSportsSection("about")}
                     className="flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-800 hover:bg-blue-50 hover:text-blue-900">
                     <span>เกี่ยวกับงานและรายละเอียดการแข่งขัน</span>
                   </button>
-                  {/* School printing is separate from the official management route. */}
-                  <Link
+                  {/* School printing: login shortcut only; signed-in users use the system menu. */}
+                  {!canAccessSystemMenu && <Link
                     href="/group-sports/certificates"
                     tabIndex={schoolInfoMenuOpen ? 0 : -1}
                     onClick={() => {
@@ -2098,7 +2065,7 @@ export default function GroupSportsDashboard() {
                     className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border-t border-rose-100 bg-white px-3 py-3 text-left text-sm font-extrabold text-[#7f1d1d] transition-[background-color,color,transform,box-shadow] duration-200 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700 motion-reduce:transition-none"
                   >
                     <span className="flex min-w-0 items-center gap-2"><span>พิมพ์เกียรติบัตร (สำหรับโรงเรียน)</span></span>
-                  </Link>
+                  </Link>}
                 </div>
               </div>
             </div>
@@ -2113,33 +2080,41 @@ export default function GroupSportsDashboard() {
               // Scrolling or clicking empty space in the panel must not close it.
               if (event.target instanceof Element && event.target.closest("a, button")) closeSystemMenu();
             }}>
+              {/* unified-navigation-v1: show one primary entry per task; keep existing route guards */}
               {canAccessSystemMenu ? <>
-                {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
-                {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
-                {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/football">จัดการฟุตบอล</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/futsal">จัดการฟุตซอล</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/petanque">จัดการเปตอง</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
-                <Link prefetch={false} href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
-                {canManageCompetition && <Link prefetch={false} href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
-                {canManageCertificates && <Link prefetch={false} href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
-                {canAdminCertificates && <Link prefetch={false} href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
-                {canAdminCertificates && <Link prefetch={false} href="/group-sports/admin">Admin Full Control</Link>}
-                {canAdminCertificates && <Link prefetch={false} href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
-                {canAdminCertificates && <Link prefetch={false} href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
-                {canCentralPrint && <Link prefetch={false} href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
-                {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
-                {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
-                {(canManageCertificates || canAdminCertificates || canManageAccounts) && <Link prefetch={false} href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>}
-                {canManageAccounts && <Link prefetch={false} href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
-                <Link prefetch={false} href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
-                <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
+                {(canManageCertificates || canAdminCertificates) && <Link prefetch={false} href="/group-sports/officials/my"><span className="block text-base font-black">ศูนย์กรรมการกีฬา</span><span className="block text-xs font-normal">บันทึกผล · ยืนยันอันดับ · ตรวจเหรียญและเกียรติบัตร</span></Link>}
+                {(canManageCompetition || canRecordResults || canManageCertificates) && <details className="my-1 rounded-xl border border-blue-100 bg-white">
+                  <summary className="cursor-pointer rounded-xl bg-blue-50 px-3 py-3 text-sm font-black text-blue-950">จัดการโปรแกรมการแข่งขัน</summary>
+                  {canManageCompetition && <>
+                    <Link prefetch={false} href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>
+                    <div className="px-3 pt-2 text-xs font-bold text-slate-500">เลือกกีฬาที่ต้องการจัดการ</div>
+                    {[["football","ฟุตบอล"],["futsal","ฟุตซอล"],["basketball","บาสเกตบอล"],["volleyball","วอลเลย์บอล"],["takraw","เซปักตะกร้อ"],["petanque","เปตอง"],["table-tennis","เทเบิลเทนนิส"],["boxing","มวยสากลสมัครเล่น"],["esports","E-Sport (RoV)"]].map(([slug,label])=><Link key={slug} prefetch={false} href={`/group-sports/${slug}`}>{label}</Link>)}
+                  </>}
+                  <Link prefetch={false} href="/group-sports/athletics">กรีฑา / รายงานตัว</Link>
+                </details>}
+                {(canManageAccounts || canAdminCertificates) && <details className="my-1 rounded-xl border border-blue-100 bg-white">
+                  <summary className="cursor-pointer rounded-xl bg-blue-50 px-3 py-3 text-sm font-black text-blue-950">จัดการโรงเรียน</summary>
+                  {canManageAccounts && <button type="button" onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
+                  {canAdminCertificates && <Link prefetch={false} href="/group-sports/admin">ตรวจสอบและแก้ไขใบสมัคร (Admin Full Control)</Link>}
+                </details>}
+                {(canManageSchool || canAdminCertificates || canCentralPrint) && <details className="my-1 rounded-xl border border-blue-100 bg-white">
+                  <summary className="cursor-pointer rounded-xl bg-blue-50 px-3 py-3 text-sm font-black text-blue-950">ศูนย์เกียรติบัตร</summary>
+                  {canManageSchool && <Link prefetch={false} href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>}
+                  {canAdminCertificates && <Link prefetch={false} href="/group-sports/certificates/manage">จัดการเกียรติบัตรและตั้งค่า</Link>}
+                  {canCentralPrint && <Link prefetch={false} href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
+                </details>}
+                {(canAdminCertificates || canManageAccounts) && <details className="my-1 rounded-xl border border-blue-100 bg-white">
+                  <summary className="cursor-pointer rounded-xl bg-blue-50 px-3 py-3 text-sm font-black text-blue-950">ผู้ดูแลระบบ</summary>
+                  {canAdminCertificates && <><Link prefetch={false} href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link><Link prefetch={false} href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link></>}
+                  {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
+                  <details className="mx-2 my-1 rounded-lg border border-amber-200">
+                    <summary className="cursor-pointer px-3 py-2 text-xs font-bold text-amber-900">เครื่องมือขั้นสูง / TEST</summary>
+                    {canAdminCertificates && <Link prefetch={false} href="/group-sports/results">ระบบอันดับเดิม (กรณีพิเศษ)</Link>}
+                    <Link prefetch={false} href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>
+                    {canManageAccounts && <Link prefetch={false} href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
+                  </details>
+                </details>}
+                <button type="button" onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
               </> : <>
                 <Link prefetch={false} href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
                 <Link prefetch={false} href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
