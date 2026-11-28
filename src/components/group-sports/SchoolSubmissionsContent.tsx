@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -162,7 +163,7 @@ export default function SchoolSubmissionsContent({ embedded = false }: { embedde
     if (!file && !row?.word_path) { setError("กรุณาดาวน์โหลดแบบฟอร์ม กรอกข้อมูลใน Word และอัปโหลดไฟล์ .docx ก่อนส่ง"); return; }
     if (row?.status === "returned" && !file) { setError("กรรมการส่งคืนให้แก้ไข กรุณาเลือกไฟล์ Word ฉบับแก้ไขก่อนส่งใหม่"); return; }
     if (!file && row?.status === "submitted") { setError("ข้อมูลนี้ส่งแล้ว หากต้องการส่งฉบับปรับปรุง กรุณาเลือกไฟล์ Word ใหม่"); return; }
-    if (!window.confirm(`ยืนยันส่งแบบฟอร์มข้อมูลโรงเรียน ${selectedSchool.school_name} ใช่หรือไม่?`)) return;
+    if (!(await sportsConfirm(`ยืนยันส่งแบบฟอร์มข้อมูลโรงเรียน ${selectedSchool.school_name} ใช่หรือไม่?`))) return;
     setBusy(true);
     let newPath: string | null = null;
     try {
@@ -219,7 +220,7 @@ export default function SchoolSubmissionsContent({ embedded = false }: { embedde
   async function review(next: "accepted" | "returned") {
     if (!competition || !row || !reviewer || busy) return;
     if (next === "returned" && !note.trim()) { setError("กรุณาระบุเหตุผลที่ส่งคืนแก้ไข"); return; }
-    if (!window.confirm(next === "accepted" ? "ยืนยันรับรองไฟล์ Word โรงเรียนนี้?" : "ยืนยันส่งคืนให้โรงเรียนแก้ไขไฟล์ Word?")) return;
+    if (!(await sportsConfirm(next === "accepted" ? "ยืนยันรับรองไฟล์ Word โรงเรียนนี้?" : "ยืนยันส่งคืนให้โรงเรียนแก้ไขไฟล์ Word?"))) return;
     setError(""); setNotice(""); setBusy(true);
     try {
       const result = await supabase.rpc("sports_review_school_info", {

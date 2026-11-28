@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -110,7 +111,7 @@ export default function SportsAdminFullControl(){
       setError("RoV ต้องมีหัวหน้าทีม 1 คน ตัวจริง 4 คน และสำรองไม่เกิน 2 คน พร้อมชื่อในเกม");return;
     }
     const prompt=`ยืนยันแก้ไขใบสมัครนี้ในฐานะ Admin?\n\n${schoolMap.get(detail.school_id)?.name||"โรงเรียน"}\n${event?.sport_name||"กีฬา"}\nนักกีฬา ${players.length} คน, ครูผู้ควบคุม ${coaches.length} คน\n\nเหตุผล: ${reason.trim()}\n\nหากมีเกียรติบัตรเดิม ระบบจะยกเลิกเลขที่/QR เดิมและออกเอกสารชุดใหม่อัตโนมัติ (ไม่ย้อนกลับผลการแข่งขัน)`;
-    if(!window.confirm(prompt))return;
+    if(!(await sportsConfirm(prompt)))return;
     setBusy(true);setError("");setNotice("");
     try{
       const r=await supabase.rpc("sports_admin_update_registration",{

@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 import { useEffect, useState } from "react";
 import type { CSSProperties } from "react";
 import { supabase } from "@/lib/supabase";
@@ -45,7 +46,7 @@ export default function BasketballPrintPage(){
  const markReady=(n:number)=>setReady(old=>old.includes(n)?old:[...old,n]);
  const staff=data?[{name:data.coaches?.[0]?.name,phone:data.coaches?.[0]?.phone},{name:data.coaches?.[1]?.name,phone:data.coaches?.[1]?.phone},{name:data.coaches?.[0]?.manager_name,phone:data.coaches?.[0]?.manager_phone}]:[];
  return <main className="bb-official-root">
-  <div className="bb-official-tools"><a href="/group-sports/basketball?tab=registration">← กลับหน้าลงทะเบียนบาสเกตบอล</a><button type="button" disabled={!canPrint} onClick={()=>{if(missing&&!window.confirm(`ยังไม่มีรูปนักกีฬา ${missing} คน ต้องการพิมพ์โดยเว้นช่องรูปไว้หรือไม่?`))return;window.print();}}>พิมพ์ใบรายชื่อและแผงรูป / PDF</button><span role="status">{loading?"กำลังโหลดใบสมัครและรูปภาพ…":error||(!entry?"ไม่พบรหัสใบสมัคร":data?`${data.players.length} คน · รูป ${Object.keys(photos).length}/${data.players.length}`:"")}</span>{missing>0&&<strong className="bb-official-warning">ยังไม่มีรูปหรือโหลดรูปไม่ได้ {missing} คน กรุณาตรวจสอบก่อนพิมพ์</strong>}{templateError&&<strong>โหลดแม่แบบไม่สำเร็จ กรุณารีเฟรช</strong>}</div>
+  <div className="bb-official-tools"><a href="/group-sports/basketball?tab=registration">← กลับหน้าลงทะเบียนบาสเกตบอล</a><button type="button" disabled={!canPrint} onClick={async ()=>{if(missing&&!(await sportsConfirm(`ยังไม่มีรูปนักกีฬา ${missing} คน ต้องการพิมพ์โดยเว้นช่องรูปไว้หรือไม่?`)))return;window.print();}}>พิมพ์ใบรายชื่อและแผงรูป / PDF</button><span role="status">{loading?"กำลังโหลดใบสมัครและรูปภาพ…":error||(!entry?"ไม่พบรหัสใบสมัคร":data?`${data.players.length} คน · รูป ${Object.keys(photos).length}/${data.players.length}`:"")}</span>{missing>0&&<strong className="bb-official-warning">ยังไม่มีรูปหรือโหลดรูปไม่ได้ {missing} คน กรุณาตรวจสอบก่อนพิมพ์</strong>}{templateError&&<strong>โหลดแม่แบบไม่สำเร็จ กรุณารีเฟรช</strong>}</div>
   {data&&<>
    <section className="bb-official-sheet" aria-label="ใบรายชื่อนักกีฬาบาสเกตบอล">
     <img className="bb-official-template" src={`${BASE}/form-3.png`} alt="แม่แบบใบรายชื่อบาสเกตบอล" onLoad={()=>markReady(3)} onError={()=>setTemplateError(true)}/>

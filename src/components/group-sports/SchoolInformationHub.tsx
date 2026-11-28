@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import { useCallback, useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -332,7 +333,7 @@ export default function SchoolInformationHub({ competitionId, section, canManage
           </div>}
           {canManage && <div className="mt-4 flex flex-wrap gap-2 border-t border-slate-100 pt-3">
             <button type="button" disabled={busy} title={item.is_published ? "แก้ไขและอัปเดตหน้าโรงเรียน" : "แก้ไขฉบับร่าง"} onClick={() => { setEditor({id:item.id,title:item.title,details:item.details,mapsUrl:item.maps_url ?? "",file:null,isPrimary:false,removeFile:false,wasPublished:item.is_published});setError("");setSuccess(""); }} className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-50">แก้ไข</button>
-            <button type="button" disabled={busy} onClick={() => { if (window.confirm(item.is_published ? "ถอนข้อมูลนี้ออกจากหน้าโรงเรียน?" : "ยืนยันว่าแผนผัง/ข้อมูลนี้ตรวจสอบแล้ว และพร้อมเผยแพร่ให้ทุกโรงเรียนหรือไม่?")) void setPublication(item,!item.is_published); }} className={`rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-50 ${item.is_published?"border border-amber-300 bg-amber-50 text-amber-900":"bg-emerald-700 text-white"}`}>{item.is_published?"ถอนเผยแพร่":"เผยแพร่ให้โรงเรียนเห็น"}</button>
+            <button type="button" disabled={busy} onClick={async () => { if ((await sportsConfirm(item.is_published ? "ถอนข้อมูลนี้ออกจากหน้าโรงเรียน?" : "ยืนยันว่าแผนผัง/ข้อมูลนี้ตรวจสอบแล้ว และพร้อมเผยแพร่ให้ทุกโรงเรียนหรือไม่?"))) void setPublication(item,!item.is_published); }} className={`rounded-lg px-3 py-2 text-xs font-bold disabled:opacity-50 ${item.is_published?"border border-amber-300 bg-amber-50 text-amber-900":"bg-emerald-700 text-white"}`}>{item.is_published?"ถอนเผยแพร่":"เผยแพร่ให้โรงเรียนเห็น"}</button>
           </div>}
         </article>)}</div>}
   </section>;

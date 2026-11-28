@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 import Link from 'next/link';
 import VolleyballRegistration from '@/components/group-sports/VolleyballRegistration';
 import {useCallback,useEffect,useState,type FormEvent} from 'react';
@@ -52,12 +53,12 @@ export default function VolleyballDashboard(){
  useEffect(()=>{const params=new URLSearchParams(window.location.search);if(params.get('tab')==='registration')setTab('registration');const c=params.get('code') as VolleyballCode;if(VOLLEYBALL_CODES.includes(c))setCode(c);void refresh();},[refresh]);
  useEffect(()=>{if(edit||tab==='registration')return;const id=window.setInterval(()=>{if(!document.hidden)void refresh();},45000);const channel=supabase.channel('volleyball-page').on('postgres_changes',{event:'*',schema:'public',table:'sports_football_matches'},()=>{if(!document.hidden)void refresh();}).subscribe();return()=>{window.clearInterval(id);void supabase.removeChannel(channel);};},[refresh,edit,tab]);
  const open=(m:Match)=>{setEdit(m);setSets(m.volleyball_sets?.map(r=>r.map(String))||Array.from({length:m.stage==='final'?3:2},()=>['','']));setForfeit(m.volleyball_forfeit?String(m.volleyball_forfeit):'');setError('');};
- async function publish(){if(!admin||!event||!window.confirm('ยืนยันเผยแพร่โปรแกรมที่ตรวจสอบครบแล้ว?'))return;setBusy(true);try{const r=await supabase.rpc('sports_volleyball_publish',{p_event:event.id});if(r.error)throw r.error;setNotice('เผยแพร่สำเร็จ');await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
- async function enable(status:'scheduled'|'registration'){if(!admin||!event||!window.confirm(status==='registration'?'ยืนยันเปิดรับสมัครนักกีฬา?':'ยืนยันเปิดแสดงรายการ?'))return;setBusy(true);try{const r=await supabase.from('sports_events').update({status}).eq('id',event.id).eq('status',event.status);if(r.error)throw r.error;await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
+ async function publish(){if(!admin||!event||!(await sportsConfirm('ยืนยันเผยแพร่โปรแกรมที่ตรวจสอบครบแล้ว?')))return;setBusy(true);try{const r=await supabase.rpc('sports_volleyball_publish',{p_event:event.id});if(r.error)throw r.error;setNotice('เผยแพร่สำเร็จ');await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
+ async function enable(status:'scheduled'|'registration'){if(!admin||!event||!(await sportsConfirm(status==='registration'?'ยืนยันเปิดรับสมัครนักกีฬา?':'ยืนยันเปิดแสดงรายการ?')))return;setBusy(true);try{const r=await supabase.from('sports_events').update({status}).eq('id',event.id).eq('status',event.status);if(r.error)throw r.error;await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}}
  async function save(ev:FormEvent<HTMLFormElement>){ev.preventDefault();if(!edit||!canScore)return;const f=new FormData(ev.currentTarget),status=String(f.get('status'));try{
   const notes=String(f.get('notes')||'');if(status==='completed'){if(!forfeit)calculateVolleyballScore(sets,edit.stage==='final');else if(!notes.trim())throw new Error('กรุณาระบุเหตุผลการไม่แข่งขัน');}
   const payload={team1_name:String(f.get('a')),team2_name:String(f.get('b')),status,scheduled_date:String(f.get('date')),start_time:String(f.get('time')),venue_name:String(f.get('venue')),reviewed:admin?f.get('reviewed')==='on':edit.volleyball_reviewed,sets:status==='completed'&&!forfeit?sets.map(r=>r.map(Number)):null,forfeit:status==='completed'&&forfeit?Number(forfeit):null,notes};
-  if(!window.confirm(status==='completed'?'ยืนยันบันทึกผลการแข่งขัน?':'ยืนยันบันทึกโปรแกรม?'))return;
+  if(!(await sportsConfirm(status==='completed'?'ยืนยันบันทึกผลการแข่งขัน?':'ยืนยันบันทึกโปรแกรม?')))return;
   setBusy(true);const r=await supabase.rpc('sports_volleyball_save_match',{p_match:edit.id,p_expected:edit.updated_at,p_data:payload});if(r.error)throw r.error;setEdit(null);setNotice('บันทึกเรียบร้อย');await refresh();
  }catch(e){setError(errorText(e));}finally{setBusy(false);}}
  return <main className="min-h-screen bg-[#eaf5ed] text-[#07123d]">

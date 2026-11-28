@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -146,7 +147,7 @@ export default function FootballDashboard(){
  const refreshList=async()=>{await refresh();await loadEntries();};
  async function activatePublicView(){
   if(!selectedEvent||!isAdmin||selectedEvent.status!=="draft")return;
-  if(!window.confirm(`เปิดแสดงประเภท ${config.title} ให้โรงเรียนเห็นรายชื่อสายได้ โดยยังไม่เปิดรับสมัครนักกีฬาใช่หรือไม่?`))return;
+  if(!(await sportsConfirm(`เปิดแสดงประเภท ${config.title} ให้โรงเรียนเห็นรายชื่อสายได้ โดยยังไม่เปิดรับสมัครนักกีฬาใช่หรือไม่?`)))return;
   setBusy(true);setError("");try{
    const r=await supabase.from("sports_events").update({status:"scheduled"}).eq("id",selectedEvent.id).eq("competition_id",competitionId).eq("status","draft");
    if(r.error)throw r.error;
@@ -154,7 +155,7 @@ export default function FootballDashboard(){
   }catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
  async function activateRegistration(){if(!selectedEvent||!isAdmin)return;
-  if(!window.confirm(`ยืนยันเปิดรับสมัครนักกีฬา ${config.title} ให้โรงเรียนกรอกข้อมูลได้หรือไม่?`))return;
+  if(!(await sportsConfirm(`ยืนยันเปิดรับสมัครนักกีฬา ${config.title} ให้โรงเรียนกรอกข้อมูลได้หรือไม่?`)))return;
   setBusy(true);try{const r=await supabase.from("sports_events").update({status:"registration"}).eq("id",selectedEvent.id).eq("competition_id",competitionId);if(r.error)throw r.error;
    setMessage("เปิดรับสมัครเรียบร้อยแล้ว");await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
@@ -162,7 +163,7 @@ export default function FootballDashboard(){
   if(!isScheduleChecked){setError("ตรวจโปรแกรมไม่ครบ กรุณาตรวจวัน เวลา สถานที่ และจำนวนคู่ก่อนเผยแพร่");return;}
   if(selectedEvent.status==="draft"){setError("กรุณากด เปิดแสดงรายการ ก่อน แล้วจึงเผยแพร่โปรแกรมได้ โดยไม่จำเป็นต้องเปิดรับสมัคร");return;}
   const drafts=eventMatches.filter(m=>m.status==="draft");if(!drafts.length){setMessage("ไม่มีคู่ฉบับร่างที่ต้องเผยแพร่");return;}
-  if(!window.confirm(`ยืนยันเผยแพร่โปรแกรม ${config.compact} จำนวน ${drafts.length} คู่?`))return;
+  if(!(await sportsConfirm(`ยืนยันเผยแพร่โปรแกรม ${config.compact} จำนวน ${drafts.length} คู่?`)))return;
   setBusy(true);setError("");try{const r=await supabase.from("sports_football_matches").update({status:"published"}).eq("event_id",selectedEvent.id).eq("status","draft");
    if(r.error)throw r.error;setMessage("เผยแพร่โปรแกรมเรียบร้อยแล้ว");await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
@@ -186,7 +187,7 @@ export default function FootballDashboard(){
   if(managerPhoto && !managerName.trim()){setError("กรุณาระบุชื่อผู้จัดการทีมก่อนส่งใบสมัครที่แนบรูปผู้จัดการทีม");return;}
   if(managerPhone.trim() && !/^\+?\d{9,15}$/.test(managerPhone.replace(/[ ()-]/g,""))){setError("กรุณาตรวจสอบเบอร์โทรศัพท์ผู้จัดการทีม");return;}
   if(selectedEntry&&selectedEntry.school_id!==schoolId){setError("ไม่สามารถเปลี่ยนโรงเรียนของใบสมัครเดิมได้");return;}
-  if((managerPhoto||players.some(p=>p.photo)||coaches.some(c=>c.photo))&&!window.confirm("ตรวจสอบว่ารูปที่เลือกตรงกับชื่อของนักกีฬาและเจ้าหน้าที่แต่ละคนแล้ว ใช่หรือไม่?"))return;
+  if((managerPhoto||players.some(p=>p.photo)||coaches.some(c=>c.photo))&&!(await sportsConfirm("ตรวจสอบว่ารูปที่เลือกตรงกับชื่อของนักกีฬาและเจ้าหน้าที่แต่ละคนแล้ว ใช่หรือไม่?")))return;
   setBusy(true);setError("");try{
     const roster=players.map(p=>({full_name:p.prefix+p.name.trim(),student_code:p.student_code.trim()||null,birth_date:p.birth_date,jersey_number:p.jersey_number,player_role:p.player_role,player_note:p.player_note}));
     const staffData=coaches.map((c,i)=>({name:c.name.trim(),phone:c.phone.trim(),...(i===0?{manager_name:managerName.trim(),manager_phone:managerPhone.trim()}:{})}));

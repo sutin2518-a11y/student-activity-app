@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -162,7 +163,7 @@ export default function CentralPublishPage(){
   const allDrafts=views.reduce((n,v)=>n+v.drafts.length,0);
   async function publish(list:View[]){
     if(running.current||loading||!authorized||!list.length)return;
-    if(!window.confirm(`ยืนยันว่าตรวจเทียบโปรแกรมกับเอกสารต้นฉบับแล้ว และเผยแพร่ ${list.length} รายการ/รุ่น (${list.reduce((n,v)=>n+v.drafts.length,0)} คู่/ช่วง)?\n\nรายการที่ไม่ผ่านการตรวจของฐานข้อมูลจะไม่ถูกเผยแพร่ ระบบจะไม่เปลี่ยนสถานะรับสมัคร`))return;
+    if(!(await sportsConfirm(`ยืนยันว่าตรวจเทียบโปรแกรมกับเอกสารต้นฉบับแล้ว และเผยแพร่ ${list.length} รายการ/รุ่น (${list.reduce((n,v)=>n+v.drafts.length,0)} คู่/ช่วง)?\n\nรายการที่ไม่ผ่านการตรวจของฐานข้อมูลจะไม่ถูกเผยแพร่ ระบบจะไม่เปลี่ยนสถานะรับสมัคร`)))return;
     running.current=true;setBusy(true);setResults([]);setError("");
     try{
       for(let i=0;i<list.length;i++){
@@ -178,7 +179,7 @@ export default function CentralPublishPage(){
   async function partial(v:View,rows:ScheduleRow[],action:PartialAction){
     if(running.current||loading||!authorized||!rows.length)return;
     const chosen=rows.filter(r=>allowed(v,r,action));if(chosen.length!==rows.length)return;
-    if(!window.confirm(`${actionLabels[action]} ${v.event.sport_name} จำนวน ${rows.length} คู่?\nยืนยันว่าได้ตรวจเอกสารและข้อสังเกตทุกคู่ที่เลือกแล้ว\n${action==="preview"?"คู่จะปรากฏในหน้าประกาศเบื้องต้นสำหรับผู้ชม โดยยังไม่เผยแพร่ทางการ":action==="publish"?"ระบบตรวจซ้ำทีละคู่ คู่ที่ไม่ผ่านจะคงฉบับร่าง และคู่ที่ผ่านจะเผยแพร่ได้":"ไม่เปลี่ยนสถานะรับสมัครหรือข้อมูลนักกีฬา"}`))return;
+    if(!(await sportsConfirm(`${actionLabels[action]} ${v.event.sport_name} จำนวน ${rows.length} คู่?\nยืนยันว่าได้ตรวจเอกสารและข้อสังเกตทุกคู่ที่เลือกแล้ว\n${action==="preview"?"คู่จะปรากฏในหน้าประกาศเบื้องต้นสำหรับผู้ชม โดยยังไม่เผยแพร่ทางการ":action==="publish"?"ระบบตรวจซ้ำทีละคู่ คู่ที่ไม่ผ่านจะคงฉบับร่าง และคู่ที่ผ่านจะเผยแพร่ได้":"ไม่เปลี่ยนสถานะรับสมัครหรือข้อมูลนักกีฬา"}`)))return;
     running.current=true;setBusy(true);setError("");setResults([]);
     let total=0;
     try{

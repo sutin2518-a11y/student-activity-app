@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -106,11 +107,11 @@ export default function SportsResultCorrections() {
   async function submit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (!data || !valid || !changed || busy || !eventId) return;
-    if (!window.confirm(
+    if (!(await sportsConfirm(
       `ยืนยันแก้ไขผลที่ประกาศแล้วสำหรับ ${event?.sport_name || "รายการนี้"}?\n\n` +
       `เกียรติบัตรรางวัลเดิม ${data.live_award_certificates} ฉบับจะถูกยกเลิก (QR เดิมไม่ผ่านการตรวจสอบ) ` +
       `และจะออกเอกสารชุดใหม่ทันที พร้อมปรับตารางเหรียญ\n\nเหตุผล: ${reason.trim()}`
-    )) return;
+    ))) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const response = await supabase.rpc("sports_admin_correct_published_result", {

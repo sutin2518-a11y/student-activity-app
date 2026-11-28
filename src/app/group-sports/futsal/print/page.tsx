@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadAthletePhoto } from "@/lib/group-sports/rov-photos";
@@ -60,7 +61,7 @@ export default function FutsalPrintPage(){
  const sport=data?.sport_name||"";
  const nameOf=(key:string)=>staff.find(s=>s.key===key)?.name||"";
  return <main className="fs-print-area">
-  <div className="fs-print-tools"><a href="/group-sports/futsal?tab=registration">← กลับหน้าฟุตซอล</a><button disabled={!ready} onClick={()=>{if(!missing||window.confirm(`ยังขาดรูป/ชื่อ ${missing} ช่อง (รวมเจ้าหน้าที่) ต้องการพิมพ์ฉบับไม่สมบูรณ์หรือไม่?`))window.print();}}>พิมพ์ / บันทึกเป็น PDF (2 หน้า)</button><span role="status">{loading?"กำลังโหลดรูปภาพ…":error||(!entry?"ไม่พบรหัสใบสมัคร":data?`นักกีฬา ${data.players.length} คน · ขาดรูป/ชื่อ ${missing} ช่อง (ไม่รวมช่องนักกีฬาที่ว่าง)` : "ไม่พบข้อมูล")}</span></div>
+  <div className="fs-print-tools"><a href="/group-sports/futsal?tab=registration">← กลับหน้าฟุตซอล</a><button disabled={!ready} onClick={async ()=>{if(!missing||(await sportsConfirm(`ยังขาดรูป/ชื่อ ${missing} ช่อง (รวมเจ้าหน้าที่) ต้องการพิมพ์ฉบับไม่สมบูรณ์หรือไม่?`)))window.print();}}>พิมพ์ / บันทึกเป็น PDF (2 หน้า)</button><span role="status">{loading?"กำลังโหลดรูปภาพ…":error||(!entry?"ไม่พบรหัสใบสมัคร":data?`นักกีฬา ${data.players.length} คน · ขาดรูป/ชื่อ ${missing} ช่อง (ไม่รวมช่องนักกีฬาที่ว่าง)` : "ไม่พบข้อมูล")}</span></div>
   {error&&<p role="alert">{error}</p>}
   {data&&<>
    <section className="fs-a4 fs-photo-sheet">

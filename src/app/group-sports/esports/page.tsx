@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import EsportsSessionSchedule, { makePlan } from "@/components/group-sports/EsportsSessionSchedule";
 import Link from "next/link";
@@ -336,7 +337,7 @@ function PrelaunchResetPanel({ onReset }: { onReset: () => Promise<void> }) {
 
   async function reset() {
     if (busy || !preview || !acknowledged || confirmation !== confirmationText) return;
-    if (!window.confirm("ยืนยันรีเซตข้อมูลทดสอบ RoV ทั้งทีมชายและทีมหญิง?\n\nระบบจะสำรองก่อนล้างคะแนน ผลแข่งขัน สถานะยกเลิก และประวัติทดสอบ โดยเก็บรายชื่อทีม กลุ่ม และโปรแกรมวันเวลาเดิมไว้ และเปลี่ยนโปรแกรมเป็นฉบับร่างที่ยังไม่เผยแพร่")) return;
+    if (!(await sportsConfirm("ยืนยันรีเซตข้อมูลทดสอบ RoV ทั้งทีมชายและทีมหญิง?\n\nระบบจะสำรองก่อนล้างคะแนน ผลแข่งขัน สถานะยกเลิก และประวัติทดสอบ โดยเก็บรายชื่อทีม กลุ่ม และโปรแกรมวันเวลาเดิมไว้ และเปลี่ยนโปรแกรมเป็นฉบับร่างที่ยังไม่เผยแพร่"))) return;
     setBusy(true); setProblem("");
     try {
       const { data, error } = await supabase.rpc("sports_esports_prelaunch_reset", {
@@ -529,7 +530,7 @@ export default function EsportsPage() {
       setError("แผนการแข่งขันยังไม่ครบถ้วนหรือจำนวนคู่ที่ต้องเติมไม่ตรงกัน กรุณาตรวจข้อมูลก่อนบันทึก");
       return;
     }
-    if (!window.confirm(`ยืนยันวันและเวลาในแผนที่แสดงสำหรับทีม${gender} ${pendingScheduleSync.length} คู่แล้วใช่หรือไม่?\n\nระบบจะเติมเฉพาะช่องวันที่/เวลาที่ว่างในฐานข้อมูล ไม่เปลี่ยนค่าเดิม ไม่แก้คะแนน ไม่เปลี่ยนสถานะ และยังไม่เผยแพร่โปรแกรม`)) return;
+    if (!(await sportsConfirm(`ยืนยันวันและเวลาในแผนที่แสดงสำหรับทีม${gender} ${pendingScheduleSync.length} คู่แล้วใช่หรือไม่?\n\nระบบจะเติมเฉพาะช่องวันที่/เวลาที่ว่างในฐานข้อมูล ไม่เปลี่ยนค่าเดิม ไม่แก้คะแนน ไม่เปลี่ยนสถานะ และยังไม่เผยแพร่โปรแกรม`))) return;
     setBusyId("sync-group-schedule");
     let updated = 0;
     const failed: string[] = [];
@@ -612,7 +613,7 @@ export default function EsportsPage() {
       setError(`ยังเผยแพร่ไม่ได้: มี ${missingSchedule.length} คู่ฉบับร่างที่ช่องวันหรือเวลาในฐานข้อมูลยังว่าง แม้ใน “ตารางโปรแกรม” จะมีเวลาแสดงจากแผนก็ตาม กรุณาใช้ปุ่ม “ตรวจและบันทึกวันเวลาจากแผน” หรือบันทึกแต่ละคู่ให้ครบก่อน`);
       return;
     }
-    if (!window.confirm(`ยืนยันเผยแพร่คู่แข่งขันรอบแบ่งกลุ่ม ${drafts.length} คู่ (ทีม${gender}) ให้โรงเรียนและผู้ชมทั่วไปเห็น?\n\nระบบจะเปลี่ยนเฉพาะคู่ฉบับร่างเป็น “กำหนดการแข่งขันแล้ว” โดยไม่แก้คู่ที่ยกเลิกหรือบันทึกผลแล้ว`)) return;
+    if (!(await sportsConfirm(`ยืนยันเผยแพร่คู่แข่งขันรอบแบ่งกลุ่ม ${drafts.length} คู่ (ทีม${gender}) ให้โรงเรียนและผู้ชมทั่วไปเห็น?\n\nระบบจะเปลี่ยนเฉพาะคู่ฉบับร่างเป็น “กำหนดการแข่งขันแล้ว” โดยไม่แก้คู่ที่ยกเลิกหรือบันทึกผลแล้ว`))) return;
     setBusyId("publish-group-schedule");
     try {
       const result = await supabase.from("sports_esports_matches")

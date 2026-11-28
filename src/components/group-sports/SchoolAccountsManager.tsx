@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -65,7 +66,7 @@ export default function SchoolAccountsManager() {
   async function modify(account:Account,action:"reset_password"|"reveal_password"|"disable"|"enable") {
     if(busy) return;
     const operation=action==="reset_password"?"รีเซ็ตรหัสผ่าน":action==="reveal_password"?"เปิดดูรหัสผ่านที่จัดเก็บ":action==="disable"?"ปิดใช้งาน":"เปิดใช้งาน";
-    if(!window.confirm(`ยืนยัน${operation}บัญชี ${account.username} ?`))return;
+    if(!(await sportsConfirm(`ยืนยัน${operation}บัญชี ${account.username} ?`)))return;
     setError("");setNotice("");setGenerated(null);setBusy(true);
     try {
       const data=await api("PATCH",`/api/group-sports/school-accounts/${account.id}`,{action});
@@ -83,7 +84,7 @@ export default function SchoolAccountsManager() {
   async function createBulk() {
     if (busy || loading || !unregistered.length || configError) return;
     const targets = [...unregistered].sort((a,b)=>a.name.localeCompare(b.name,"th"));
-    if (!window.confirm(`ยืนยันสร้าง Username และรหัสผ่านแบบสุ่มให้ ${targets.length} โรงเรียนที่ยังไม่มีบัญชี?\n\nระบบจะไม่เปลี่ยนรหัสผ่านของโรงเรียนที่มีบัญชีอยู่แล้ว และ Admin สามารถดูรหัสใหม่ย้อนหลังได้ผ่านคลังรหัสผ่านแบบเข้ารหัส`)) return;
+    if (!(await sportsConfirm(`ยืนยันสร้าง Username และรหัสผ่านแบบสุ่มให้ ${targets.length} โรงเรียนที่ยังไม่มีบัญชี?\n\nระบบจะไม่เปลี่ยนรหัสผ่านของโรงเรียนที่มีบัญชีอยู่แล้ว และ Admin สามารถดูรหัสใหม่ย้อนหลังได้ผ่านคลังรหัสผ่านแบบเข้ารหัส`))) return;
     setBusy(true);setError("");setNotice("");setGenerated(null);
     setBulkCredentials([]);setBulkSkipped([]);setBulkFailed([]);
     setBulkProgress({completed:0,total:targets.length});
@@ -182,7 +183,7 @@ export default function SchoolAccountsManager() {
         <div className="flex flex-wrap gap-2">
           <button type="button" disabled={!bulkCredentials.length} onClick={()=>void downloadBulkExcel()}
             className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-bold text-white disabled:opacity-50">ดาวน์โหลด Excel สำหรับ Admin</button>
-          <button type="button" onClick={()=>{if(window.confirm("ซ่อนรหัสผ่านจากหน้านี้? Admin ยังสามารถดูย้อนหลังจากเมนูบัญชีที่สร้างแล้ว")){setBulkCredentials([]);setBulkSkipped([]);setBulkFailed([]);setBulkProgress(null);}}}
+          <button type="button" onClick={async ()=>{if((await sportsConfirm("ซ่อนรหัสผ่านจากหน้านี้? Admin ยังสามารถดูย้อนหลังจากเมนูบัญชีที่สร้างแล้ว"))){setBulkCredentials([]);setBulkSkipped([]);setBulkFailed([]);setBulkProgress(null);}}}
             className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-semibold text-amber-900">ปิดข้อมูลรหัสผ่าน</button>
         </div>
       </div>

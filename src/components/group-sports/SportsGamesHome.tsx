@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
@@ -108,7 +109,7 @@ function LiveControls({match,reload}:{match:Match;reload:()=>Promise<Match[]|und
   const scoreOK=/^\d{1,3}$/.test(a)&&/^\d{1,3}$/.test(b);
   async function act(action:"start"|"score"|"stop") {
     if(busy||changed||!match.can_manage||!match.fixture_version||!match.special_source)return;
-    if(action!=="score"&&!window.confirm(action==="start"?"ยืนยันเริ่มแสดง LIVE คู่นี้บนหน้าสาธารณะ?":"หยุด LIVE และรอผลทางการ? ต้องบันทึกผลจริงในหน้ากีฬาเดิม"))return;
+    if(action!=="score"&&!(await sportsConfirm(action==="start"?"ยืนยันเริ่มแสดง LIVE คู่นี้บนหน้าสาธารณะ?":"หยุด LIVE และรอผลทางการ? ต้องบันทึกผลจริงในหน้ากีฬาเดิม")))return;
     setBusy(true);setError("");
     try {
       const r=await supabase.rpc("sports_live_action_v1",{p_source:match.special_source,p_match:match.id.split(":")[1],p_action:action,p_score_a:action==="score"?Number(a):null,p_score_b:action==="score"?Number(b):null,p_fixture_version:match.fixture_version,p_expected:expected});

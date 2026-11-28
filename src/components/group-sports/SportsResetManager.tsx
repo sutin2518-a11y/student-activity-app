@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
@@ -154,7 +155,7 @@ export default function SportsResetManager() {
   }
   async function execute() {
     if (!authorized || !preview || !preview.can_reset || confirmation !== CONFIRMATION || !understandsReal || busy) return;
-    if (!window.confirm(`ยืนยันรีเซตข้อมูลจริงหรือไม่?\n\nขอบเขต: ${scope}\nใบสมัคร: ${preview.counts.entries} รายการ\nนักกีฬา: ${preview.counts.athletes} คน\nเกียรติบัตรที่ยกเลิกแล้ว: ${preview.counts.revoked_certificates} ฉบับ (เก็บประวัติ/QR)\nผลกีฬาและทะเบียนจะถูกลบจากระบบ\n\nระบบเก็บข้อมูลสำรองไว้สำหรับให้ผู้ดูแลฐานข้อมูลกู้คืนด้วยตนเอง`)) return;
+    if (!(await sportsConfirm(`ยืนยันรีเซตข้อมูลจริงหรือไม่?\n\nขอบเขต: ${scope}\nใบสมัคร: ${preview.counts.entries} รายการ\nนักกีฬา: ${preview.counts.athletes} คน\nเกียรติบัตรที่ยกเลิกแล้ว: ${preview.counts.revoked_certificates} ฉบับ (เก็บประวัติ/QR)\nผลกีฬาและทะเบียนจะถูกลบจากระบบ\n\nระบบเก็บข้อมูลสำรองไว้สำหรับให้ผู้ดูแลฐานข้อมูลกู้คืนด้วยตนเอง`))) return;
     setBusy(true); setError(""); setNotice("");
     try {
       const { data, error: rpcError } = await supabase.rpc("sports_admin_reset", {
@@ -185,7 +186,7 @@ export default function SportsResetManager() {
   }
   async function retryPhotos() {
     if (!cleanupArchiveId || busy || !pendingPhotos.length) return;
-    if (!window.confirm(`รูปภาพ ${pendingPhotos.length} ไฟล์จะถูกลบออกจาก Supabase Storage อย่างถาวร\n\nข้อมูล Archive สำรองเฉพาะตาราง ไม่ได้เก็บตัวไฟล์รูป!\n\nคุณได้สำรองไฟล์รูปถ่ายจริงไว้แล้ว และยืนยันให้ลบใช่หรือไม่?`)) return;
+    if (!(await sportsConfirm(`รูปภาพ ${pendingPhotos.length} ไฟล์จะถูกลบออกจาก Supabase Storage อย่างถาวร\n\nข้อมูล Archive สำรองเฉพาะตาราง ไม่ได้เก็บตัวไฟล์รูป!\n\nคุณได้สำรองไฟล์รูปถ่ายจริงไว้แล้ว และยืนยันให้ลบใช่หรือไม่?`))) return;
     setBusy(true); setError("");
     try { await cleanPhotos(cleanupArchiveId); } catch (err) { setError(message(err)); }
     finally { setBusy(false); }

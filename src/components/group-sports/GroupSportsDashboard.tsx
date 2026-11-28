@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
@@ -1262,7 +1263,7 @@ export default function GroupSportsDashboard() {
     if(!destination || !move.confirmed || move.reason.trim().length<8 || !move.updatedAt || move.from!==entry.event_id || move.updatedAt!==entry.updated_at) {
       setAthMove({...move,error:"ตรวจสอบรายการใหม่ คุณสมบัติ เหตุผล และข้อมูลล่าสุดก่อนบันทึก (หากข้อมูลเปลี่ยนให้ปิดแล้วเปิดใหม่)"});return;
     }
-    if(!window.confirm(`ยืนยันเปลี่ยนรายการของ ${entry.entry_name}\n${eventById.get(entry.event_id)?.sport_name} → ${destination.sport_name}\nโดยคงใบสมัครและรูปเดิม?`)) return;
+    if(!(await sportsConfirm(`ยืนยันเปลี่ยนรายการของ ${entry.entry_name}\n${eventById.get(entry.event_id)?.sport_name} → ${destination.sport_name}\nโดยคงใบสมัครและรูปเดิม?`))) return;
     setBusy(true);setAthMove({...move,error:""});
     try {
       const r=await supabase.rpc("sports_admin_move_athletics_entry",{p_entry:entry.id,p_from_event:move.from,p_to_event:move.to,p_expected_updated_at:move.updatedAt,p_reason:move.reason.trim(),p_eligibility_confirmed:move.confirmed});

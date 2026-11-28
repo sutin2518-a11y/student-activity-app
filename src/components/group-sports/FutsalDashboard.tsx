@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
@@ -155,7 +156,7 @@ export default function FutsalDashboard(){
  const refreshList=async()=>{await refresh();await loadEntries();};
  async function activatePublicView(){
   if(!selectedEvent||!isAdmin||selectedEvent.status!=="draft")return;
-  if(!window.confirm(`เปิดแสดงประเภท ${config.title} ให้โรงเรียนเห็นรายชื่อสายได้ โดยยังไม่เปิดรับสมัครนักกีฬาใช่หรือไม่?`))return;
+  if(!(await sportsConfirm(`เปิดแสดงประเภท ${config.title} ให้โรงเรียนเห็นรายชื่อสายได้ โดยยังไม่เปิดรับสมัครนักกีฬาใช่หรือไม่?`)))return;
   setBusy(true);setError("");try{
    const r=await supabase.from("sports_events").update({status:"scheduled"}).eq("id",selectedEvent.id).eq("competition_id",competitionId).eq("status","draft");
    if(r.error)throw r.error;
@@ -163,7 +164,7 @@ export default function FutsalDashboard(){
   }catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
  async function activateRegistration(){if(!selectedEvent||!isAdmin)return;
-  if(!window.confirm(`ยืนยันเปิดรับสมัครนักกีฬา ${config.title} ให้โรงเรียนกรอกข้อมูลได้หรือไม่?`))return;
+  if(!(await sportsConfirm(`ยืนยันเปิดรับสมัครนักกีฬา ${config.title} ให้โรงเรียนกรอกข้อมูลได้หรือไม่?`)))return;
   setBusy(true);try{const r=await supabase.from("sports_events").update({status:"registration"}).eq("id",selectedEvent.id).eq("competition_id",competitionId);if(r.error)throw r.error;
    setMessage("เปิดรับสมัครเรียบร้อยแล้ว");await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
@@ -171,7 +172,7 @@ export default function FutsalDashboard(){
   if(!isScheduleChecked){setError("ตรวจโปรแกรมไม่ครบ กรุณาตรวจวัน เวลา สถานที่ และจำนวนคู่ก่อนเผยแพร่");return;}
   if(selectedEvent.status==="draft"){setError("กรุณากด เปิดแสดงรายการ ก่อน แล้วจึงเผยแพร่โปรแกรมได้ โดยไม่จำเป็นต้องเปิดรับสมัคร");return;}
   const drafts=eventMatches.filter(m=>m.status==="draft");if(!drafts.length){setMessage("ไม่มีคู่ฉบับร่างที่ต้องเผยแพร่");return;}
-  if(!window.confirm(`ยืนยันเผยแพร่โปรแกรม ${config.compact} จำนวน ${drafts.length} คู่?`))return;
+  if(!(await sportsConfirm(`ยืนยันเผยแพร่โปรแกรม ${config.compact} จำนวน ${drafts.length} คู่?`)))return;
   setBusy(true);setError("");try{const r=await supabase.rpc("sports_futsal_publish",{p_event:selectedEvent.id});
    if(r.error)throw r.error;setMessage("เผยแพร่โปรแกรมเรียบร้อยแล้ว");await refresh();}catch(e){setError(errorText(e));}finally{setBusy(false);}
  }
@@ -197,7 +198,7 @@ export default function FutsalDashboard(){
   if(controllerPhone.trim() && !/^\+?\d{9,15}$/.test(controllerPhone.replace(/[ ()-]/g,""))){setError("กรุณาตรวจสอบเบอร์โทรศัพท์ผู้ควบคุมทีม");return;}
   if((managerPhoto&&!managerName.trim())||(controllerPhoto&&!controllerName.trim())){setError("กรุณากรอกชื่อเจ้าหน้าที่ที่เลือกรูปไว้");return;}
   if(!selectedEntry&&savedEntries.some(x=>x.school_id===schoolId)){setError("โรงเรียนนี้มีใบสมัครแล้ว กรุณาเปิดใบสมัครเดิมเพื่อแก้ไข");return;}
-  if((players.some(p=>p.photo)||coaches.some(c=>c.photo)||managerPhoto||controllerPhoto)&&!window.confirm("ตรวจสอบแล้วว่ารูปที่เลือกตรงกับชื่อและหมายเลขของแต่ละคน ใช่หรือไม่?"))return;
+  if((players.some(p=>p.photo)||coaches.some(c=>c.photo)||managerPhoto||controllerPhoto)&&!(await sportsConfirm("ตรวจสอบแล้วว่ารูปที่เลือกตรงกับชื่อและหมายเลขของแต่ละคน ใช่หรือไม่?")))return;
   setBusy(true);setError("");try{
     const current=await supabase.rpc("sports_futsal_my_entries",{p_event:selectedEvent.id});
     if(current.error||!Array.isArray(current.data))throw new Error(current.error?.message||"ตรวจใบสมัครเดิมไม่สำเร็จ");
@@ -236,7 +237,7 @@ export default function FutsalDashboard(){
   const data=new FormData(e.currentTarget), status=String(data.get("status")) as Match["status"];
   const score1=data.get("score1")===""?null:Number(data.get("score1"));const score2=data.get("score2")===""?null:Number(data.get("score2"));
   const penalty1=data.get("penalty1")===""?null:Number(data.get("penalty1"));const penalty2=data.get("penalty2")===""?null:Number(data.get("penalty2"));
-  if(status==="completed"&&!window.confirm("ยืนยันบันทึกผลการแข่งขันจริงของคู่นี้?"))return;
+  if(status==="completed"&&!(await sportsConfirm("ยืนยันบันทึกผลการแข่งขันจริงของคู่นี้?")))return;
   if(status==="completed"&&(score1===null||score2===null||(score1===score2&&(penalty1===null||penalty2===null||penalty1===penalty2)))){
    setError("ผลที่เสมอหลังเวลาปกติต้องบันทึกสกอร์ยิงจุดโทษเพื่อระบุผู้ชนะก่อนบันทึกผล");return;
   }

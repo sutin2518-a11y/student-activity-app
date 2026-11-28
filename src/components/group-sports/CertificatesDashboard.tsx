@@ -1,4 +1,5 @@
 "use client";
+import { sportsConfirm } from "@/lib/group-sports/sports-dialog";
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { supabase } from "@/lib/supabase";
@@ -142,7 +143,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
   async function submitResults(e:FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if(!canSend||!event||busy)return;
-    if(!window.confirm(`ยืนยันบันทึกอันดับรางวัลของ ${event.sport_name}? เมื่อบันทึกสำเร็จ ระบบจะประกาศอันดับ อัปเดตเหรียญรางวัล และออกเกียรติบัตรทันที กรุณาตรวจสอบรายชื่อให้ถูกต้อง`))return;
+    if(!(await sportsConfirm(`ยืนยันบันทึกอันดับรางวัลของ ${event.sport_name}? เมื่อบันทึกสำเร็จ ระบบจะประกาศอันดับ อัปเดตเหรียญรางวัล และออกเกียรติบัตรทันที กรุณาตรวจสอบรายชื่อให้ถูกต้อง`)))return;
     await mutate(()=>supabase.rpc("sports_cert_submit",{p_event:event.id,p_awards:placements}),data=>{
       const status=(data as {status?:string}|null)?.status;
       return status==="published"?"บันทึกอันดับรางวัลและออกเกียรติบัตรแล้ว":
@@ -227,7 +228,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div><h2 className="font-extrabold text-[#89051b]">{mode==="print"?"ค้นหาเกียรติบัตรของโรงเรียน":"รายการแข่งขันที่รับผิดชอบ"}</h2>
               <p className="mt-1 text-xs text-slate-500">สิทธิ์: {context.role==="admin"?"ผู้ดูแลการแข่งขัน":context.role==="official"?"กรรมการบันทึกอันดับรางวัล":"บัญชีโรงเรียน"} · รายการที่เข้าถึงได้ {context.events.length} รายการ</p></div>
-            <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-red-800">{mode==="print"?"รางวัล / เข้าร่วม":"สำหรับผู้ได้รับมอบหมายเท่านั้น"}</span><button type="button" disabled={busy||!event} className={secondary} onClick={()=>{if(mode==="manage"&&!published&&screen==="record"&&placements.some(p=>p.entry_id)&&!window.confirm("โหลดข้อมูลใหม่และล้างอันดับที่ยังไม่ได้บันทึก?"))return;void mutate(async()=>({error:null}),"โหลดข้อมูลล่าสุดแล้ว");}}>โหลดข้อมูลล่าสุด</button></div>
+            <div className="flex flex-wrap items-center gap-2"><span className="rounded-full bg-rose-50 px-3 py-1 text-xs font-bold text-red-800">{mode==="print"?"รางวัล / เข้าร่วม":"สำหรับผู้ได้รับมอบหมายเท่านั้น"}</span><button type="button" disabled={busy||!event} className={secondary} onClick={async ()=>{if(mode==="manage"&&!published&&screen==="record"&&placements.some(p=>p.entry_id)&&!(await sportsConfirm("โหลดข้อมูลใหม่และล้างอันดับที่ยังไม่ได้บันทึก?")))return;void mutate(async()=>({error:null}),"โหลดข้อมูลล่าสุดแล้ว");}}>โหลดข้อมูลล่าสุด</button></div>
           </div>
           <div className="mt-4 grid gap-3 sm:grid-cols-[1fr_2fr]">
             <label className="text-xs font-bold text-slate-600">ค้นหารายการ<input value={search} onChange={e=>setSearch(e.target.value)} placeholder="ชื่อกีฬา / รหัสรายการ" className={`mt-1 ${input}`}/></label>
@@ -261,7 +262,7 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
             <p className="mt-1 text-sm text-slate-600">เลือกโรงเรียนหรือผู้แข่งขันจากใบสมัครที่ได้รับแล้ว ระบบใช้ข้อมูลนี้สำหรับสรุปอันดับ เหรียญรางวัล และออกเกียรติบัตร ไม่ใช่การบันทึกคะแนนรายคู่</p>
             {event.result_status==="rejected"&&<p className="mt-3 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">เหตุผลที่ส่งกลับ: {event.rejection_reason}</p>}
             {!eventReady?<p role="status" className="mt-4 text-sm text-slate-600">{error?"โหลดรายการไม่สำเร็จ กรุณาโหลดหน้าใหม่":"กำลังโหลดรายชื่อผู้แข่งขัน..."}</p>:<form onSubmit={submitResults} className="mt-4 space-y-3">
-              {!published&&suggestion?.status==="ready"&&<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><p>พบผลรอบชิงและรอบรองชนะเลิศครบ สามารถนำอันดับจากคะแนนเดิมมาใช้ได้ กรุณาตรวจสอบก่อนยืนยัน</p><button type="button" disabled={busy} className={`${secondary} mt-2`} onClick={()=>{if(window.confirm("นำอันดับจากผลการแข่งขันที่โหลดล่าสุดมาแทนค่าที่เลือกอยู่?"))setPlacements(suggestion.placements);}}>นำอันดับจากผลการแข่งขัน</button></div>}
+              {!published&&suggestion?.status==="ready"&&<div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-900"><p>พบผลรอบชิงและรอบรองชนะเลิศครบ สามารถนำอันดับจากคะแนนเดิมมาใช้ได้ กรุณาตรวจสอบก่อนยืนยัน</p><button type="button" disabled={busy} className={`${secondary} mt-2`} onClick={async ()=>{if((await sportsConfirm("นำอันดับจากผลการแข่งขันที่โหลดล่าสุดมาแทนค่าที่เลือกอยู่?")))setPlacements(suggestion.placements);}}>นำอันดับจากผลการแข่งขัน</button></div>}
               {!published&&suggestion&&(suggestion.status==="incomplete"||suggestion.status==="ambiguous")&&<p className="rounded-xl bg-amber-50 p-3 text-sm text-amber-900">ยังดึงอันดับจากคะแนนรายคู่ไม่ได้ (ผลไม่ครบหรือชื่อทีมไม่ตรงกับใบสมัคร) ตรวจสอบผลจริงก่อนเลือกอันดับด้วยตนเอง</p>}
               {placements.map((item,i)=><label key={`${item.rank}-${item.slot}`} className={`block rounded-xl border p-3 ${item.rank===1?"border-amber-200 bg-amber-50":item.rank===2?"border-slate-200 bg-slate-50":"border-orange-200 bg-orange-50"}`}>
                 <span className="mb-2 flex items-center gap-3">
@@ -332,8 +333,8 @@ export default function CertificatesDashboard({mode="print"}:{mode?:"print"|"man
               <h2 className="text-lg font-extrabold text-red-900">เปิดพิมพ์เกียรติบัตรเข้าร่วมการแข่งขัน</h2>
               <p className="mt-2 text-sm text-slate-600">เมื่อตรวจว่ารายชื่อนักกีฬาได้รับการรับสมัครถูกต้องแล้ว ให้เปิดพิมพ์สำหรับทุกรายชื่อในรายการนี้ การเปิดหรือปิดจะไม่แก้ไขฐานข้อมูลผลการแข่งขัน</p>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button className={event.participation_released?secondary:primary} disabled={busy} onClick={()=>{
-                  if(window.confirm(`ยืนยัน${event.participation_released?"ปิด":"เปิด"}การพิมพ์เกียรติบัตรเข้าร่วมสำหรับ ${event.sport_name}?`))
+                <button className={event.participation_released?secondary:primary} disabled={busy} onClick={async ()=>{
+                  if((await sportsConfirm(`ยืนยัน${event.participation_released?"ปิด":"เปิด"}การพิมพ์เกียรติบัตรเข้าร่วมสำหรับ ${event.sport_name}?`)))
                     void mutate(()=>supabase.rpc("sports_cert_participation",{p_event:event.id,p_enable:!event.participation_released}),event.participation_released?"ปิดพิมพ์เกียรติบัตรเข้าร่วมแล้ว":"เปิดพิมพ์เกียรติบัตรเข้าร่วมแล้ว");
                 }}>{event.participation_released?"ปิดพิมพ์เกียรติบัตรเข้าร่วม":"เปิดพิมพ์เกียรติบัตรเข้าร่วม"}</button>
                 <button className={secondary} disabled={busy} onClick={()=>void mutate(()=>supabase.rpc("sports_cert_sync",{p_event:event.id}),"ซิงค์เอกสารจากใบสมัครที่ได้รับแล้ว โดยไม่เขียนทับเอกสารเดิม")}>ซิงค์รายชื่อที่ลงทะเบียนเพิ่มเติม</button>
