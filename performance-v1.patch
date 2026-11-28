@@ -1,0 +1,404 @@
+diff --git a/src/components/group-sports/GroupSportsDashboard.tsx b/src/components/group-sports/GroupSportsDashboard.tsx
+index 3c23638..91e2f56 100644
+--- a/src/components/group-sports/GroupSportsDashboard.tsx
++++ b/src/components/group-sports/GroupSportsDashboard.tsx
+@@ -1,21 +1,25 @@
+ "use client";
+ 
+ import Link from "next/link";
++import dynamic from "next/dynamic";
+ import { REGISTRATION_SPORTS, registrationSport, registrationHref, eventRegistrationSport, allowsRegistrationPhotos, duplicateNames, sameAthlete, type RegistrationSport } from "@/lib/group-sports/registration-hub";
+ import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
+-import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
+ import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
+ import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
+ import ParadeRouteShortcut from "@/components/group-sports/ParadeRouteShortcut";
+-import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
+-import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
+-import SchoolDirectorEditor from "@/components/group-sports/SchoolDirectorEditor";
+-import AthletePhotoManager from "@/components/group-sports/AthletePhotoManager";
+ import { uploadAthletePhoto, verifyPhotoFile } from "@/lib/group-sports/rov-photos";
+ import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type SVGProps } from "react";
+ import { supabase } from "@/lib/supabase";
+ import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
+ 
++// Load heavyweight menus only when rendered, not on the public landing page.
++const menuLoading = () => <div role="status" className="rounded-xl border border-blue-100 bg-white p-5 text-sm text-slate-600">กำลังเปิดเมนู...</div>;
++const SchoolSubmissionsContent = dynamic(() => import("@/components/group-sports/SchoolSubmissionsContent"), {loading: menuLoading});
++const SportsScheduleContent = dynamic(() => import("@/components/group-sports/SportsScheduleContent"), {loading: menuLoading});
++const SchoolAccountsManager = dynamic(() => import("@/components/group-sports/SchoolAccountsManager"), {loading: menuLoading});
++const SchoolDirectorEditor = dynamic(() => import("@/components/group-sports/SchoolDirectorEditor"), {loading: menuLoading});
++const AthletePhotoManager = dynamic(() => import("@/components/group-sports/AthletePhotoManager"), {loading: menuLoading});
++
+ const SPORTS_COMPETITION_SLUG = "phayao-secondary-group-sports-2569";
+ 
+ type IconProps = SVGProps<SVGSVGElement>;
+@@ -480,6 +484,12 @@ export default function GroupSportsDashboard() {
+   const [auditBusy, setAuditBusy] = useState(false);
+   const auditRevision = useRef(0);
+   const [registrationCountsNote,setRegistrationCountsNote]=useState("");
++  const [entryLoadKey,setEntryLoadKey]=useState("");
++  const [entryLoadError,setEntryLoadError]=useState("");
++  const [entryReload,setEntryReload]=useState(0);
++  const publicLoadInFlight=useRef(false);
++  const lastPublicLoad=useRef(0);
++  const [rosterUserId,setRosterUserId]=useState("");
+   const activeRegistrationSport = registrationSport(registrationScope);
+   const chosenEvent = events.find(e => e.id === eventChoice);
+   const showPhotoInput = allowsRegistrationPhotos(chosenEvent);
+@@ -495,48 +505,48 @@ export default function GroupSportsDashboard() {
+     : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
+ 
+   const loadData = useCallback(async (silent = false) => {
++    if (publicLoadInFlight.current) return;
++    publicLoadInFlight.current=true;
++    lastPublicLoad.current=Date.now();
+     if (!silent) setLoading(true);
+     if (!silent) setError("");
+     try {
+       const { data: authData } = await supabase.auth.getUser();
+       const user = authData.user;
++      // Fetch public data alongside the role lookup, rather than after it.
++      const publicRequest = Promise.all([
++        supabase.from("sports_competitions").select("*").eq("slug", SPORTS_COMPETITION_SLUG).maybeSingle(),
++        supabase.from("sports_schools").select("*").order("name"),
++        supabase.from("sports_events").select("*").order("sport_name"),
++        supabase.from("sports_matches").select("*").order("scheduled_at", { ascending: true }),
++        supabase.from("sports_medals").select("*"),
++        supabase.from("sports_event_results").select("*"),
++      ]);
+       let profileRole = "";
+       let roleRows: UserRole[] = [];
+       if (user) {
+         setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
+-        const [profileResult, roleResult] = await Promise.all([
++        const [profileResult, roleResult, certificateResponse, centralResponse] = await Promise.all([
+           supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+           supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
++          supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access"),
+         ]);
+         profileRole = String(profileResult.data?.role || "").toLowerCase();
+         roleRows = (roleResult.data || []) as UserRole[];
+-      } else {
+-        setUserEmail("");
+-      }
+-      setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
+-      setRoles(roleRows);
+-      // Management entry is shown only to appointed certificate officials and administrators.
+-      // The certificate RPC checks the authenticated account; a school-only user never sees it.
+-      if (user) {
+-        const [certificateResponse, centralResponse] = await Promise.all([supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access")]);
+         setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
+         const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
+         setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+         setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
+       } else {
++        setUserEmail("");
+         setCanManageCertificates(false);
+         setCanAdminCertificates(false);
+         setCanCentralPrint(false);
+       }
+-
+-      const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
+-        supabase.from("sports_competitions").select("*").eq("slug", SPORTS_COMPETITION_SLUG).maybeSingle(),
+-        supabase.from("sports_schools").select("*").order("name"),
+-        supabase.from("sports_events").select("*").order("sport_name"),
+-        supabase.from("sports_matches").select("*").order("scheduled_at", { ascending: true }),
+-        supabase.from("sports_medals").select("*"),
+-        supabase.from("sports_event_results").select("*"),
+-      ]);
++      setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
++      setRoles(roleRows);
++      setRosterUserId(user?.id || "");
++      const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await publicRequest;
+ 
+       const publicErrors = [competitionResult.error, schoolResult.error, eventResult.error, matchResult.error, medalResult.error, eventResultsResult.error].filter(Boolean);
+       const missingTable = publicErrors.some((item) => item?.code === "42P01" || item?.code === "PGRST205");
+@@ -653,51 +663,81 @@ export default function GroupSportsDashboard() {
+         setResults([]);
+       }
+ 
+-      if (user && (profileRole === "admin" || roleRows.length > 0)) {
+-        // Page within the current competition; avoid silently truncating counts at the API row limit.
++    } catch (err) {
++      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
++    } finally {
++      publicLoadInFlight.current=false;
++      if (!silent) setLoading(false);
++    }
++  }, []);
++
++  useEffect(() => {
++    void loadData();
++  }, [loadData]);
++
++  // Only load identifiable registration data on the registration screen or
++  // when a result official opens the individual-result form. Keep the old RLS,
++  // paging and counting rules; do not change any write RPCs.
++  const needsEntryData = tab === "entries" || (tab === "standings" && formOpen && canRecordResults);
++  const canReadEntryData = Boolean(rosterUserId) && (isAdmin || roles.length > 0);
++  const entryCompetitionId = competition?.id || "";
++  const roleSignature=roles.map(r=>`${r.role}:${r.school_id||""}:${r.competition_id||""}`).sort().join("|");
++  const requestedEntryKey = needsEntryData && canReadEntryData && entryCompetitionId && !isDemo
++    ? `${rosterUserId}:${entryCompetitionId}:${isAdmin}:${roleSignature}:${tab}:${entryReload}` : "";
++  const entryWaiting=Boolean(requestedEntryKey && entryLoadKey!==requestedEntryKey);
++  useEffect(()=>{
++    setEntryLoadError("");
++    if (!requestedEntryKey || loading) {
++      setEntryLoadKey("");
++      if (!isDemo && !canReadEntryData) setEntries([]);
++      return;
++    }
++    let cancelled=false;
++    const controller=new AbortController();
++    void (async()=>{
++      try {
+         const entryRows:Entry[]=[];
+-        let incomplete="";
+         for(let offset=0;;offset+=500){
+-          const q=await supabase.from("sports_entries").select("*").eq("competition_id",activeCompetition.id).order("id").range(offset,offset+499);
+-          if(q.error){incomplete="อ่านใบสมัครไม่ครบ: "+q.error.message;break;}
++          const q=await supabase.from("sports_entries").select("*").eq("competition_id",entryCompetitionId).order("id").range(offset,offset+499).abortSignal(controller.signal);
++          if(cancelled)return;
++          if(q.error)throw new Error("อ่านใบสมัครไม่ครบ: "+q.error.message);
+           const rows=(q.data||[]) as Entry[];entryRows.push(...rows);if(rows.length<500)break;
+         }
+         const athleteCounts=new Map<string,number>();
+         const ids=entryRows.map(e=>e.id);
+         for(let i=0;i<ids.length;i+=100){
+           for(let offset=0;;offset+=500){
+-            const q=await supabase.from("sports_athletes").select("entry_id").in("entry_id",ids.slice(i,i+100)).order("id").range(offset,offset+499);
+-            if(q.error){incomplete="อ่านจำนวนรายชื่อนักกีฬาไม่ครบ: "+q.error.message;break;}
++            const q=await supabase.from("sports_athletes").select("entry_id").in("entry_id",ids.slice(i,i+100)).order("id").range(offset,offset+499).abortSignal(controller.signal);
++            if(cancelled)return;
++            if(q.error)throw new Error("อ่านจำนวนรายชื่อนักกีฬาไม่ครบ: "+q.error.message);
+             const rows=q.data||[];for(const row of rows)athleteCounts.set(row.entry_id,(athleteCounts.get(row.entry_id)||0)+1);
+             if(rows.length<500)break;
+           }
+         }
+-        setRegistrationCountsNote(incomplete);
+-        setEntries(entryRows.sort((a,b)=>String((b as Entry & {created_at?:string}).created_at||"").localeCompare(String((a as Entry & {created_at?:string}).created_at||""))).map(item=>({...item,athlete_count:athleteCounts.get(item.id)||0})));
+-      } else {
++        if(cancelled)return;
+         setRegistrationCountsNote("");
+-        setEntries([]);
++        setEntries(entryRows.sort((a,b)=>String((b as Entry & {created_at?:string}).created_at||"").localeCompare(String((a as Entry & {created_at?:string}).created_at||""))).map(item=>({...item,athlete_count:athleteCounts.get(item.id)||0})));
++        setEntryLoadKey(requestedEntryKey);
++      } catch(e) {
++        if(!cancelled) setEntryLoadError(e instanceof Error?e.message:"โหลดใบสมัครไม่สำเร็จ");
+       }
+-    } catch (err) {
+-      setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+-    } finally {
+-      if (!silent) setLoading(false);
+-    }
+-  }, []);
+-
+-  useEffect(() => {
+-    void loadData();
+-  }, [loadData]);
++    })();
++    return()=>{cancelled=true;controller.abort();};
++  },[requestedEntryKey,entryCompetitionId,loading,isDemo,canReadEntryData]);
++  const entryLoadPanel = <section className="rounded-xl border border-blue-200 bg-white p-5 text-sm" role="status">{entryLoadError ? <><p className="text-red-800">{entryLoadError}</p><button type="button" className="mt-2 rounded-lg bg-blue-700 px-3 py-2 font-bold text-white" onClick={()=>{setEntryLoadError("");setEntryReload(v=>v+1);}}>ลองโหลดอีกครั้ง</button></> : "กำลังโหลดใบสมัครและจำนวนรายชื่อนักกีฬา..."}</section>;
++  const refreshEntryButton = !isDemo && canReadEntryData && <button type="button" disabled={busy||formOpen||entryWaiting||Boolean(detail)} onClick={()=>{setEntryLoadError("");setEntryReload(v=>v+1);}} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-800 disabled:opacity-50">โหลดใบสมัครล่าสุด</button>;
+ 
+   // Keep the public results/medal board fresh after an official publishes placements.
+   // The database transaction writes both tables together; debounce the resulting row events.
+   useEffect(() => {
+     const refreshPublicResults = () => {
+-      if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
++      if (document.hidden || liveResultsRefreshTimer.current !== null) return;
++      // Coalesce bursts; never restart the full query for every changed row.
++      const delay=Math.max(800, 5000-(Date.now()-lastPublicLoad.current));
+       liveResultsRefreshTimer.current = window.setTimeout(() => {
+         liveResultsRefreshTimer.current = null;
+-        void loadData(true);
+-      }, 350);
++        if(!document.hidden) void loadData(true);
++      }, delay);
+     };
+     const channel = supabase.channel("sports-public-results-live")
+       .on("postgres_changes", { event: "*", schema: "public", table: "sports_event_results" }, refreshPublicResults)
+@@ -711,9 +751,12 @@ export default function GroupSportsDashboard() {
+       .on("postgres_changes", { event: "*", schema: "public", table: "sports_school_information" }, refreshPublicResults)
+       .subscribe();
+     // Polling fallback: Supabase Realtime may not be enabled for every public table.
+-    const pollId = window.setInterval(refreshPublicResults, 45_000);
++    const pollId = window.setInterval(refreshPublicResults, 90_000);
++    const onVisible=()=>{if(!document.hidden && Date.now()-lastPublicLoad.current>=90_000)refreshPublicResults();};
++    document.addEventListener("visibilitychange",onVisible);
+     return () => {
+       window.clearInterval(pollId);
++      document.removeEventListener("visibilitychange",onVisible);
+       if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
+       liveResultsRefreshTimer.current = null;
+       void supabase.removeChannel(channel);
+@@ -1751,13 +1794,13 @@ export default function GroupSportsDashboard() {
+             </div>
+             <div className="flex flex-wrap items-center gap-2">
+               {activeRegistrationSport && <Link href={`/group-sports/${activeRegistrationSport.key}`} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50">กลับหน้าจัดการกีฬา</Link>}
+-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">รับข้อมูลแล้ว {receivedEntries} ใบสมัคร</span>
++              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">{entryWaiting||loading?"กำลังโหลดใบสมัคร…":`รับข้อมูลแล้ว ${receivedEntries} ใบสมัคร`}</span>
+             </div>
+           </header>
+ 
+           {loading ? (
+             <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">กำลังโหลดข้อมูลการแข่งขันและสิทธิ์โรงเรียน...</section>
+-          ) : !canManageSchool ? (
++          ) : entryWaiting ? entryLoadPanel : !canManageSchool ? (
+             <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
+               <h2 className="text-lg font-black text-[#07123d]">เข้าสู่ระบบโรงเรียนก่อนลงทะเบียน</h2>
+               <p className="mt-2 text-sm leading-6 text-amber-900">หากต้องการลงทะเบียนนักกีฬา กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนที่ได้รับสิทธิ์ในการแข่งขันนี้</p>
+@@ -1776,7 +1819,7 @@ export default function GroupSportsDashboard() {
+                     <h2 className="text-lg font-black">ใบสมัครที่ส่งแล้ว · {activeRegistrationSport?.name || "ทุกประเภทกีฬา"}</h2>
+                     <p className="mt-1 text-xs text-slate-500">แสดงเฉพาะใบสมัครที่บัญชีโรงเรียนนี้มีสิทธิ์เข้าถึง</p>
+                   </div>
+-                  <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800">{registrationRows.length} ใบสมัคร</span>
++                  <div className="flex flex-wrap items-center gap-2">{refreshEntryButton}<span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800">{registrationRows.length} ใบสมัคร</span></div>
+                 </div>
+                 <div className="divide-y divide-slate-100">
+                   {registrationRows.map(entry => (
+@@ -2094,11 +2137,11 @@ export default function GroupSportsDashboard() {
+         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
+         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
+         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
+-        {renderForm()}
++        {!loading && !entryWaiting && renderForm()}
+ 
+         {loading ? (
+           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
+-        ) : (
++        ) : entryWaiting ? entryLoadPanel : (
+           <>
+             {tab === "accounts" && (canManageAccounts ? <SchoolAccountsManager /> : (
+               <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+@@ -2125,7 +2168,7 @@ export default function GroupSportsDashboard() {
+             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
+             {tab === "overview" && <SportsGamesHome
+               schools={schools} events={events} matches={matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id)))} results={results}
+-              medals={medals} entries={entries} eventResults={eventResults}
++              medals={medals} entries={isDemo?entries:[]} eventResults={eventResults}
+               specialMatches={homeSpecialMatches}
+               announcements={homeAnnouncements} athleteCount={homeAthleteCount}
+               onNavigate={(destination)=>{
+@@ -2171,6 +2214,7 @@ export default function GroupSportsDashboard() {
+                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+                   <div><h2 className="text-xl font-black text-slate-900">{activeRegistrationSport ? `ใบสมัคร · ${activeRegistrationSport.name}` : "ศูนย์ลงทะเบียนนักกีฬา"}</h2><p className="mt-1 text-sm text-slate-500">รับข้อมูลลงทะเบียนทันทีหลังส่งสำเร็จ · ตรวจตัวนักกีฬาและเอกสารหลักฐานที่สนามในวันแข่งขันจริง</p></div>
+                   <div className="flex flex-wrap items-center gap-2">
++                    {refreshEntryButton}
+                     {!formOpen && canManageSchool && (registrationScope || events.some(e=>!eventRegistrationSport(e))) && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
+                     {!isDemo && canManageSchool && !registrationScope && <button type="button" disabled={exportingEntries} onClick={()=>void exportRegistrations()} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{exportingEntries ? "กำลังเตรียม Excel…" : rosterAdmin ? "ดาวน์โหลด Excel ทุกโรงเรียน" : "ดาวน์โหลด Excel ของโรงเรียน"}</button>}
+                     {canManageAccounts && !registrationScope && <Link href="/group-sports/reset" className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-red-900 hover:bg-rose-100">รีเซตข้อมูลจริง (ระวัง)</Link>}
+diff --git a/src/components/group-sports/SportsGamesHome.tsx b/src/components/group-sports/SportsGamesHome.tsx
+index 6955db1..afe2101 100644
+--- a/src/components/group-sports/SportsGamesHome.tsx
++++ b/src/components/group-sports/SportsGamesHome.tsx
+@@ -33,20 +33,17 @@ export type SportsGamesHomeProps = {
+   onNavigate: (destination: Dest) => void;
+ };
+ 
++// Intl constructors are expensive (especially inside Array.sort). Reuse them.
++const thaiDateFormatter=new Intl.DateTimeFormat("th-TH", {timeZone:"Asia/Bangkok",day:"numeric",month:"short",year:"numeric"});
++const thaiTimeFormatter=new Intl.DateTimeFormat("th-TH", {timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit",hour12:false});
++const bangkokKeyFormatter=new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"});
+ function dateParts(value?: string | null) {
+   if (!value) return { date: "รอกำหนด", time: "--:--", key: "" };
+   const d = new Date(value);
+   if (Number.isNaN(d.valueOf())) return { date: "รอกำหนด", time: "--:--", key: "" };
+-  return {
+-    date: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" }).format(d),
+-    time: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(d),
+-    key: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(d),
+-  };
+-}
+-
+-function todayBangkok() {
+-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
++  return {date:thaiDateFormatter.format(d),time:thaiTimeFormatter.format(d),key:bangkokKeyFormatter.format(d)};
+ }
++function todayBangkok() { return bangkokKeyFormatter.format(new Date()); }
+ 
+ function sportGlyph(sport: string) {
+   if (/ฟุตบอล|ฟุตซอล/i.test(sport)) return "⚽";
+@@ -81,8 +78,8 @@ const SPORT_ORDER = ["E-Sport (RoV)","ฟุตบอล","ฟุตซอล","
+ const isLiveMatch = (match: Match) => match.status === "live" || match.status === "in_progress";
+ const isHiddenFromLiveBoard = (match: Match) => ["cancelled","canceled","completed","draft","postponed"].includes(match.status);
+ 
+-function matchDay(m:Match) { return m.scheduled_day || dateParts(m.scheduled_at).key; }
+-function matchTime(m:Match) { return m.scheduled_time?.slice(0,5) || dateParts(m.scheduled_at).time; }
++function matchDay(m:Match) { if(m.scheduled_day)return m.scheduled_day;const d=m.scheduled_at?new Date(m.scheduled_at):null;return d&&!Number.isNaN(d.valueOf())?bangkokKeyFormatter.format(d):""; }
++function matchTime(m:Match) { if(m.scheduled_time)return m.scheduled_time.slice(0,5);const d=m.scheduled_at?new Date(m.scheduled_at):null;return d&&!Number.isNaN(d.valueOf())?thaiTimeFormatter.format(d):"--:--"; }
+ function matchDate(m:Match) { return m.scheduled_day ? dateParts(`${m.scheduled_day}T12:00:00+07:00`).date : dateParts(m.scheduled_at).date; }
+ function orderMatches(a:Match,b:Match) { return (matchDay(a)||"9999-12-31").localeCompare(matchDay(b)||"9999-12-31") || (matchTime(a)==="--:--"?"99:99":matchTime(a)).localeCompare(matchTime(b)==="--:--"?"99:99":matchTime(b)) || a.id.localeCompare(b.id); }
+ function matchLabel(m:Match) { return m.status_label || (isLiveMatch(m)?"กำลังแข่งขัน":m.status==="awaiting_result"?"รอผลทางการ":m.status==="completed"?"จบการแข่งขัน":"รอแข่งขัน"); }
+@@ -141,42 +138,36 @@ export default function SportsGamesHome({
+   const [boardError,setBoardError]=useState(false);
+   const [lastRefresh,setLastRefresh]=useState<string|null>(null);
+   const requestRef=useRef(0);
+-  const signatureRef=useRef<string|null>(null);
+-  const refreshBoard=useCallback(async()=>{
++  const boardInFlight=useRef(false);
++  const refreshBoard=useCallback(async(automatic=false)=>{
++    if(automatic && (document.hidden||boardInFlight.current))return;
+     const revision=++requestRef.current;
++    boardInFlight.current=true;
+     try {
+-      const pulse=await supabase.rpc("sports_live_pulse_v1");
+-      if(revision!==requestRef.current)return;
+-      if(pulse.error||typeof pulse.data!=="string"){setBoardError(true);return;}
++      // The pulse RPC hashes the entire board, so a separate pulse doubles
++      // server work when data changes. Read the board directly once per minute.
+       const r=await supabase.rpc("sports_live_board_v1");
+       if(revision!==requestRef.current)return;
+       if(r.error||!Array.isArray(r.data)) {setBoardError(true);return;}
+-      signatureRef.current=pulse.data;setBoard(r.data as Match[]);setBoardError(false);setLastRefresh(new Date().toISOString());return r.data as Match[];
++      setBoard(r.data as Match[]);setBoardError(false);setLastRefresh(new Date().toISOString());return r.data as Match[];
+     } catch {if(revision===requestRef.current)setBoardError(true);}
++    finally {if(revision===requestRef.current)boardInFlight.current=false;}
+   },[]);
+   useEffect(()=>{
+     void refreshBoard();
+-    let polling=false;
+-    const poll=async()=>{
+-      if(document.hidden||polling)return;
+-      polling=true;
+-      const revision=requestRef.current;
+-      try {
+-        const r=await supabase.rpc("sports_live_pulse_v1");
+-        if(revision!==requestRef.current)return;
+-        if(r.error||typeof r.data!=="string"){setBoardError(true);return;}
+-        if(signatureRef.current!==r.data)await refreshBoard();
+-        else {setBoardError(false);setLastRefresh(new Date().toISOString());}
+-      } catch {if(revision===requestRef.current)setBoardError(true);}
+-      finally {polling=false;}
+-    };
+-    const timer=window.setInterval(()=>void poll(),20_000);
+-    const visible=()=>{if(!document.hidden)void poll();};
++    const timer=window.setInterval(()=>void refreshBoard(true),60_000);
++    const visible=()=>{if(!document.hidden)void refreshBoard(true);};
+     document.addEventListener("visibilitychange",visible);
+     let authTimer:number|undefined;
+     let lastUser:string|undefined;
+-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{const uid=session?.user?.id||"";if(lastUser===uid)return;lastUser=uid;setBoard(null);signatureRef.current=null;requestRef.current++;window.clearTimeout(authTimer);authTimer=window.setTimeout(()=>void refreshBoard(),0);});
+-    return()=>{requestRef.current++;window.clearInterval(timer);document.removeEventListener("visibilitychange",visible);window.clearTimeout(authTimer);subscription.unsubscribe();};
++    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
++      const uid=session?.user?.id||"";
++      if(event==="INITIAL_SESSION" && lastUser===undefined){lastUser=uid;return;}
++      if(lastUser===uid)return;
++      lastUser=uid;setBoard(null);requestRef.current++;boardInFlight.current=false;
++      window.clearTimeout(authTimer);authTimer=window.setTimeout(()=>void refreshBoard(),0);
++    });
++    return()=>{requestRef.current++;boardInFlight.current=false;window.clearInterval(timer);document.removeEventListener("visibilitychange",visible);window.clearTimeout(authTimer);subscription.unsubscribe();};
+   },[refreshBoard]);
+   const schoolById = useMemo(() => new Map(schools.map(s => [s.id, s.name])), [schools]);
+   const eventById = useMemo(() => new Map(events.map(e => [e.id, e])), [events]);
+@@ -273,7 +264,7 @@ export default function SportsGamesHome({
+             </div>
+           </div>
+           <div className="phg-live-filterbar"><label>สนาม <select value={chosenVenue} onChange={e=>{setVenueFilter(e.target.value);setActiveId("");}}><option value="all">ทุกสนาม</option>{venues.map(v=><option key={v} value={v}>{v}</option>)}</select></label><label>วันที่ <select value={liveDateFilter} onChange={e=>{setLiveDateFilter(e.target.value);setActiveId("");}}><option value="all">ทุกวัน</option><option value="today">วันนี้</option></select></label><button type="button" className="phg-inline-link" onClick={()=>void refreshBoard()}>↻ รีเฟรช</button>{activeId&&<button type="button" className="phg-inline-link" onClick={()=>setActiveId("")}>กลับไปเลือกคู่อัตโนมัติ</button>}</div>
+-          {boardError?<div className="phg-live-error" role="status">เชื่อมข้อมูลสดไม่ได้ · แสดงข้อมูลล่าสุดที่มี (ยังไม่ยืนยันสถานะสดใหม่)</div>:board===null?<small>กำลังโหลดโปรแกรมที่เผยแพร่แล้ว…</small>:<small className="phg-live-refresh">อัปเดต {dateParts(lastRefresh).time} น. · ตรวจการเปลี่ยนแปลงทุก 20 วินาทีขณะเปิดหน้า</small>}
++          {boardError?<div className="phg-live-error" role="status">เชื่อมข้อมูลสดไม่ได้ · แสดงข้อมูลล่าสุดที่มี (ยังไม่ยืนยันสถานะสดใหม่)</div>:board===null?<small>กำลังโหลดโปรแกรมที่เผยแพร่แล้ว…</small>:<small className="phg-live-refresh">อัปเดต {dateParts(lastRefresh).time} น. · ตรวจข้อมูลทุก 60 วินาทีขณะเปิดหน้า</small>}
+           <div className="phg-live-summary" aria-live="polite">
+             {liveSportFilter === "all" ? "ทุกประเภทกีฬา" : liveSportFilter}
+             <span> · กำลังดำเนินการ {selectedLiveCount} รายการ</span>

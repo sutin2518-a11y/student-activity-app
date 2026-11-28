@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "@/lib/supabase";
 import "./sports-games-home.css";
 
@@ -33,20 +33,17 @@ export type SportsGamesHomeProps = {
   onNavigate: (destination: Dest) => void;
 };
 
+// Intl constructors are expensive (especially inside Array.sort). Reuse them.
+const thaiDateFormatter=new Intl.DateTimeFormat("th-TH", {timeZone:"Asia/Bangkok",day:"numeric",month:"short",year:"numeric"});
+const thaiTimeFormatter=new Intl.DateTimeFormat("th-TH", {timeZone:"Asia/Bangkok",hour:"2-digit",minute:"2-digit",hour12:false});
+const bangkokKeyFormatter=new Intl.DateTimeFormat("en-CA", {timeZone:"Asia/Bangkok",year:"numeric",month:"2-digit",day:"2-digit"});
 function dateParts(value?: string | null) {
   if (!value) return { date: "รอกำหนด", time: "--:--", key: "" };
   const d = new Date(value);
   if (Number.isNaN(d.valueOf())) return { date: "รอกำหนด", time: "--:--", key: "" };
-  return {
-    date: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", day: "numeric", month: "short", year: "numeric" }).format(d),
-    time: new Intl.DateTimeFormat("th-TH", { timeZone: "Asia/Bangkok", hour: "2-digit", minute: "2-digit", hour12: false }).format(d),
-    key: new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(d),
-  };
+  return {date:thaiDateFormatter.format(d),time:thaiTimeFormatter.format(d),key:bangkokKeyFormatter.format(d)};
 }
-
-function todayBangkok() {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Bangkok", year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date());
-}
+function todayBangkok() { return bangkokKeyFormatter.format(new Date()); }
 
 function sportGlyph(sport: string) {
   if (/ฟุตบอล|ฟุตซอล/i.test(sport)) return "⚽";
@@ -81,8 +78,20 @@ const SPORT_ORDER = ["E-Sport (RoV)","ฟุตบอล","ฟุตซอล","
 const isLiveMatch = (match: Match) => match.status === "live" || match.status === "in_progress";
 const isHiddenFromLiveBoard = (match: Match) => ["cancelled","canceled","completed","draft","postponed"].includes(match.status);
 
-function matchDay(m:Match) { return m.scheduled_day || dateParts(m.scheduled_at).key; }
-function matchTime(m:Match) { return m.scheduled_time?.slice(0,5) || dateParts(m.scheduled_at).time; }
+// Cache date/time per fixture object; sorting no longer re-formats the same timestamp repeatedly.
+const fixtureClockCache = new WeakMap<Match,{at:Match["scheduled_at"];day:Match["scheduled_day"];time:Match["scheduled_time"];dayKey:string;timeKey:string}>();
+function fixtureClock(m:Match) {
+  const cached=fixtureClockCache.get(m);
+  if(cached && cached.at===m.scheduled_at && cached.day===m.scheduled_day && cached.time===m.scheduled_time)return cached;
+  const d=m.scheduled_at?new Date(m.scheduled_at):null;
+  const valid=d!==null&&!Number.isNaN(d.valueOf());
+  const value={at:m.scheduled_at,day:m.scheduled_day,time:m.scheduled_time,
+    dayKey:m.scheduled_day||(valid&&d?bangkokKeyFormatter.format(d):""),
+    timeKey:m.scheduled_time?m.scheduled_time.slice(0,5):valid&&d?thaiTimeFormatter.format(d):"--:--"};
+  fixtureClockCache.set(m,value);return value;
+}
+function matchDay(m:Match) {return fixtureClock(m).dayKey;}
+function matchTime(m:Match) {return fixtureClock(m).timeKey;}
 function matchDate(m:Match) { return m.scheduled_day ? dateParts(`${m.scheduled_day}T12:00:00+07:00`).date : dateParts(m.scheduled_at).date; }
 function orderMatches(a:Match,b:Match) { return (matchDay(a)||"9999-12-31").localeCompare(matchDay(b)||"9999-12-31") || (matchTime(a)==="--:--"?"99:99":matchTime(a)).localeCompare(matchTime(b)==="--:--"?"99:99":matchTime(b)) || a.id.localeCompare(b.id); }
 function matchLabel(m:Match) { return m.status_label || (isLiveMatch(m)?"กำลังแข่งขัน":m.status==="awaiting_result"?"รอผลทางการ":m.status==="completed"?"จบการแข่งขัน":"รอแข่งขัน"); }
@@ -127,7 +136,7 @@ function StatGlyph({kind}:{kind:"schools"|"events"|"athletes"|"live"}) {
 
 const fmt = (value: number) => value.toLocaleString("th-TH");
 
-export default function SportsGamesHome({
+function SportsGamesHome({
   schools, events, matches, results, medals, entries, eventResults, specialMatches, announcements, athleteCount, onNavigate,
 }: SportsGamesHomeProps) {
   const [sportFilter, setSportFilter] = useState("all");
@@ -141,42 +150,36 @@ export default function SportsGamesHome({
   const [boardError,setBoardError]=useState(false);
   const [lastRefresh,setLastRefresh]=useState<string|null>(null);
   const requestRef=useRef(0);
-  const signatureRef=useRef<string|null>(null);
-  const refreshBoard=useCallback(async()=>{
+  const boardInFlight=useRef(false);
+  const refreshBoard=useCallback(async(automatic=false)=>{
+    if(automatic && (document.hidden||boardInFlight.current))return;
     const revision=++requestRef.current;
+    boardInFlight.current=true;
     try {
-      const pulse=await supabase.rpc("sports_live_pulse_v1");
-      if(revision!==requestRef.current)return;
-      if(pulse.error||typeof pulse.data!=="string"){setBoardError(true);return;}
+      // The pulse RPC hashes the entire board, so a separate pulse doubles
+      // server work when data changes. Read the board directly once per minute.
       const r=await supabase.rpc("sports_live_board_v1");
       if(revision!==requestRef.current)return;
       if(r.error||!Array.isArray(r.data)) {setBoardError(true);return;}
-      signatureRef.current=pulse.data;setBoard(r.data as Match[]);setBoardError(false);setLastRefresh(new Date().toISOString());return r.data as Match[];
+      setBoard(r.data as Match[]);setBoardError(false);setLastRefresh(new Date().toISOString());return r.data as Match[];
     } catch {if(revision===requestRef.current)setBoardError(true);}
+    finally {if(revision===requestRef.current)boardInFlight.current=false;}
   },[]);
   useEffect(()=>{
     void refreshBoard();
-    let polling=false;
-    const poll=async()=>{
-      if(document.hidden||polling)return;
-      polling=true;
-      const revision=requestRef.current;
-      try {
-        const r=await supabase.rpc("sports_live_pulse_v1");
-        if(revision!==requestRef.current)return;
-        if(r.error||typeof r.data!=="string"){setBoardError(true);return;}
-        if(signatureRef.current!==r.data)await refreshBoard();
-        else {setBoardError(false);setLastRefresh(new Date().toISOString());}
-      } catch {if(revision===requestRef.current)setBoardError(true);}
-      finally {polling=false;}
-    };
-    const timer=window.setInterval(()=>void poll(),20_000);
-    const visible=()=>{if(!document.hidden)void poll();};
+    const timer=window.setInterval(()=>void refreshBoard(true),60_000);
+    const visible=()=>{if(!document.hidden)void refreshBoard(true);};
     document.addEventListener("visibilitychange",visible);
     let authTimer:number|undefined;
     let lastUser:string|undefined;
-    const {data:{subscription}}=supabase.auth.onAuthStateChange((_event,session)=>{const uid=session?.user?.id||"";if(lastUser===uid)return;lastUser=uid;setBoard(null);signatureRef.current=null;requestRef.current++;window.clearTimeout(authTimer);authTimer=window.setTimeout(()=>void refreshBoard(),0);});
-    return()=>{requestRef.current++;window.clearInterval(timer);document.removeEventListener("visibilitychange",visible);window.clearTimeout(authTimer);subscription.unsubscribe();};
+    const {data:{subscription}}=supabase.auth.onAuthStateChange((event,session)=>{
+      const uid=session?.user?.id||"";
+      if(event==="INITIAL_SESSION" && lastUser===undefined){lastUser=uid;return;}
+      if(lastUser===uid)return;
+      lastUser=uid;setBoard(null);requestRef.current++;boardInFlight.current=false;
+      window.clearTimeout(authTimer);authTimer=window.setTimeout(()=>void refreshBoard(),0);
+    });
+    return()=>{requestRef.current++;boardInFlight.current=false;window.clearInterval(timer);document.removeEventListener("visibilitychange",visible);window.clearTimeout(authTimer);subscription.unsubscribe();};
   },[refreshBoard]);
   const schoolById = useMemo(() => new Map(schools.map(s => [s.id, s.name])), [schools]);
   const eventById = useMemo(() => new Map(events.map(e => [e.id, e])), [events]);
@@ -194,8 +197,9 @@ export default function SportsGamesHome({
     return { id: s.id, name: s.name, gold, silver, bronze, total: mine.length };
   }).sort((a,b) => b.gold-a.gold || b.silver-a.silver || b.bronze-a.bronze || a.name.localeCompare(b.name,"th")), [schools,medalsFiltered]);
   const getSchool = (id?: string | null) => (id ? schoolById.get(id) : null) || "รอระบุโรงเรียน";
-  const getEvent = (id: string) => eventById.get(id)?.sport_name || board?.find(m=>m.event_id===id)?.sport_name || "รายการแข่งขัน";
-  const allMatches = board === null ? [...matches, ...specialMatches.filter(m=>m.special_source!=="athletics")] : [...matches.filter(m=>!eventById.get(m.event_id)?.event_code?.startsWith("GS3-")), ...board];
+  const boardEventNames=useMemo(()=>{const names=new Map<string,string|undefined>();for(const m of board||[])if(!names.has(m.event_id))names.set(m.event_id,m.sport_name);return names;},[board]);
+  const getEvent = (id: string) => eventById.get(id)?.sport_name || boardEventNames.get(id) || "รายการแข่งขัน";
+  const allMatches = useMemo(()=>board === null ? [...matches, ...specialMatches.filter(m=>m.special_source!=="athletics")] : [...matches.filter(m=>!eventById.get(m.event_id)?.event_code?.startsWith("GS3-")), ...board],[board,matches,specialMatches,eventById]);
   const goMatch = (m: Match) => {
     if (m.special_source === "football") window.location.assign(getEvent(m.event_id).includes("เทเบิลเทนนิส") ? "/group-sports/table-tennis" : getEvent(m.event_id).includes("เปตอง") ? "/group-sports/petanque" : getEvent(m.event_id).includes("เซปักตะกร้อ") ? "/group-sports/takraw" : getEvent(m.event_id).includes("วอลเลย์บอล") ? "/group-sports/volleyball" : getEvent(m.event_id).includes("บาสเกตบอล") ? "/group-sports/basketball" : getEvent(m.event_id).includes("ฟุตซอล") ? "/group-sports/futsal" : "/group-sports/football");
     else if (m.special_source === "boxing") window.location.assign("/group-sports/boxing");
@@ -221,12 +225,14 @@ export default function SportsGamesHome({
   const pending=selected.filter(m=>m.status==="awaiting_result").sort(orderMatches);
   const selectedUpcoming=selected.filter(m=>!isLiveMatch(m)&&m.status!=="awaiting_result").sort(orderMatches);
   const upcomingFuture=selectedUpcoming.filter(m=>matchDay(m)>todayKey||(matchDay(m)===todayKey&&(!m.scheduled_at||new Date(m.scheduled_at).getTime()>=now)));
-  const upcomingPast=selectedUpcoming.filter(m=>!upcomingFuture.includes(m));
+  const futureSet=new Set(upcomingFuture);
+  const upcomingPast=selectedUpcoming.filter(m=>!futureSet.has(m));
   const ordered=[...selectedLive,...upcomingFuture,...pending,...upcomingPast];
   const featured=ordered.find(m=>m.id===activeId)||ordered[0];
   const otherMatches=[...selectedLive,...pending,...upcomingFuture,...upcomingPast].filter(m=>m.id!==featured?.id);
   const activeOthers=otherMatches.filter(m=>isLiveMatch(m)||m.status==="awaiting_result");
-  const remaining=otherMatches.filter(m=>!activeOthers.includes(m));
+  const activeSet=new Set(activeOthers);
+  const remaining=otherMatches.filter(m=>!activeSet.has(m));
   const visibleOthers=showAll?otherMatches:[...activeOthers,...remaining.slice(0,3)];
   const latestResults=allMatches.filter(m=>m.status==="completed"&&(!!matchScore(m)||!!m.winner_school)).slice().sort((a,b)=>new Date(b.updated_at||b.scheduled_at||0).getTime()-new Date(a.updated_at||a.scheduled_at||0).getTime()).slice(0,3);
   const selectedLiveCount=selectedLive.length;
@@ -273,7 +279,7 @@ export default function SportsGamesHome({
             </div>
           </div>
           <div className="phg-live-filterbar"><label>สนาม <select value={chosenVenue} onChange={e=>{setVenueFilter(e.target.value);setActiveId("");}}><option value="all">ทุกสนาม</option>{venues.map(v=><option key={v} value={v}>{v}</option>)}</select></label><label>วันที่ <select value={liveDateFilter} onChange={e=>{setLiveDateFilter(e.target.value);setActiveId("");}}><option value="all">ทุกวัน</option><option value="today">วันนี้</option></select></label><button type="button" className="phg-inline-link" onClick={()=>void refreshBoard()}>↻ รีเฟรช</button>{activeId&&<button type="button" className="phg-inline-link" onClick={()=>setActiveId("")}>กลับไปเลือกคู่อัตโนมัติ</button>}</div>
-          {boardError?<div className="phg-live-error" role="status">เชื่อมข้อมูลสดไม่ได้ · แสดงข้อมูลล่าสุดที่มี (ยังไม่ยืนยันสถานะสดใหม่)</div>:board===null?<small>กำลังโหลดโปรแกรมที่เผยแพร่แล้ว…</small>:<small className="phg-live-refresh">อัปเดต {dateParts(lastRefresh).time} น. · ตรวจการเปลี่ยนแปลงทุก 20 วินาทีขณะเปิดหน้า</small>}
+          {boardError?<div className="phg-live-error" role="status">เชื่อมข้อมูลสดไม่ได้ · แสดงข้อมูลล่าสุดที่มี (ยังไม่ยืนยันสถานะสดใหม่)</div>:board===null?<small>กำลังโหลดโปรแกรมที่เผยแพร่แล้ว…</small>:<small className="phg-live-refresh">อัปเดต {dateParts(lastRefresh).time} น. · ตรวจข้อมูลทุก 60 วินาทีขณะเปิดหน้า</small>}
           <div className="phg-live-summary" aria-live="polite">
             {liveSportFilter === "all" ? "ทุกประเภทกีฬา" : liveSportFilter}
             <span> · กำลังดำเนินการ {selectedLiveCount} รายการ</span>
@@ -339,3 +345,5 @@ export default function SportsGamesHome({
     </div>
   </div>;
 }
+
+export default memo(SportsGamesHome);

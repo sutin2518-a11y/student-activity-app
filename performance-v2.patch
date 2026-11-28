@@ -1,0 +1,487 @@
+--- a/src/components/group-sports/GroupSportsDashboard.tsx
++++ b/src/components/group-sports/GroupSportsDashboard.tsx
+@@ -3,7 +3,7 @@
+ import Link from "next/link";
+ import dynamic from "next/dynamic";
+ import { REGISTRATION_SPORTS, registrationSport, registrationHref, eventRegistrationSport, allowsRegistrationPhotos, duplicateNames, sameAthlete, type RegistrationSport } from "@/lib/group-sports/registration-hub";
+-import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
++import SportsGamesHome, { type SportsGamesHomeProps } from "@/components/group-sports/SportsGamesHome";
+ import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
+ import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
+ import ParadeRouteShortcut from "@/components/group-sports/ParadeRouteShortcut";
+@@ -20,6 +20,7 @@
+ const SchoolDirectorEditor = dynamic(() => import("@/components/group-sports/SchoolDirectorEditor"), {loading: menuLoading});
+ const AthletePhotoManager = dynamic(() => import("@/components/group-sports/AthletePhotoManager"), {loading: menuLoading});
+ 
++const EMPTY_HOME_ENTRIES: Entry[] = [];
+ const SPORTS_COMPETITION_SLUG = "phayao-secondary-group-sports-2569";
+ 
+ type IconProps = SVGProps<SVGSVGElement>;
+@@ -447,6 +448,7 @@
+   const [userEmail, setUserEmail] = useState("");
+   const [isDemo, setIsDemo] = useState(false);
+   const [loading, setLoading] = useState(true);
++  const [publicReady,setPublicReady]=useState(false);
+   const [busy, setBusy] = useState(false);
+   const [notice, setNotice] = useState("");
+   const [error, setError] = useState("");
+@@ -500,9 +502,9 @@
+   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
+   const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
+   const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canCentralPrint || canManageCompetition || canRecordResults || canManageSchool);
+-  const entrySchools = rosterAdmin
++  const entrySchools = useMemo(()=>rosterAdmin
+     ? schools
+-    : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
++    : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id))),[rosterAdmin,schools,roles,competition?.id]);
+ 
+   const loadData = useCallback(async (silent = false) => {
+     if (publicLoadInFlight.current) return;
+@@ -510,6 +512,7 @@
+     lastPublicLoad.current=Date.now();
+     if (!silent) setLoading(true);
+     if (!silent) setError("");
++    let identityTask: Promise<void> | undefined;
+     try {
+       const { data: authData } = await supabase.auth.getUser();
+       const user = authData.user;
+@@ -522,30 +525,38 @@
+         supabase.from("sports_medals").select("*"),
+         supabase.from("sports_event_results").select("*"),
+       ]);
+-      let profileRole = "";
+-      let roleRows: UserRole[] = [];
+-      if (user) {
+-        setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
+-        const [profileResult, roleResult, certificateResponse, centralResponse] = await Promise.all([
+-          supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+-          supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
+-          supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access"),
+-        ]);
+-        profileRole = String(profileResult.data?.role || "").toLowerCase();
+-        roleRows = (roleResult.data || []) as UserRole[];
+-        setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
+-        const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
+-        setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+-        setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
+-      } else {
+-        setUserEmail("");
+-        setCanManageCertificates(false);
+-        setCanAdminCertificates(false);
+-        setCanCentralPrint(false);
+-      }
+-      setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
+-      setRoles(roleRows);
+-      setRosterUserId(user?.id || "");
++      // Roles are still verified before any protected menu/form is rendered.
++      // Public overview no longer waits for the four role/certificate lookups.
++      identityTask = (async()=>{
++        let profileRole = "";
++        let roleRows: UserRole[] = [];
++        if (user) {
++          setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
++          const [profileResult, roleResult, certificateResponse, centralResponse] = await Promise.all([
++            supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
++            supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
++            supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access"),
++          ]);
++          profileRole = String(profileResult.data?.role || "").toLowerCase();
++          roleRows = (roleResult.data || []) as UserRole[];
++          setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
++          const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
++          setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
++          setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
++        } else {
++          setUserEmail("");
++          setCanManageCertificates(false);
++          setCanAdminCertificates(false);
++          setCanCentralPrint(false);
++        }
++        setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
++        setRoles(roleRows);
++        setRosterUserId(user?.id || "");
++      })().catch((cause:unknown)=>{
++        setUserEmail("");setRoles([]);setIsAdmin(false);setRosterUserId("");
++        setCanManageCertificates(false);setCanAdminCertificates(false);setCanCentralPrint(false);
++        setError(cause instanceof Error?cause.message:"ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาโหลดใหม่");
++      });
+       const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await publicRequest;
+ 
+       const publicErrors = [competitionResult.error, schoolResult.error, eventResult.error, matchResult.error, medalResult.error, eventResultsResult.error].filter(Boolean);
+@@ -564,6 +575,7 @@
+         setEventResults(DEMO_EVENT_RESULTS);
+         setMedals(DEMO_MEDALS);
+         setNotice("กำลังแสดงข้อมูลตัวอย่าง เนื่องจากยังไม่ได้ติดตั้งฐานข้อมูลระบบกีฬากลุ่ม");
++        setPublicReady(true);
+         return;
+       }
+       if (publicErrors.length) {
+@@ -578,13 +590,13 @@
+       setCompetition(activeCompetition);
+       // Read-only public aggregates: no individual student names exposed to public overview.
+       // The new RPC is optional until migration v33.11 is installed.
+-      void supabase.rpc("sports_public_overview_counts", { p_comp: activeCompetition.id })
++      void Promise.resolve(supabase.rpc("sports_public_overview_counts", { p_comp: activeCompetition.id }))
+         .then(({data, error}) => {
+           if (!error && data && typeof data === "object" && "athletes" in data) {
+             const count = Number((data as {athletes: unknown}).athletes);
+             if (Number.isFinite(count)) setHomeAthleteCount(count);
+           }
+-        });
++        }).catch(()=>{/* Optional overview count; keep last known value. */});
+       // Specialist football/RoV fixtures have independent result tables. Public RLS
+       // permits only non-draft fixtures; never show unpublished scores on home.
+       void Promise.all([
+@@ -633,14 +645,14 @@
+           };
+         });
+         setHomeSpecialMatches([...footballMatches,...esportsMatches,...boxingMatches,...athleticsSessions]);
+-      });
+-      void supabase.from("sports_school_information")
++      }).catch(()=>{/* Keep previous fallback program on network failure. */});
++      void Promise.resolve(supabase.from("sports_school_information")
+         .select("id,title,details,published_at")
+         .eq("competition_id", activeCompetition.id).eq("section", "announcements")
+-        .eq("is_published", true).order("published_at", {ascending:false}).limit(6)
++        .eq("is_published", true).order("published_at", {ascending:false}).limit(6))
+         .then(({data, error}) => {
+           if (!error) setHomeAnnouncements((data || []) as {id:string;title:string;details:string;published_at:string|null}[]);
+-        });
++        }).catch(()=>{/* Keep previous announcements on network failure. */});
+ 
+       const allSchools = (schoolResult.data || []) as School[];
+       setSchools(allSchools.filter((school) => school.status !== "inactive"));
+@@ -654,7 +666,7 @@
+       const activeEventIds = new Set(allEvents.filter((item) => !activeCompetition || item.competition_id === activeCompetition.id).map((item) => item.id));
+       setEventResults(allEventResults.filter((item) => activeEventIds.has(item.event_id)));
+ 
+-      const matchIds = allMatches.map((item) => item.id);
++      const matchIds = allMatches.filter(item=>item.competition_id===activeCompetition.id).map((item) => item.id);
+       if (matchIds.length) {
+         const resultQuery = await supabase.from("sports_match_results").select("*").in("match_id", matchIds);
+         if (resultQuery.error && resultQuery.error.code !== "PGRST205") throw resultQuery.error;
+@@ -662,10 +674,12 @@
+       } else {
+         setResults([]);
+       }
++      setPublicReady(true);
+ 
+     } catch (err) {
+       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
+     } finally {
++      await identityTask;
+       publicLoadInFlight.current=false;
+       if (!silent) setLoading(false);
+     }
+@@ -797,14 +811,14 @@
+ 
+   const completedMatches = useMemo(() => matches.filter((match) => match.status === "completed"), [matches]);
+   const totalMedals = medals.length;
+-  const schoolEntries = entries.filter(e=>entrySchools.some(s=>s.id===e.school_id));
++  const schoolEntries = useMemo(()=>{const ids=new Set(entrySchools.map(s=>s.id));return entries.filter(e=>ids.has(e.school_id));},[entries,entrySchools]);
+   const registrationEvents = useMemo(() => registrationScope ? events.filter(event => eventRegistrationSport(event) === registrationScope) : events, [events, registrationScope]);
+   const registrationEventIds = useMemo(() => new Set(registrationEvents.map(event => event.id)), [registrationEvents]);
+-  const scopedSchoolEntries = registrationScope ? schoolEntries.filter(entry => registrationEventIds.has(entry.event_id)) : schoolEntries;
+-  const listEvents = listSport && !registrationScope ? registrationEvents.filter(e=>eventRegistrationSport(e)===listSport) : registrationEvents;
+-  const listEventIds = new Set(listEvents.map(e=>e.id));
+-  const registrationRows = scopedSchoolEntries.filter(e=>listEventIds.has(e.event_id)&&(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter));
+-  const receivedEntries = scopedSchoolEntries.filter((entry) => ["submitted", "approved", "rejected"].includes(entry.status)).length;
++  const scopedSchoolEntries = useMemo(()=>registrationScope ? schoolEntries.filter(entry => registrationEventIds.has(entry.event_id)) : schoolEntries,[registrationScope,schoolEntries,registrationEventIds]);
++  const listEvents = useMemo(()=>listSport && !registrationScope ? registrationEvents.filter(e=>eventRegistrationSport(e)===listSport) : registrationEvents,[listSport,registrationScope,registrationEvents]);
++  const listEventIds = useMemo(()=>new Set(listEvents.map(e=>e.id)),[listEvents]);
++  const registrationRows = useMemo(()=>scopedSchoolEntries.filter(e=>listEventIds.has(e.event_id)&&(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter)),[scopedSchoolEntries,listEventIds,schoolFilter,eventFilter]);
++  const receivedEntries = useMemo(()=>scopedSchoolEntries.filter((entry) => ["submitted", "approved", "rejected"].includes(entry.status)).length,[scopedSchoolEntries]);
+ 
+   useEffect(() => {
+     if (!registrationEmbed) return;
+@@ -875,6 +889,7 @@
+   }, [medals, schools]);
+ 
+   const standings = useMemo(() => {
++    if(tab!=="standings") return [];
+     const filteredEvents = selectedEventId === "all" ? events : events.filter((event) => event.id === selectedEventId);
+     return filteredEvents.flatMap((event) => {
+       const eventMatches = matches.filter((match) => match.event_id === event.id && match.status === "completed");
+@@ -909,7 +924,7 @@
+         return { event, groupName, rows };
+       }).filter((group) => group.rows.length > 0);
+     });
+-  }, [events, matches, resultByMatch, schoolById, selectedEventId]);
++  }, [tab, events, matches, resultByMatch, schoolById, selectedEventId]);
+ 
+   async function addSchool(event: FormEvent<HTMLFormElement>) {
+     event.preventDefault();
+@@ -1295,7 +1310,7 @@
+     const ev=eventById.get(entry.event_id);
+     const sport=isFootball(ev)?"football":isFutsal(ev)?"futsal":isBasketball(ev)?"basketball":isVolleyball(ev)?"volleyball":isTakraw(ev)?"takraw":isTableTennis(ev)?"table-tennis":null;
+     const cls="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 disabled:opacity-50";
+-    return <>{sport?<Link className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}</>;
++    return <>{sport?<Link prefetch={false} className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}</>;
+   }
+ 
+   async function openRoster(entry: Entry, edit = false, view: "roster" | "photos" = "roster") {
+@@ -1758,7 +1773,7 @@
+     return null;
+   };
+ 
+-  const goToSportsSection = (key: string) => {
++  const goToSportsSection = useCallback((key: string) => {
+     closeSystemMenu();
+     setSportsMenuOpen(false);
+     setSchoolInfoMenuOpen(false);
+@@ -1771,7 +1786,14 @@
+     else if (key === "about") { setTab("about"); }
+     else { setTab(key as TabKey); }
+     setError("");
+-  };
++  },[closeSystemMenu]);
++  const navigateHome = useCallback((destination: Parameters<SportsGamesHomeProps["onNavigate"]>[0])=>{
++    if (destination === "announcements") goToSportsSection("news");
++    else if (destination === "schedule") goToSportsSection("program");
++    else if (destination === "entries") goToSportsSection("register");
++    else goToSportsSection(destination);
++  },[goToSportsSection]);
++  const overviewMatches=useMemo(()=>matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id))),[matches,eventById]);
+ 
+   if (registrationScope === "table-tennis" && tab === "entries") {
+     return <main className="p-6"><Link href="/group-sports/table-tennis?tab=registration" target={registrationEmbed?"_top":undefined} className="font-bold text-blue-800 underline">เปิดแบบฟอร์มเทเบิลเทนนิสเฉพาะกีฬา →</Link></main>;
+@@ -1946,12 +1968,12 @@
+           <div
+             id="sports-management-submenu"
+             aria-hidden={!sportsMenuOpen}
+-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
++            className={`grid transition-[grid-template-rows,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
+           >
+             <div className="min-h-0 overflow-hidden">
+               <div
+                 style={{ marginLeft: sportsDropdownLeft }}
+-                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
++                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "translate-y-0" : "-translate-y-2"}`}
+               >
+                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
+                 <div ref={sportsPanelRef} role="group" aria-label="เลือกเมนูจัดการแข่งขัน" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
+@@ -1979,30 +2001,30 @@
+                     );
+                   })}
+                   {canManageCertificates && <>
+-                    <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
++                    <Link prefetch={false} href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
+                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
+                       <span className="flex min-w-0 items-center gap-3"><TrophyIcon className="h-5 w-5 shrink-0 text-blue-800"/><span>บันทึกอันดับรางวัล</span></span>
+                     </Link>
+                   </>}
+-                  {(canManageCertificates || canAdminCertificates) && <Link href="/group-sports/test" tabIndex={sportsMenuOpen ? 0 : -1} onClick={()=>{setSportsMenuOpen(false);setSchoolInfoMenuOpen(false);}} className="flex min-h-12 items-center rounded-xl bg-amber-100 px-3 py-3 text-sm font-bold text-amber-950">ศูนย์ทดสอบระบบ (TEST)</Link>}
++                  {(canManageCertificates || canAdminCertificates) && <Link prefetch={false} href="/group-sports/test" tabIndex={sportsMenuOpen ? 0 : -1} onClick={()=>{setSportsMenuOpen(false);setSchoolInfoMenuOpen(false);}} className="flex min-h-12 items-center rounded-xl bg-amber-100 px-3 py-3 text-sm font-bold text-amber-950">ศูนย์ทดสอบระบบ (TEST)</Link>}
+                   {canAdminCertificates && <>
+-                    <Link href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
++                    <Link prefetch={false} href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
+                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                       <span className="flex min-w-0 items-center gap-3"><span>มอบหมายกรรมการกีฬา</span></span>
+                     </Link>
+-                    <Link href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
++                    <Link prefetch={false} href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
+                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                       <span className="flex min-w-0 items-center gap-3"><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
+                     </Link>
+-                    <Link href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
++                    <Link prefetch={false} href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
+                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                       <span className="flex min-w-0 items-center gap-3"><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
+                     </Link>
+-                    <Link href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
++                    <Link prefetch={false} href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
+                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
+                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
+                       <span className="flex min-w-0 items-center gap-3"><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
+@@ -2015,12 +2037,12 @@
+           <div
+             id="school-information-submenu"
+             aria-hidden={!schoolInfoMenuOpen}
+-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
++            className={`grid transition-[grid-template-rows,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
+           >
+             <div className="min-h-0 overflow-hidden">
+               <div
+                 style={{ marginLeft: schoolInfoDropdownLeft }}
+-                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
++                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0" : "-translate-y-2"}`}
+               >
+                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
+                 <div ref={schoolInfoPanelRef} role="group" aria-label="เมนูข้อมูลทั่วไป" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
+@@ -2050,7 +2072,7 @@
+                       </button>
+                     );
+                   })}
+-                  {canManageAccounts && <Link href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
++                  {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                     onClick={() => { setSchoolInfoMenuOpen(false); setSportsMenuOpen(false); }}
+                     className="flex min-h-12 w-full items-center justify-between rounded-xl border-t border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100">
+                     <span>จัดการภาพและข้อความ (Admin)</span>
+@@ -2088,34 +2110,34 @@
+             }}>
+               {canAccessSystemMenu ? <>
+                 {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
+-                {canManageCompetition && <Link href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
+                 {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
+                 {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
+-                {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}
+-                {canManageCompetition && <Link href="/group-sports/futsal">จัดการฟุตซอล</Link>}
+-                {canManageCompetition && <Link href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
+-                {canManageCompetition && <Link href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
+-                {canManageCompetition && <Link href="/group-sports/petanque">จัดการเปตอง</Link>}
+-                {canManageCompetition && <Link href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
+-                <Link href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
+-                {canManageCompetition && <Link href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
+-                {canManageCompetition && <Link href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
+-                {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
+-                {canManageCertificates && <Link href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
+-                {canAdminCertificates && <Link href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
+-                {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
+-                {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
+-                {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
+-                {canCentralPrint && <Link href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/football">จัดการฟุตบอล</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/futsal">จัดการฟุตซอล</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/petanque">จัดการเปตอง</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
++                <Link prefetch={false} href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
++                {canManageCompetition && <Link prefetch={false} href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
++                {canManageCertificates && <Link prefetch={false} href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
++                {canAdminCertificates && <Link prefetch={false} href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
++                {canAdminCertificates && <Link prefetch={false} href="/group-sports/admin">Admin Full Control</Link>}
++                {canAdminCertificates && <Link prefetch={false} href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
++                {canAdminCertificates && <Link prefetch={false} href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
++                {canCentralPrint && <Link prefetch={false} href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
+                 {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
+-                {canManageAccounts && <Link href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
+-                {(canManageCertificates || canAdminCertificates || canManageAccounts) && <Link href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>}
+-                {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
+-                <Link href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
++                {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
++                {(canManageCertificates || canAdminCertificates || canManageAccounts) && <Link prefetch={false} href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>}
++                {canManageAccounts && <Link prefetch={false} href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
++                <Link prefetch={false} href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
+                 <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
+               </> : <>
+-                <Link href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
+-                <Link href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
++                <Link prefetch={false} href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
++                <Link prefetch={false} href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
+               </>}
+             </div>
+           </details>
+@@ -2139,7 +2161,7 @@
+         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
+         {!loading && !entryWaiting && renderForm()}
+ 
+-        {loading ? (
++        {loading && !(tab === "overview" && publicReady) && tab !== "about" ? (
+           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
+         ) : entryWaiting ? entryLoadPanel : (
+           <>
+@@ -2167,16 +2189,11 @@
+                   canManage={canManageAccounts} />)}
+             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
+             {tab === "overview" && <SportsGamesHome
+-              schools={schools} events={events} matches={matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id)))} results={results}
+-              medals={medals} entries={isDemo?entries:[]} eventResults={eventResults}
++              schools={schools} events={events} matches={overviewMatches} results={results}
++              medals={medals} entries={isDemo?entries:EMPTY_HOME_ENTRIES} eventResults={eventResults}
+               specialMatches={homeSpecialMatches}
+               announcements={homeAnnouncements} athleteCount={homeAthleteCount}
+-              onNavigate={(destination)=>{
+-                if (destination === "announcements") goToSportsSection("news");
+-                else if (destination === "schedule") goToSportsSection("program");
+-                else if (destination === "entries") { goToSportsSection("register"); }
+-                else goToSportsSection(destination);
+-              }}
++              onNavigate={navigateHome}
+             />}
+ 
+             {tab === "about" && <section className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm">
+--- a/src/components/group-sports/SportsGamesHome.tsx
++++ b/src/components/group-sports/SportsGamesHome.tsx
+@@ -1,6 +1,6 @@
+ "use client";
+ 
+-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
++import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+ import { supabase } from "@/lib/supabase";
+ import "./sports-games-home.css";
+ 
+@@ -78,8 +78,20 @@
+ const isLiveMatch = (match: Match) => match.status === "live" || match.status === "in_progress";
+ const isHiddenFromLiveBoard = (match: Match) => ["cancelled","canceled","completed","draft","postponed"].includes(match.status);
+ 
+-function matchDay(m:Match) { if(m.scheduled_day)return m.scheduled_day;const d=m.scheduled_at?new Date(m.scheduled_at):null;return d&&!Number.isNaN(d.valueOf())?bangkokKeyFormatter.format(d):""; }
+-function matchTime(m:Match) { if(m.scheduled_time)return m.scheduled_time.slice(0,5);const d=m.scheduled_at?new Date(m.scheduled_at):null;return d&&!Number.isNaN(d.valueOf())?thaiTimeFormatter.format(d):"--:--"; }
++// Cache date/time per fixture object; sorting no longer re-formats the same timestamp repeatedly.
++const fixtureClockCache = new WeakMap<Match,{at:Match["scheduled_at"];day:Match["scheduled_day"];time:Match["scheduled_time"];dayKey:string;timeKey:string}>();
++function fixtureClock(m:Match) {
++  const cached=fixtureClockCache.get(m);
++  if(cached && cached.at===m.scheduled_at && cached.day===m.scheduled_day && cached.time===m.scheduled_time)return cached;
++  const d=m.scheduled_at?new Date(m.scheduled_at):null;
++  const valid=d!==null&&!Number.isNaN(d.valueOf());
++  const value={at:m.scheduled_at,day:m.scheduled_day,time:m.scheduled_time,
++    dayKey:m.scheduled_day||(valid&&d?bangkokKeyFormatter.format(d):""),
++    timeKey:m.scheduled_time?m.scheduled_time.slice(0,5):valid&&d?thaiTimeFormatter.format(d):"--:--"};
++  fixtureClockCache.set(m,value);return value;
++}
++function matchDay(m:Match) {return fixtureClock(m).dayKey;}
++function matchTime(m:Match) {return fixtureClock(m).timeKey;}
+ function matchDate(m:Match) { return m.scheduled_day ? dateParts(`${m.scheduled_day}T12:00:00+07:00`).date : dateParts(m.scheduled_at).date; }
+ function orderMatches(a:Match,b:Match) { return (matchDay(a)||"9999-12-31").localeCompare(matchDay(b)||"9999-12-31") || (matchTime(a)==="--:--"?"99:99":matchTime(a)).localeCompare(matchTime(b)==="--:--"?"99:99":matchTime(b)) || a.id.localeCompare(b.id); }
+ function matchLabel(m:Match) { return m.status_label || (isLiveMatch(m)?"กำลังแข่งขัน":m.status==="awaiting_result"?"รอผลทางการ":m.status==="completed"?"จบการแข่งขัน":"รอแข่งขัน"); }
+@@ -124,7 +136,7 @@
+ 
+ const fmt = (value: number) => value.toLocaleString("th-TH");
+ 
+-export default function SportsGamesHome({
++function SportsGamesHome({
+   schools, events, matches, results, medals, entries, eventResults, specialMatches, announcements, athleteCount, onNavigate,
+ }: SportsGamesHomeProps) {
+   const [sportFilter, setSportFilter] = useState("all");
+@@ -185,8 +197,9 @@
+     return { id: s.id, name: s.name, gold, silver, bronze, total: mine.length };
+   }).sort((a,b) => b.gold-a.gold || b.silver-a.silver || b.bronze-a.bronze || a.name.localeCompare(b.name,"th")), [schools,medalsFiltered]);
+   const getSchool = (id?: string | null) => (id ? schoolById.get(id) : null) || "รอระบุโรงเรียน";
+-  const getEvent = (id: string) => eventById.get(id)?.sport_name || board?.find(m=>m.event_id===id)?.sport_name || "รายการแข่งขัน";
+-  const allMatches = board === null ? [...matches, ...specialMatches.filter(m=>m.special_source!=="athletics")] : [...matches.filter(m=>!eventById.get(m.event_id)?.event_code?.startsWith("GS3-")), ...board];
++  const boardEventNames=useMemo(()=>{const names=new Map<string,string|undefined>();for(const m of board||[])if(!names.has(m.event_id))names.set(m.event_id,m.sport_name);return names;},[board]);
++  const getEvent = (id: string) => eventById.get(id)?.sport_name || boardEventNames.get(id) || "รายการแข่งขัน";
++  const allMatches = useMemo(()=>board === null ? [...matches, ...specialMatches.filter(m=>m.special_source!=="athletics")] : [...matches.filter(m=>!eventById.get(m.event_id)?.event_code?.startsWith("GS3-")), ...board],[board,matches,specialMatches,eventById]);
+   const goMatch = (m: Match) => {
+     if (m.special_source === "football") window.location.assign(getEvent(m.event_id).includes("เทเบิลเทนนิส") ? "/group-sports/table-tennis" : getEvent(m.event_id).includes("เปตอง") ? "/group-sports/petanque" : getEvent(m.event_id).includes("เซปักตะกร้อ") ? "/group-sports/takraw" : getEvent(m.event_id).includes("วอลเลย์บอล") ? "/group-sports/volleyball" : getEvent(m.event_id).includes("บาสเกตบอล") ? "/group-sports/basketball" : getEvent(m.event_id).includes("ฟุตซอล") ? "/group-sports/futsal" : "/group-sports/football");
+     else if (m.special_source === "boxing") window.location.assign("/group-sports/boxing");
+@@ -212,12 +225,14 @@
+   const pending=selected.filter(m=>m.status==="awaiting_result").sort(orderMatches);
+   const selectedUpcoming=selected.filter(m=>!isLiveMatch(m)&&m.status!=="awaiting_result").sort(orderMatches);
+   const upcomingFuture=selectedUpcoming.filter(m=>matchDay(m)>todayKey||(matchDay(m)===todayKey&&(!m.scheduled_at||new Date(m.scheduled_at).getTime()>=now)));
+-  const upcomingPast=selectedUpcoming.filter(m=>!upcomingFuture.includes(m));
++  const futureSet=new Set(upcomingFuture);
++  const upcomingPast=selectedUpcoming.filter(m=>!futureSet.has(m));
+   const ordered=[...selectedLive,...upcomingFuture,...pending,...upcomingPast];
+   const featured=ordered.find(m=>m.id===activeId)||ordered[0];
+   const otherMatches=[...selectedLive,...pending,...upcomingFuture,...upcomingPast].filter(m=>m.id!==featured?.id);
+   const activeOthers=otherMatches.filter(m=>isLiveMatch(m)||m.status==="awaiting_result");
+-  const remaining=otherMatches.filter(m=>!activeOthers.includes(m));
++  const activeSet=new Set(activeOthers);
++  const remaining=otherMatches.filter(m=>!activeSet.has(m));
+   const visibleOthers=showAll?otherMatches:[...activeOthers,...remaining.slice(0,3)];
+   const latestResults=allMatches.filter(m=>m.status==="completed"&&(!!matchScore(m)||!!m.winner_school)).slice().sort((a,b)=>new Date(b.updated_at||b.scheduled_at||0).getTime()-new Date(a.updated_at||a.scheduled_at||0).getTime()).slice(0,3);
+   const selectedLiveCount=selectedLive.length;
+@@ -330,3 +345,5 @@
+     </div>
+   </div>;
+ }
++
++export default memo(SportsGamesHome);

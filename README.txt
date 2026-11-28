@@ -1,15 +1,6 @@
-School self-service — SQL 062 / 27 พ.ย. 2569
-ขอบเขต: ใบสมัครนักกีฬาของโรงเรียนตนเองเท่านั้น ไม่รวมเอกสารพิธีเปิด/แก้ไขรุ่นกรีฑา/ผลการแข่งขัน
-ติดตั้ง SQL 062 ในฐานทดสอบก่อน เมื่อ READY ให้คัดลอก src ทับโปรเจกต์ (ตรวจ Git diff ก่อน)
-ฟังก์ชันใหม่ไม่แก้ไขฟังก์ชันสมัครใหม่เดิม ไม่เปลี่ยน RLS เดิม และไม่แตะสถานะการแข่งขัน
-ใช้คำสั่ง npm run build แล้ว npm run dev; ทดสอบบัญชีโรงเรียนสองบัญชีแยกกันบนฐานทดสอบ
-หน้าลงทะเบียน / ใบสมัครที่ส่งแล้ว -> แก้ไขใบสมัครของโรงเรียน / ลบใบสมัครของโรงเรียน
-กีฬาที่มีฟอร์มเฉพาะ: ไปหน้ากีฬานั้น เลือกแก้ไขใบสมัครเดิม ไม่ใช่สมัครใหม่
-การแก้ไขคงรหัสใบสมัคร แต่ระบบบันทึกเดิมบางกีฬาสร้างแถวนักกีฬาใหม่ รูปที่ชื่อและลำดับเดิมควรยังใช้ได้; ถ้าเปลี่ยนชื่อ/ลำดับให้ตรวจสอบและแนบรูปใหม่ถ้าจำเป็น
-ลบใบสมัครจริงออกจากรายการสมัครและเก็บ snapshot ใน sports_school_entry_audit_v1 (ผู้ดูแลตรวจจาก SQL Editor ได้) ไม่ลบไฟล์ Storage และไม่มีปุ่มกู้คืนอัตโนมัติ
-จำกัดก่อนวันแข่งขันตามวันที่โปรแกรม รวมถึงกรณีจัดสายมวย ตรวจรายชื่อกรีฑา LIVE/ผล/รางวัล/เกียรติบัตร หรือปิดรับสมัคร
-การแก้ไขจากหน้าฟอร์มเดิมไม่มี optimistic concurrency ครบทุกกีฬา อย่าเปิดแก้ใบสมัครเดียวกันพร้อมกันหลายเครื่อง
-ตรวจความต่างกับโค้ดล่าสุดก่อนวางทับ: GroupSportsDashboard จาก central-publish-v2, Basketball/Takraw จาก optional-reserves, Volleyball จาก volleyball-optional-reserves, Football/Futsal/TableTennis จาก โปรเจค(4).zip
-ตรวจ syntax TypeScript แล้วเท่านั้น ยังไม่ได้ build และรัน SQL จริง; SQL clone ตรวจเงื่อนไขข้อความจริง หาก STOP อย่าลบ guard ให้ export นิยาม RPC มาเทียบ
-ทดสอบ: สมัครใหม่, แก้ใบสมัครตนเอง, ลบใบสมัครตนเอง, สมัครใหม่หลังลบ, บัญชีอื่นต้องไม่สามารถแก้หรือลบได้, ปิดรับสมัคร/มีผลต้องปฏิเสธ, ตรวจรูปและ PDF ก่อนขึ้นจริง
-ห้ามทดสอบลบใบสมัครจริงโดยไม่ตั้งใจ ถ้า localhost ต่อ Production จะบันทึกข้อมูลจริง
+Performance v2 — based on the two files uploaded 2026-11-28.
+Copy src into student-activity-app, or apply performance-v2.patch after git apply --check. Do not install v1 again.
+No SQL, no migration, no database reset.
+Stop dev server, npm run build, npm run start. Verify public overview, school registration, admin menu, official results before Commit & Push.
+Retains existing 90-second and 60-second polling; no video streaming added.
+Full production build and live database/browser tests must be done on the project machine.

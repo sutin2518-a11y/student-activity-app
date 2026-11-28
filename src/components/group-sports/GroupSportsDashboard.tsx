@@ -1,21 +1,26 @@
 "use client";
 
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { REGISTRATION_SPORTS, registrationSport, registrationHref, eventRegistrationSport, allowsRegistrationPhotos, duplicateNames, sameAthlete, type RegistrationSport } from "@/lib/group-sports/registration-hub";
-import SportsGamesHome from "@/components/group-sports/SportsGamesHome";
-import SchoolSubmissionsContent from "@/components/group-sports/SchoolSubmissionsContent";
+import SportsGamesHome, { type SportsGamesHomeProps } from "@/components/group-sports/SportsGamesHome";
 import SchoolInformationHub, { SCHOOL_INFORMATION_SECTIONS, type SchoolInformationSection } from "@/components/group-sports/SchoolInformationHub";
 import SchoolParadeReference, { hasSchoolParadeReference } from "@/components/group-sports/SchoolParadeReference";
 import ParadeRouteShortcut from "@/components/group-sports/ParadeRouteShortcut";
-import SportsScheduleContent from "@/components/group-sports/SportsScheduleContent";
-import SchoolAccountsManager from "@/components/group-sports/SchoolAccountsManager";
-import SchoolDirectorEditor from "@/components/group-sports/SchoolDirectorEditor";
-import AthletePhotoManager from "@/components/group-sports/AthletePhotoManager";
 import { uploadAthletePhoto, verifyPhotoFile } from "@/lib/group-sports/rov-photos";
 import { FormEvent, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type SVGProps } from "react";
 import { supabase } from "@/lib/supabase";
 import { downloadRosterTemplate, readRosterExcel, supportsIndividualBatch, ATHLETE_NAME_PREFIXES, ROV_PLAY_POSITIONS, type ImportedAthlete } from "@/lib/group-sports/roster-excel";
 
+// Load heavyweight menus only when rendered, not on the public landing page.
+const menuLoading = () => <div role="status" className="rounded-xl border border-blue-100 bg-white p-5 text-sm text-slate-600">กำลังเปิดเมนู...</div>;
+const SchoolSubmissionsContent = dynamic(() => import("@/components/group-sports/SchoolSubmissionsContent"), {loading: menuLoading});
+const SportsScheduleContent = dynamic(() => import("@/components/group-sports/SportsScheduleContent"), {loading: menuLoading});
+const SchoolAccountsManager = dynamic(() => import("@/components/group-sports/SchoolAccountsManager"), {loading: menuLoading});
+const SchoolDirectorEditor = dynamic(() => import("@/components/group-sports/SchoolDirectorEditor"), {loading: menuLoading});
+const AthletePhotoManager = dynamic(() => import("@/components/group-sports/AthletePhotoManager"), {loading: menuLoading});
+
+const EMPTY_HOME_ENTRIES: Entry[] = [];
 const SPORTS_COMPETITION_SLUG = "phayao-secondary-group-sports-2569";
 
 type IconProps = SVGProps<SVGSVGElement>;
@@ -443,6 +448,7 @@ export default function GroupSportsDashboard() {
   const [userEmail, setUserEmail] = useState("");
   const [isDemo, setIsDemo] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [publicReady,setPublicReady]=useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
@@ -480,6 +486,12 @@ export default function GroupSportsDashboard() {
   const [auditBusy, setAuditBusy] = useState(false);
   const auditRevision = useRef(0);
   const [registrationCountsNote,setRegistrationCountsNote]=useState("");
+  const [entryLoadKey,setEntryLoadKey]=useState("");
+  const [entryLoadError,setEntryLoadError]=useState("");
+  const [entryReload,setEntryReload]=useState(0);
+  const publicLoadInFlight=useRef(false);
+  const lastPublicLoad=useRef(0);
+  const [rosterUserId,setRosterUserId]=useState("");
   const activeRegistrationSport = registrationSport(registrationScope);
   const chosenEvent = events.find(e => e.id === eventChoice);
   const showPhotoInput = allowsRegistrationPhotos(chosenEvent);
@@ -490,46 +502,22 @@ export default function GroupSportsDashboard() {
   const canRecordResults = isDemo || canManageCompetition || roles.some((role) => role.role === "referee" && (!role.competition_id || role.competition_id === competition?.id));
   const canManageAccounts = !isDemo && roles.some((role) => (role.role === "super_admin" && (!role.competition_id || role.competition_id === competition?.id)) || (role.role === "competition_admin" && role.competition_id === competition?.id));
   const canAccessSystemMenu = !isDemo && Boolean(userEmail) && (canManageAccounts || canManageCertificates || canAdminCertificates || canCentralPrint || canManageCompetition || canRecordResults || canManageSchool);
-  const entrySchools = rosterAdmin
+  const entrySchools = useMemo(()=>rosterAdmin
     ? schools
-    : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id)));
+    : schools.filter((school) => roles.some((role) => role.role === "school_manager" && role.school_id === school.id && (!role.competition_id || role.competition_id===competition?.id))),[rosterAdmin,schools,roles,competition?.id]);
 
   const loadData = useCallback(async (silent = false) => {
+    if (publicLoadInFlight.current) return;
+    publicLoadInFlight.current=true;
+    lastPublicLoad.current=Date.now();
     if (!silent) setLoading(true);
     if (!silent) setError("");
+    let identityTask: Promise<void> | undefined;
     try {
       const { data: authData } = await supabase.auth.getUser();
       const user = authData.user;
-      let profileRole = "";
-      let roleRows: UserRole[] = [];
-      if (user) {
-        setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
-        const [profileResult, roleResult] = await Promise.all([
-          supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-          supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
-        ]);
-        profileRole = String(profileResult.data?.role || "").toLowerCase();
-        roleRows = (roleResult.data || []) as UserRole[];
-      } else {
-        setUserEmail("");
-      }
-      setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
-      setRoles(roleRows);
-      // Management entry is shown only to appointed certificate officials and administrators.
-      // The certificate RPC checks the authenticated account; a school-only user never sees it.
-      if (user) {
-        const [certificateResponse, centralResponse] = await Promise.all([supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access")]);
-        setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
-        const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
-        setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
-        setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
-      } else {
-        setCanManageCertificates(false);
-        setCanAdminCertificates(false);
-        setCanCentralPrint(false);
-      }
-
-      const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await Promise.all([
+      // Fetch public data alongside the role lookup, rather than after it.
+      const publicRequest = Promise.all([
         supabase.from("sports_competitions").select("*").eq("slug", SPORTS_COMPETITION_SLUG).maybeSingle(),
         supabase.from("sports_schools").select("*").order("name"),
         supabase.from("sports_events").select("*").order("sport_name"),
@@ -537,6 +525,39 @@ export default function GroupSportsDashboard() {
         supabase.from("sports_medals").select("*"),
         supabase.from("sports_event_results").select("*"),
       ]);
+      // Roles are still verified before any protected menu/form is rendered.
+      // Public overview no longer waits for the four role/certificate lookups.
+      identityTask = (async()=>{
+        let profileRole = "";
+        let roleRows: UserRole[] = [];
+        if (user) {
+          setUserEmail(user.app_metadata?.sports_school_account ? "บัญชีโรงเรียน" : user.email || "");
+          const [profileResult, roleResult, certificateResponse, centralResponse] = await Promise.all([
+            supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
+            supabase.from("sports_user_roles").select("role, school_id, competition_id").eq("user_id", user.id).eq("is_active", true),
+            supabase.rpc("sports_cert_context"), supabase.rpc("sports_central_cert_my_access"),
+          ]);
+          profileRole = String(profileResult.data?.role || "").toLowerCase();
+          roleRows = (roleResult.data || []) as UserRole[];
+          setCanCentralPrint(!centralResponse.error && centralResponse.data === true);
+          const certificateRole = (certificateResponse.data as {role?:string}|null)?.role;
+          setCanManageCertificates(!certificateResponse.error && (certificateRole === "official" || certificateRole === "admin"));
+          setCanAdminCertificates(!certificateResponse.error && certificateRole === "admin");
+        } else {
+          setUserEmail("");
+          setCanManageCertificates(false);
+          setCanAdminCertificates(false);
+          setCanCentralPrint(false);
+        }
+        setIsAdmin(profileRole === "admin" || roleRows.some((role) => role.role === "super_admin"));
+        setRoles(roleRows);
+        setRosterUserId(user?.id || "");
+      })().catch((cause:unknown)=>{
+        setUserEmail("");setRoles([]);setIsAdmin(false);setRosterUserId("");
+        setCanManageCertificates(false);setCanAdminCertificates(false);setCanCentralPrint(false);
+        setError(cause instanceof Error?cause.message:"ตรวจสอบสิทธิ์ไม่สำเร็จ กรุณาโหลดใหม่");
+      });
+      const [competitionResult, schoolResult, eventResult, matchResult, medalResult, eventResultsResult] = await publicRequest;
 
       const publicErrors = [competitionResult.error, schoolResult.error, eventResult.error, matchResult.error, medalResult.error, eventResultsResult.error].filter(Boolean);
       const missingTable = publicErrors.some((item) => item?.code === "42P01" || item?.code === "PGRST205");
@@ -554,6 +575,7 @@ export default function GroupSportsDashboard() {
         setEventResults(DEMO_EVENT_RESULTS);
         setMedals(DEMO_MEDALS);
         setNotice("กำลังแสดงข้อมูลตัวอย่าง เนื่องจากยังไม่ได้ติดตั้งฐานข้อมูลระบบกีฬากลุ่ม");
+        setPublicReady(true);
         return;
       }
       if (publicErrors.length) {
@@ -568,13 +590,13 @@ export default function GroupSportsDashboard() {
       setCompetition(activeCompetition);
       // Read-only public aggregates: no individual student names exposed to public overview.
       // The new RPC is optional until migration v33.11 is installed.
-      void supabase.rpc("sports_public_overview_counts", { p_comp: activeCompetition.id })
+      void Promise.resolve(supabase.rpc("sports_public_overview_counts", { p_comp: activeCompetition.id }))
         .then(({data, error}) => {
           if (!error && data && typeof data === "object" && "athletes" in data) {
             const count = Number((data as {athletes: unknown}).athletes);
             if (Number.isFinite(count)) setHomeAthleteCount(count);
           }
-        });
+        }).catch(()=>{/* Optional overview count; keep last known value. */});
       // Specialist football/RoV fixtures have independent result tables. Public RLS
       // permits only non-draft fixtures; never show unpublished scores on home.
       void Promise.all([
@@ -623,14 +645,14 @@ export default function GroupSportsDashboard() {
           };
         });
         setHomeSpecialMatches([...footballMatches,...esportsMatches,...boxingMatches,...athleticsSessions]);
-      });
-      void supabase.from("sports_school_information")
+      }).catch(()=>{/* Keep previous fallback program on network failure. */});
+      void Promise.resolve(supabase.from("sports_school_information")
         .select("id,title,details,published_at")
         .eq("competition_id", activeCompetition.id).eq("section", "announcements")
-        .eq("is_published", true).order("published_at", {ascending:false}).limit(6)
+        .eq("is_published", true).order("published_at", {ascending:false}).limit(6))
         .then(({data, error}) => {
           if (!error) setHomeAnnouncements((data || []) as {id:string;title:string;details:string;published_at:string|null}[]);
-        });
+        }).catch(()=>{/* Keep previous announcements on network failure. */});
 
       const allSchools = (schoolResult.data || []) as School[];
       setSchools(allSchools.filter((school) => school.status !== "inactive"));
@@ -644,7 +666,7 @@ export default function GroupSportsDashboard() {
       const activeEventIds = new Set(allEvents.filter((item) => !activeCompetition || item.competition_id === activeCompetition.id).map((item) => item.id));
       setEventResults(allEventResults.filter((item) => activeEventIds.has(item.event_id)));
 
-      const matchIds = allMatches.map((item) => item.id);
+      const matchIds = allMatches.filter(item=>item.competition_id===activeCompetition.id).map((item) => item.id);
       if (matchIds.length) {
         const resultQuery = await supabase.from("sports_match_results").select("*").in("match_id", matchIds);
         if (resultQuery.error && resultQuery.error.code !== "PGRST205") throw resultQuery.error;
@@ -652,35 +674,13 @@ export default function GroupSportsDashboard() {
       } else {
         setResults([]);
       }
+      setPublicReady(true);
 
-      if (user && (profileRole === "admin" || roleRows.length > 0)) {
-        // Page within the current competition; avoid silently truncating counts at the API row limit.
-        const entryRows:Entry[]=[];
-        let incomplete="";
-        for(let offset=0;;offset+=500){
-          const q=await supabase.from("sports_entries").select("*").eq("competition_id",activeCompetition.id).order("id").range(offset,offset+499);
-          if(q.error){incomplete="อ่านใบสมัครไม่ครบ: "+q.error.message;break;}
-          const rows=(q.data||[]) as Entry[];entryRows.push(...rows);if(rows.length<500)break;
-        }
-        const athleteCounts=new Map<string,number>();
-        const ids=entryRows.map(e=>e.id);
-        for(let i=0;i<ids.length;i+=100){
-          for(let offset=0;;offset+=500){
-            const q=await supabase.from("sports_athletes").select("entry_id").in("entry_id",ids.slice(i,i+100)).order("id").range(offset,offset+499);
-            if(q.error){incomplete="อ่านจำนวนรายชื่อนักกีฬาไม่ครบ: "+q.error.message;break;}
-            const rows=q.data||[];for(const row of rows)athleteCounts.set(row.entry_id,(athleteCounts.get(row.entry_id)||0)+1);
-            if(rows.length<500)break;
-          }
-        }
-        setRegistrationCountsNote(incomplete);
-        setEntries(entryRows.sort((a,b)=>String((b as Entry & {created_at?:string}).created_at||"").localeCompare(String((a as Entry & {created_at?:string}).created_at||""))).map(item=>({...item,athlete_count:athleteCounts.get(item.id)||0})));
-      } else {
-        setRegistrationCountsNote("");
-        setEntries([]);
-      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "เกิดข้อผิดพลาดในการโหลดข้อมูล");
     } finally {
+      await identityTask;
+      publicLoadInFlight.current=false;
       if (!silent) setLoading(false);
     }
   }, []);
@@ -689,15 +689,69 @@ export default function GroupSportsDashboard() {
     void loadData();
   }, [loadData]);
 
+  // Only load identifiable registration data on the registration screen or
+  // when a result official opens the individual-result form. Keep the old RLS,
+  // paging and counting rules; do not change any write RPCs.
+  const needsEntryData = tab === "entries" || (tab === "standings" && formOpen && canRecordResults);
+  const canReadEntryData = Boolean(rosterUserId) && (isAdmin || roles.length > 0);
+  const entryCompetitionId = competition?.id || "";
+  const roleSignature=roles.map(r=>`${r.role}:${r.school_id||""}:${r.competition_id||""}`).sort().join("|");
+  const requestedEntryKey = needsEntryData && canReadEntryData && entryCompetitionId && !isDemo
+    ? `${rosterUserId}:${entryCompetitionId}:${isAdmin}:${roleSignature}:${tab}:${entryReload}` : "";
+  const entryWaiting=Boolean(requestedEntryKey && entryLoadKey!==requestedEntryKey);
+  useEffect(()=>{
+    setEntryLoadError("");
+    if (!requestedEntryKey || loading) {
+      setEntryLoadKey("");
+      if (!isDemo && !canReadEntryData) setEntries([]);
+      return;
+    }
+    let cancelled=false;
+    const controller=new AbortController();
+    void (async()=>{
+      try {
+        const entryRows:Entry[]=[];
+        for(let offset=0;;offset+=500){
+          const q=await supabase.from("sports_entries").select("*").eq("competition_id",entryCompetitionId).order("id").range(offset,offset+499).abortSignal(controller.signal);
+          if(cancelled)return;
+          if(q.error)throw new Error("อ่านใบสมัครไม่ครบ: "+q.error.message);
+          const rows=(q.data||[]) as Entry[];entryRows.push(...rows);if(rows.length<500)break;
+        }
+        const athleteCounts=new Map<string,number>();
+        const ids=entryRows.map(e=>e.id);
+        for(let i=0;i<ids.length;i+=100){
+          for(let offset=0;;offset+=500){
+            const q=await supabase.from("sports_athletes").select("entry_id").in("entry_id",ids.slice(i,i+100)).order("id").range(offset,offset+499).abortSignal(controller.signal);
+            if(cancelled)return;
+            if(q.error)throw new Error("อ่านจำนวนรายชื่อนักกีฬาไม่ครบ: "+q.error.message);
+            const rows=q.data||[];for(const row of rows)athleteCounts.set(row.entry_id,(athleteCounts.get(row.entry_id)||0)+1);
+            if(rows.length<500)break;
+          }
+        }
+        if(cancelled)return;
+        setRegistrationCountsNote("");
+        setEntries(entryRows.sort((a,b)=>String((b as Entry & {created_at?:string}).created_at||"").localeCompare(String((a as Entry & {created_at?:string}).created_at||""))).map(item=>({...item,athlete_count:athleteCounts.get(item.id)||0})));
+        setEntryLoadKey(requestedEntryKey);
+      } catch(e) {
+        if(!cancelled) setEntryLoadError(e instanceof Error?e.message:"โหลดใบสมัครไม่สำเร็จ");
+      }
+    })();
+    return()=>{cancelled=true;controller.abort();};
+  },[requestedEntryKey,entryCompetitionId,loading,isDemo,canReadEntryData]);
+  const entryLoadPanel = <section className="rounded-xl border border-blue-200 bg-white p-5 text-sm" role="status">{entryLoadError ? <><p className="text-red-800">{entryLoadError}</p><button type="button" className="mt-2 rounded-lg bg-blue-700 px-3 py-2 font-bold text-white" onClick={()=>{setEntryLoadError("");setEntryReload(v=>v+1);}}>ลองโหลดอีกครั้ง</button></> : "กำลังโหลดใบสมัครและจำนวนรายชื่อนักกีฬา..."}</section>;
+  const refreshEntryButton = !isDemo && canReadEntryData && <button type="button" disabled={busy||formOpen||entryWaiting||Boolean(detail)} onClick={()=>{setEntryLoadError("");setEntryReload(v=>v+1);}} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-800 disabled:opacity-50">โหลดใบสมัครล่าสุด</button>;
+
   // Keep the public results/medal board fresh after an official publishes placements.
   // The database transaction writes both tables together; debounce the resulting row events.
   useEffect(() => {
     const refreshPublicResults = () => {
-      if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
+      if (document.hidden || liveResultsRefreshTimer.current !== null) return;
+      // Coalesce bursts; never restart the full query for every changed row.
+      const delay=Math.max(800, 5000-(Date.now()-lastPublicLoad.current));
       liveResultsRefreshTimer.current = window.setTimeout(() => {
         liveResultsRefreshTimer.current = null;
-        void loadData(true);
-      }, 350);
+        if(!document.hidden) void loadData(true);
+      }, delay);
     };
     const channel = supabase.channel("sports-public-results-live")
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_event_results" }, refreshPublicResults)
@@ -711,9 +765,12 @@ export default function GroupSportsDashboard() {
       .on("postgres_changes", { event: "*", schema: "public", table: "sports_school_information" }, refreshPublicResults)
       .subscribe();
     // Polling fallback: Supabase Realtime may not be enabled for every public table.
-    const pollId = window.setInterval(refreshPublicResults, 45_000);
+    const pollId = window.setInterval(refreshPublicResults, 90_000);
+    const onVisible=()=>{if(!document.hidden && Date.now()-lastPublicLoad.current>=90_000)refreshPublicResults();};
+    document.addEventListener("visibilitychange",onVisible);
     return () => {
       window.clearInterval(pollId);
+      document.removeEventListener("visibilitychange",onVisible);
       if (liveResultsRefreshTimer.current !== null) window.clearTimeout(liveResultsRefreshTimer.current);
       liveResultsRefreshTimer.current = null;
       void supabase.removeChannel(channel);
@@ -754,14 +811,14 @@ export default function GroupSportsDashboard() {
 
   const completedMatches = useMemo(() => matches.filter((match) => match.status === "completed"), [matches]);
   const totalMedals = medals.length;
-  const schoolEntries = entries.filter(e=>entrySchools.some(s=>s.id===e.school_id));
+  const schoolEntries = useMemo(()=>{const ids=new Set(entrySchools.map(s=>s.id));return entries.filter(e=>ids.has(e.school_id));},[entries,entrySchools]);
   const registrationEvents = useMemo(() => registrationScope ? events.filter(event => eventRegistrationSport(event) === registrationScope) : events, [events, registrationScope]);
   const registrationEventIds = useMemo(() => new Set(registrationEvents.map(event => event.id)), [registrationEvents]);
-  const scopedSchoolEntries = registrationScope ? schoolEntries.filter(entry => registrationEventIds.has(entry.event_id)) : schoolEntries;
-  const listEvents = listSport && !registrationScope ? registrationEvents.filter(e=>eventRegistrationSport(e)===listSport) : registrationEvents;
-  const listEventIds = new Set(listEvents.map(e=>e.id));
-  const registrationRows = scopedSchoolEntries.filter(e=>listEventIds.has(e.event_id)&&(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter));
-  const receivedEntries = scopedSchoolEntries.filter((entry) => ["submitted", "approved", "rejected"].includes(entry.status)).length;
+  const scopedSchoolEntries = useMemo(()=>registrationScope ? schoolEntries.filter(entry => registrationEventIds.has(entry.event_id)) : schoolEntries,[registrationScope,schoolEntries,registrationEventIds]);
+  const listEvents = useMemo(()=>listSport && !registrationScope ? registrationEvents.filter(e=>eventRegistrationSport(e)===listSport) : registrationEvents,[listSport,registrationScope,registrationEvents]);
+  const listEventIds = useMemo(()=>new Set(listEvents.map(e=>e.id)),[listEvents]);
+  const registrationRows = useMemo(()=>scopedSchoolEntries.filter(e=>listEventIds.has(e.event_id)&&(!schoolFilter||e.school_id===schoolFilter)&&(!eventFilter||e.event_id===eventFilter)),[scopedSchoolEntries,listEventIds,schoolFilter,eventFilter]);
+  const receivedEntries = useMemo(()=>scopedSchoolEntries.filter((entry) => ["submitted", "approved", "rejected"].includes(entry.status)).length,[scopedSchoolEntries]);
 
   useEffect(() => {
     if (!registrationEmbed) return;
@@ -832,6 +889,7 @@ export default function GroupSportsDashboard() {
   }, [medals, schools]);
 
   const standings = useMemo(() => {
+    if(tab!=="standings") return [];
     const filteredEvents = selectedEventId === "all" ? events : events.filter((event) => event.id === selectedEventId);
     return filteredEvents.flatMap((event) => {
       const eventMatches = matches.filter((match) => match.event_id === event.id && match.status === "completed");
@@ -866,7 +924,7 @@ export default function GroupSportsDashboard() {
         return { event, groupName, rows };
       }).filter((group) => group.rows.length > 0);
     });
-  }, [events, matches, resultByMatch, schoolById, selectedEventId]);
+  }, [tab, events, matches, resultByMatch, schoolById, selectedEventId]);
 
   async function addSchool(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1252,7 +1310,7 @@ export default function GroupSportsDashboard() {
     const ev=eventById.get(entry.event_id);
     const sport=isFootball(ev)?"football":isFutsal(ev)?"futsal":isBasketball(ev)?"basketball":isVolleyball(ev)?"volleyball":isTakraw(ev)?"takraw":isTableTennis(ev)?"table-tennis":null;
     const cls="rounded-lg border border-blue-300 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50 disabled:opacity-50";
-    return <>{sport?<Link className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}</>;
+    return <>{sport?<Link prefetch={false} className={cls} href={`/group-sports/${sport}?tab=registration&code=${encodeURIComponent(ev?.event_code||"")}`}>แก้ไขใบสมัครของโรงเรียน</Link>:<button type="button" className={cls} disabled={busy} onClick={()=>void openRoster(entry,true)}>แก้ไขใบสมัครของโรงเรียน</button>}</>;
   }
 
   async function openRoster(entry: Entry, edit = false, view: "roster" | "photos" = "roster") {
@@ -1715,7 +1773,7 @@ export default function GroupSportsDashboard() {
     return null;
   };
 
-  const goToSportsSection = (key: string) => {
+  const goToSportsSection = useCallback((key: string) => {
     closeSystemMenu();
     setSportsMenuOpen(false);
     setSchoolInfoMenuOpen(false);
@@ -1728,7 +1786,14 @@ export default function GroupSportsDashboard() {
     else if (key === "about") { setTab("about"); }
     else { setTab(key as TabKey); }
     setError("");
-  };
+  },[closeSystemMenu]);
+  const navigateHome = useCallback((destination: Parameters<SportsGamesHomeProps["onNavigate"]>[0])=>{
+    if (destination === "announcements") goToSportsSection("news");
+    else if (destination === "schedule") goToSportsSection("program");
+    else if (destination === "entries") goToSportsSection("register");
+    else goToSportsSection(destination);
+  },[goToSportsSection]);
+  const overviewMatches=useMemo(()=>matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id))),[matches,eventById]);
 
   if (registrationScope === "table-tennis" && tab === "entries") {
     return <main className="p-6"><Link href="/group-sports/table-tennis?tab=registration" target={registrationEmbed?"_top":undefined} className="font-bold text-blue-800 underline">เปิดแบบฟอร์มเทเบิลเทนนิสเฉพาะกีฬา →</Link></main>;
@@ -1751,13 +1816,13 @@ export default function GroupSportsDashboard() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {activeRegistrationSport && <Link href={`/group-sports/${activeRegistrationSport.key}`} className="rounded-lg border border-blue-200 bg-white px-3 py-2 text-sm font-bold text-blue-900 hover:bg-blue-50">กลับหน้าจัดการกีฬา</Link>}
-              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">รับข้อมูลแล้ว {receivedEntries} ใบสมัคร</span>
+              <span className="rounded-full bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-800">{entryWaiting||loading?"กำลังโหลดใบสมัคร…":`รับข้อมูลแล้ว ${receivedEntries} ใบสมัคร`}</span>
             </div>
           </header>
 
           {loading ? (
             <section className="rounded-2xl border border-slate-200 bg-white p-8 text-center text-sm text-slate-500">กำลังโหลดข้อมูลการแข่งขันและสิทธิ์โรงเรียน...</section>
-          ) : !canManageSchool ? (
+          ) : entryWaiting ? entryLoadPanel : !canManageSchool ? (
             <section className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm">
               <h2 className="text-lg font-black text-[#07123d]">เข้าสู่ระบบโรงเรียนก่อนลงทะเบียน</h2>
               <p className="mt-2 text-sm leading-6 text-amber-900">หากต้องการลงทะเบียนนักกีฬา กรุณาเข้าสู่ระบบด้วยบัญชีโรงเรียนที่ได้รับสิทธิ์ในการแข่งขันนี้</p>
@@ -1776,7 +1841,7 @@ export default function GroupSportsDashboard() {
                     <h2 className="text-lg font-black">ใบสมัครที่ส่งแล้ว · {activeRegistrationSport?.name || "ทุกประเภทกีฬา"}</h2>
                     <p className="mt-1 text-xs text-slate-500">แสดงเฉพาะใบสมัครที่บัญชีโรงเรียนนี้มีสิทธิ์เข้าถึง</p>
                   </div>
-                  <span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800">{registrationRows.length} ใบสมัคร</span>
+                  <div className="flex flex-wrap items-center gap-2">{refreshEntryButton}<span className="rounded-full bg-blue-50 px-3 py-1.5 text-xs font-bold text-blue-800">{registrationRows.length} ใบสมัคร</span></div>
                 </div>
                 <div className="divide-y divide-slate-100">
                   {registrationRows.map(entry => (
@@ -1903,12 +1968,12 @@ export default function GroupSportsDashboard() {
           <div
             id="sports-management-submenu"
             aria-hidden={!sportsMenuOpen}
-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
+            className={`grid transition-[grid-template-rows,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
           >
             <div className="min-h-0 overflow-hidden">
               <div
                 style={{ marginLeft: sportsDropdownLeft }}
-                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
+                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${sportsMenuOpen ? "translate-y-0" : "-translate-y-2"}`}
               >
                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
                 <div ref={sportsPanelRef} role="group" aria-label="เลือกเมนูจัดการแข่งขัน" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
@@ -1936,30 +2001,30 @@ export default function GroupSportsDashboard() {
                     );
                   })}
                   {canManageCertificates && <>
-                    <Link href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
+                    <Link prefetch={false} href="/group-sports/results" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700">
                       <span className="flex min-w-0 items-center gap-3"><TrophyIcon className="h-5 w-5 shrink-0 text-blue-800"/><span>บันทึกอันดับรางวัล</span></span>
                     </Link>
                   </>}
-                  {(canManageCertificates || canAdminCertificates) && <Link href="/group-sports/test" tabIndex={sportsMenuOpen ? 0 : -1} onClick={()=>{setSportsMenuOpen(false);setSchoolInfoMenuOpen(false);}} className="flex min-h-12 items-center rounded-xl bg-amber-100 px-3 py-3 text-sm font-bold text-amber-950">ศูนย์ทดสอบระบบ (TEST)</Link>}
+                  {(canManageCertificates || canAdminCertificates) && <Link prefetch={false} href="/group-sports/test" tabIndex={sportsMenuOpen ? 0 : -1} onClick={()=>{setSportsMenuOpen(false);setSchoolInfoMenuOpen(false);}} className="flex min-h-12 items-center rounded-xl bg-amber-100 px-3 py-3 text-sm font-bold text-amber-950">ศูนย์ทดสอบระบบ (TEST)</Link>}
                   {canAdminCertificates && <>
-                    <Link href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
+                    <Link prefetch={false} href="/group-sports/officials" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
                       <span className="flex min-w-0 items-center gap-3"><span>มอบหมายกรรมการกีฬา</span></span>
                     </Link>
-                    <Link href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
+                    <Link prefetch={false} href="/group-sports/admin" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-rose-50 px-3 py-3 text-left text-sm font-extrabold text-red-900 hover:bg-rose-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
                       <span className="flex min-w-0 items-center gap-3"><span>Admin Full Control · แก้ไขทุกใบสมัคร</span></span>
                     </Link>
-                    <Link href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
+                    <Link prefetch={false} href="/group-sports/results/corrections" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
                       <span className="flex min-w-0 items-center gap-3"><span>แก้ไขผลหลังประกาศ (Admin)</span></span>
                     </Link>
-                    <Link href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
+                    <Link prefetch={false} href="/group-sports/certificates/manage" tabIndex={sportsMenuOpen ? 0 : -1}
                       onClick={() => { setSportsMenuOpen(false); setSchoolInfoMenuOpen(false); }}
                       className="group flex min-h-12 w-full items-center justify-between gap-3 rounded-xl bg-white px-3 py-3 text-left text-sm font-bold text-slate-800 hover:bg-rose-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-red-700">
                       <span className="flex min-w-0 items-center gap-3"><span>จัดการเกียรติบัตรและตั้งค่า</span></span>
@@ -1972,12 +2037,12 @@ export default function GroupSportsDashboard() {
           <div
             id="school-information-submenu"
             aria-hidden={!schoolInfoMenuOpen}
-            className={`grid transition-[grid-template-rows,opacity] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
+            className={`grid transition-[grid-template-rows,opacity] duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "grid-rows-[1fr] opacity-100" : "pointer-events-none grid-rows-[0fr] opacity-0"}`}
           >
             <div className="min-h-0 overflow-hidden">
               <div
                 style={{ marginLeft: schoolInfoDropdownLeft }}
-                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-[transform,filter] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0 blur-0" : "-translate-y-2 blur-[3px]"}`}
+                className={`relative mt-3 w-[calc(100%-1rem)] max-w-[360px] transition-transform duration-150 ease-[cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none ${schoolInfoMenuOpen ? "translate-y-0" : "-translate-y-2"}`}
               >
                 <div aria-hidden="true" className="pointer-events-none absolute -inset-2 rounded-3xl bg-rose-100/70 blur-xl" />
                 <div ref={schoolInfoPanelRef} role="group" aria-label="เมนูข้อมูลทั่วไป" className="relative space-y-1 rounded-2xl border border-rose-100 bg-white/95 p-2 shadow-[0_10px_26px_rgba(88,30,35,0.09)]">
@@ -2007,7 +2072,7 @@ export default function GroupSportsDashboard() {
                       </button>
                     );
                   })}
-                  {canManageAccounts && <Link href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
+                  {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage" tabIndex={schoolInfoMenuOpen ? 0 : -1}
                     onClick={() => { setSchoolInfoMenuOpen(false); setSportsMenuOpen(false); }}
                     className="flex min-h-12 w-full items-center justify-between rounded-xl border-t border-blue-100 bg-blue-50 px-3 py-3 text-left text-sm font-extrabold text-blue-900 hover:bg-blue-100">
                     <span>จัดการภาพและข้อความ (Admin)</span>
@@ -2045,34 +2110,34 @@ export default function GroupSportsDashboard() {
             }}>
               {canAccessSystemMenu ? <>
                 {canManageCompetition && <button onClick={()=>goToSportsSection("sports")}>จัดการแข่งขัน / โปรแกรมแข่งขัน</button>}
-                {canManageCompetition && <Link href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/publish">เผยแพร่โปรแกรมรวม</Link>}
                 {canManageSchool && <button onClick={()=>goToSportsSection("register")}>ลงทะเบียน / แก้ไขใบสมัคร</button>}
                 {canManageCompetition && <button onClick={()=>goToSportsSection("standings")}>ตารางคะแนน / ผลการแข่งขัน</button>}
-                {canManageCompetition && <Link href="/group-sports/football">จัดการฟุตบอล</Link>}
-                {canManageCompetition && <Link href="/group-sports/futsal">จัดการฟุตซอล</Link>}
-                {canManageCompetition && <Link href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
-                {canManageCompetition && <Link href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
-                {canManageCompetition && <Link href="/group-sports/petanque">จัดการเปตอง</Link>}
-                {canManageCompetition && <Link href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
-                <Link href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
-                {canManageCompetition && <Link href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
-                {canManageCompetition && <Link href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
-                {canManageCompetition && <Link href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
-                {canManageCertificates && <Link href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
-                {canAdminCertificates && <Link href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
-                {canAdminCertificates && <Link href="/group-sports/admin">Admin Full Control</Link>}
-                {canAdminCertificates && <Link href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
-                {canAdminCertificates && <Link href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
-                {canCentralPrint && <Link href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/football">จัดการฟุตบอล</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/futsal">จัดการฟุตซอล</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/basketball">จัดการบาสเกตบอล</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/volleyball">จัดการวอลเลย์บอล</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/petanque">จัดการเปตอง</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/boxing">จัดการมวยสากลสมัครเล่น</Link>}
+                <Link prefetch={false} href="/group-sports/athletics">ระบบกรีฑา / รายงานตัว</Link>
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/table-tennis">จัดการเทเบิลเทนนิส</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/takraw">จัดการเซปักตะกร้อ</Link>}
+                {canManageCompetition && <Link prefetch={false} href="/group-sports/esports">จัดการ E-Sport (RoV)</Link>}
+                {canManageCertificates && <Link prefetch={false} href="/group-sports/results">บันทึกอันดับรางวัล</Link>}
+                {canAdminCertificates && <Link prefetch={false} href="/group-sports/officials">มอบหมายกรรมการกีฬา</Link>}
+                {canAdminCertificates && <Link prefetch={false} href="/group-sports/admin">Admin Full Control</Link>}
+                {canAdminCertificates && <Link prefetch={false} href="/group-sports/results/corrections">แก้ไขผลหลังประกาศ</Link>}
+                {canAdminCertificates && <Link prefetch={false} href="/group-sports/certificates/manage">จัดการเกียรติบัตร</Link>}
+                {canCentralPrint && <Link prefetch={false} href="/group-sports/certificates/central">พิมพ์เกียรติบัตรส่วนกลาง</Link>}
                 {canManageAccounts && <button onClick={()=>goToSportsSection("accounts")}>บัญชีโรงเรียน</button>}
-                {canManageAccounts && <Link href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
-                {(canManageCertificates || canAdminCertificates || canManageAccounts) && <Link href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>}
-                {canManageAccounts && <Link href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
-                <Link href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
+                {canManageAccounts && <Link prefetch={false} href="/group-sports/information/manage">จัดการภาพและข้อความพิธีเปิด</Link>}
+                {(canManageCertificates || canAdminCertificates || canManageAccounts) && <Link prefetch={false} href="/group-sports/test">ศูนย์ทดสอบระบบ (TEST)</Link>}
+                {canManageAccounts && <Link prefetch={false} href="/group-sports/reset">รีเซตข้อมูลจริง (ระวัง)</Link>}
+                <Link prefetch={false} href="/group-sports/certificates">พิมพ์เกียรติบัตรของโรงเรียน</Link>
                 <button onClick={async()=>{await supabase.auth.signOut();window.location.assign("/group-sports/login");}}>ออกจากระบบ</button>
               </> : <>
-                <Link href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
-                <Link href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
+                <Link prefetch={false} href="/login">Admin / กรรมการ — เข้าสู่ระบบ Google</Link>
+                <Link prefetch={false} href="/group-sports/login">โรงเรียน — เข้าสู่ระบบลงทะเบียน</Link>
               </>}
             </div>
           </details>
@@ -2094,11 +2159,11 @@ export default function GroupSportsDashboard() {
         {isDemo && <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"><strong>โหมดสาธิต:</strong> ข้อมูลโรงเรียน รายการแข่งขัน และผลการแข่งขันที่แสดงเป็นข้อมูลสมมติ การเพิ่มหรือแก้ไขในโหมดนี้จะอยู่เฉพาะหน้าจอและไม่บันทึกลง Supabase กรุณาติดตั้ง SQL Migration ก่อนใช้งานจริง</div>}
         {notice && <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">{notice}</div>}
         {error && <div role="alert" className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">{error}</div>}
-        {renderForm()}
+        {!loading && !entryWaiting && renderForm()}
 
-        {loading ? (
+        {loading && !(tab === "overview" && publicReady) && tab !== "about" ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-12 text-center text-sm text-slate-500 shadow-sm">กำลังโหลดข้อมูลการแข่งขัน...</div>
-        ) : (
+        ) : entryWaiting ? entryLoadPanel : (
           <>
             {tab === "accounts" && (canManageAccounts ? <SchoolAccountsManager /> : (
               <section className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -2124,16 +2189,11 @@ export default function GroupSportsDashboard() {
                   canManage={canManageAccounts} />)}
             {tab === "schedule" && <SportsScheduleContent key={scheduleView} embedded initialTab={scheduleView} />}
             {tab === "overview" && <SportsGamesHome
-              schools={schools} events={events} matches={matches.filter(m=>!isFutsal(eventById.get(m.event_id)) && !isBasketball(eventById.get(m.event_id)) && !isVolleyball(eventById.get(m.event_id)) && !isTakraw(eventById.get(m.event_id)) && !isPetanque(eventById.get(m.event_id)) && !isTableTennis(eventById.get(m.event_id)) && !isBoxing(eventById.get(m.event_id)))} results={results}
-              medals={medals} entries={entries} eventResults={eventResults}
+              schools={schools} events={events} matches={overviewMatches} results={results}
+              medals={medals} entries={isDemo?entries:EMPTY_HOME_ENTRIES} eventResults={eventResults}
               specialMatches={homeSpecialMatches}
               announcements={homeAnnouncements} athleteCount={homeAthleteCount}
-              onNavigate={(destination)=>{
-                if (destination === "announcements") goToSportsSection("news");
-                else if (destination === "schedule") goToSportsSection("program");
-                else if (destination === "entries") { goToSportsSection("register"); }
-                else goToSportsSection(destination);
-              }}
+              onNavigate={navigateHome}
             />}
 
             {tab === "about" && <section className="rounded-2xl border border-blue-200 bg-white p-6 shadow-sm">
@@ -2171,6 +2231,7 @@ export default function GroupSportsDashboard() {
                 <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
                   <div><h2 className="text-xl font-black text-slate-900">{activeRegistrationSport ? `ใบสมัคร · ${activeRegistrationSport.name}` : "ศูนย์ลงทะเบียนนักกีฬา"}</h2><p className="mt-1 text-sm text-slate-500">รับข้อมูลลงทะเบียนทันทีหลังส่งสำเร็จ · ตรวจตัวนักกีฬาและเอกสารหลักฐานที่สนามในวันแข่งขันจริง</p></div>
                   <div className="flex flex-wrap items-center gap-2">
+                    {refreshEntryButton}
                     {!formOpen && canManageSchool && (registrationScope || events.some(e=>!eventRegistrationSport(e))) && <button type="button" onClick={openNewRegistration} className="rounded-xl bg-red-700 px-4 py-2.5 text-sm font-bold text-white transition hover:bg-red-800">＋ ลงทะเบียนรายการใหม่</button>}
                     {!isDemo && canManageSchool && !registrationScope && <button type="button" disabled={exportingEntries} onClick={()=>void exportRegistrations()} className="rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-bold text-white disabled:opacity-50">{exportingEntries ? "กำลังเตรียม Excel…" : rosterAdmin ? "ดาวน์โหลด Excel ทุกโรงเรียน" : "ดาวน์โหลด Excel ของโรงเรียน"}</button>}
                     {canManageAccounts && !registrationScope && <Link href="/group-sports/reset" className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-2.5 text-sm font-bold text-red-900 hover:bg-rose-100">รีเซตข้อมูลจริง (ระวัง)</Link>}
